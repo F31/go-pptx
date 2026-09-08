@@ -3,12 +3,14 @@
 > 按《go-pptx 项目实施计划》§12 执行顺序滚动更新；工作包完成标准见计划 §5.2。
 > 更新时机：每次 PR 合并 / 里程碑评审后由负责人更新本表。
 
-## 当前阶段：M2 文本模板 MVP（代码项已收口；闭环一/AT 真实语料验收待样本与客户端冒烟）
+## 当前阶段：M3 格式与表格（GEOM-01 完成；M2 代码项已收口，闭环一/AT 真实语料验收待样本与客户端冒烟）
 
 ### 最近更新
 
 | 日期 | 进展 | 备注 |
 |---|---|---|
+| 2026-09-08 | GEOM-01 单位、组矩阵、四角边界（M3 首项）：`EMU int64` 单位类型（`EMUFromInches/EMUFromPoints` 舍入+溢出检查、`Inches()/Points()` 反向）+ `Point/Rect/Quad` 几何值类型（Quad 四角固定 TL/TR/BR/BL 顺序、`Rect.Contains`、`Quad.aabb`）；3×3 仿射矩阵（**列向量**，`affineCompose` 先右后左）；xfrm 解析（grpSp→grpSpPr/a:xfrm 含 chOff/chExt、graphicFrame→p:xfrm、其余→spPr/a:xfrm；rot=1/60000 度、flipH/flipV；**负坐标合法**、ext 非正/缺属性→ErrMalformedPackage）；**组映射 Mgroup=T(C)·R·F·T(-C)·G**（G=T(off)·S·T(-chOff) 非等比缩放；中心 C=off+ext/2；**chExt 零拒绝除法** ErrMalformedPackage 不默认 0）；**嵌套组父矩阵左乘**（自身翻转旋转在自身坐标阶段组合、祖先组自近向远左乘）；`Shape` 接口新增 `Bounds()`（本地框=直接父坐标 off/ext，不含翻转旋转与祖先组）/`WorldQuad()`（世界=页面坐标四角）/`WorldAABB()`；**`GroupShape` 正式句柄**（grpSp 从 OpaqueShape 升级，`Children()` 组内 z-order 枚举+嵌套组递归） | geom.go/geom_test.go（12 用例：单位换算含溢出/负值、顶层 Bounds=WorldAABB、**rot 正方向=顺时针（y 向下坐标系，ECMA ST_Angle 语义，金样待语料确认）**、flipH 绕中心镜像、组等比/非等比缩放映射 §8 公式、组 flipH 在 G 之后应用、**非等比组缩放×子自身旋转组合顺序**、嵌套组左乘数值、零 chExt 三态（组 Bounds 可用/子 WorldQuad 拒绝/子本地 Bounds 可用）、无 xfrm ErrNotFound、Children 嵌套枚举、stale/closed、Save 往返保真）；Shape 接口扩展（全部实现共享 shapeNode 基元无破坏）；覆盖率 76.3%→**77.0%**；vet/gofmt/WASM(js+wasm,wasip1)/Linux CGO=0 交叉构建通过 |
+| 2026-09-08 | 页面 API 收口（M2 收口行）：`Slide(index)`（0 基越界 ErrOutOfRange）、`Slides()` 改读视图（会话新增 slide 立即可见，含 rId 内部校验）、`Layouts()`（沿主 Part→slideMaster→slideLayout 真实关系收集 LayoutRef，去重）、`AddSlide(layout)`（新建 slide Part+CT+自身 rels（→layout）+sldIdLst 注册+主 rId；**id 在 [256,2^31-1] 取最小空闲、耗尽 ErrLimitExceeded**；含自闭合/缺失 sldIdLst 展开；LayoutRef 绑定文档，跨文档 ErrForeignReference、nil ErrInvalidArgument、stale ErrNotFound）、`MoveSlide(id,index)`（**index=最终列表目标位置语义**；整元素字节搬移（删除+零长插入两组不重叠补丁）保真、未知子元素原地保留、no-op 不变更 revision）、`RemoveSlide(id)`（移除 sldIdLst 条目+主关系、删除 slide Part 与其 .rels、**连带删除关联 notesSlide（notesMaster 保留）**、**未知 Part 引用阻止删除 ErrUnsupportedEdit**、媒体等共享资源不 GC） | pages.go/pages_test.go（9 用例：下标越界/模板 Layouts/AddSlide 往返持久化与双加页/跨文档与关闭错误/MoveSlide 前移后移与 no-op/删除中间页持久化/备注连带删除/未知引用阻止/句柄失效）；**修复 nextPartSeq 不扫会话新增致同会话重复建 Part 撞名（notes 路径潜在 bug）** |
 | 2026-09-08 | 页面 API 收口（M2 收口行）：`Slide(index)`（0 基越界 ErrOutOfRange）、`Slides()` 改读视图（会话新增 slide 立即可见，含 rId 内部校验）、`Layouts()`（沿主 Part→slideMaster→slideLayout 真实关系收集 LayoutRef，去重）、`AddSlide(layout)`（新建 slide Part+CT+自身 rels（→layout）+sldIdLst 注册+主 rId；**id 在 [256,2^31-1] 取最小空闲、耗尽 ErrLimitExceeded**；含自闭合/缺失 sldIdLst 展开；LayoutRef 绑定文档，跨文档 ErrForeignReference、nil ErrInvalidArgument、stale ErrNotFound）、`MoveSlide(id,index)`（**index=最终列表目标位置语义**；整元素字节搬移（删除+零长插入两组不重叠补丁）保真、未知子元素原地保留、no-op 不变更 revision）、`RemoveSlide(id)`（移除 sldIdLst 条目+主关系、删除 slide Part 与其 .rels、**连带删除关联 notesSlide（notesMaster 保留）**、**未知 Part 引用阻止删除 ErrUnsupportedEdit**、媒体等共享资源不 GC） | pages.go/pages_test.go（9 用例：下标越界/模板 Layouts/AddSlide 往返持久化与双加页/跨文档与关闭错误/MoveSlide 前移后移与 no-op/删除中间页持久化/备注连带删除/未知引用阻止/句柄失效）；**修复 nextPartSeq 不扫会话新增致同会话重复建 Part 撞名（notes 路径潜在 bug）** |
 | 2026-09-08 | 形状枚举与 AltText(8.1) AutoShape（M2 收口行）：`Slide.Shapes()`/`Slide.Placeholders()`（spTree 直接子元素 z-order 枚举，跳过 nvGrpSpPr/grpSpPr，组内子形状不展开；`Shape` 公共面 ID/Name/Kind/AltText/IsDecorative；分类 sp→AutoShape[pic→PictureShape 其余→OpaqueShape 按元素 kind]）；`AutoShape` 句柄（cNvSpPr@txBox=1 判别 TextBox、`TextFrame()` 读写正文、`Placeholder()` 返回规范化 type/idx（缺省 obj/0，ECMA））；`OpaqueShape` 只读通用面；**§8.1 在 AutoShape 落地**（SetAltText/SetDecorative 与 PictureShape 共用 shapeNode 基元：写文本清 decorative、装饰性标记清除 descr、空串清 descr 不写装饰、读取两未声明→空值不臆测）；保存往返保真；形状句柄 ErrClosed/ErrStaleHandle 语义 | shapes.go/shapes_test.go（6 用例：枚举序/元信息、§8.1 互斥语义、往返持久化、TextFrame 读写与无正文 ErrNotFound、占位符讲稿读取闭环、生命周期）；PictureShape 重构嵌入 shapeNode（既有 image 测试全绿）；根包覆盖率 76.0%→76.3%；vet/全仓测试/WASM(js+wasip1)/Linux 交叉构建通过 |
 | 2026-09-08 | CORE-01 建仓首批：go.mod（占位 module `go-pptx`，go 1.24.0）、LICENSE（MIT 默认）、.gitignore、README、CI（三 OS × 1.24/1.27 + WASM 编译 job + race） | 正式 module path/许可待组织确认后替换 |
@@ -60,7 +62,7 @@
 | TEXT-02 | 跨 Run 替换与整批变更 | M2 | 已完成（代码+单测） |
 | STYLE-01 | 基础占位符与样式解析 | M2 | 已完成（代码+单测） |
 | IMAGE-01 | PNG/JPEG 与媒体暂存 | M2 | 已完成（代码+单测） |
-| GEOM-01 | 单位、组矩阵、四角边界 | M3 | 未开始 |
+| GEOM-01 | 单位、组矩阵、四角边界 | M3 | 已完成（代码+单测；旋转正方向按 ECMA 语义，嵌套旋转翻转金样待语料） |
 | TABLE-01 | 富文本表格、合并、样式子集 | M3 | 未开始 |
 | MEDIA-01 | 媒体输入、类型检查、probe | M4 | 未开始 |
 | AUDIO-01/02/03 | 配音/播放树/计时计划 | M4 | 未开始 |

@@ -19,7 +19,7 @@
 
 > 模块名、正式许可、工具链与客户端版本应在仓库初始化提交中记录（方案 §27）。
 
-## 当前状态（M2 富文本与基础样式）
+## 当前状态（M2 已收口，M3 推进中）
 
 - [x] CORE-01：module/目录/许可/CI 骨架（含 `GOOS=js GOARCH=wasm` 编译验证 job）
 - [x] OPC-01 首批：ZIP 条目索引、PartName 校验、资源预算、实际字节计数读取（`internal/opc`）
@@ -38,6 +38,11 @@
 - [x] 页面 API 收口（M2 收口）：Slide(index)/Slides()（读视图）、Layouts/LayoutRef（绑定文档，跨文档 AddSlide 返回 ErrForeignReference）、AddSlide（新建 slide Part+rId+sldId 注册、最小空闲 id、含自闭合/缺失 sldIdLst 展开）、MoveSlide（index=最终位置语义、整元素字节搬移保真）、RemoveSlide（连带 notesSlide、未知依赖 ErrUnsupportedEdit 阻止、notesMaster 保留）
 - [x] 形状枚举与 AltText(8.1)（M2 收口）：Slide.Shapes()/Placeholders()（z-order 枚举，nvGrpSpPr/grpSpPr 跳过；Shape 公共面 ID/Name/Kind/AltText/IsDecorative）、AutoShape 句柄（TextBox/AutoShape 判别、TextFrame 读写、占位符 Type/Index 规范化 obj/0）、OpaqueShape 只读回退、AutoShape/PictureShape §8.1 读写（装饰标记与空串语义互斥区分，共用 shapeNode 基元）、保存往返保真
 - [x] M2 代码项全部收口（QA-01 语料冒烟与真实客户端验证待语料/环境到位）
+
+## 当前状态（M3 格式与表格）
+
+- [x] GEOM-01：EMU 单位与换算（舍入+溢出检查）、Point/Rect/Quad 几何值类型、3×3 仿射矩阵（列向量）、xfrm 解析（负坐标合法、rot=1/60000 度顺时针、flipH/flipV）、组映射 Mgroup=T(C)·R·F·T(-C)·G（非等比缩放 G=T(off)·S·T(-chOff)、chExt 零拒绝除法）、嵌套组父矩阵左乘、Shape 接口 Bounds/WorldQuad/WorldAABB（本地框=直接父坐标 off/ext；WorldQuad=页面坐标四角）、GroupShape 正式句柄（grpSp 从 OpaqueShape 升级，Children() 组内 z-order 枚举+嵌套递归）
+- [ ] TABLE-01：富文本表格、合并、样式子集（下一个 M3 工作包）
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
 

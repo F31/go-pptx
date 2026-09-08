@@ -68,6 +68,10 @@ func (k ShapeKind) String() string {
 // Shape 是页面顶层形状的公共接口（§20.2 公共对象的最小公共面）。
 // 只读元信息对全部形状可用，不要求理解对象具体内容；组合子树内容
 // 编辑与几何/表格等随后续工作包。
+//
+// GEOM-01（§8）：Bounds/WorldQuad/WorldAABB 对全部形状可用——实现
+// 均共享 shapeNode 基元，按元素实际结构解析 xfrm；无 a:xfrm 的形状
+// 返回 ErrNotFound。
 type Shape interface {
 	// ID 返回形状标识（p:cNvPr@id）；无 cNvPr 时返回 0。
 	ID() ShapeID
@@ -79,6 +83,12 @@ type Shape interface {
 	AltText() string
 	// IsDecorative 返回是否标记为装饰性图形（@decorative="1"，§8.1）。
 	IsDecorative() bool
+	// Bounds 返回形状本地框（直接父坐标系内 off/ext 轴对齐矩形）。
+	Bounds() (Rect, error)
+	// WorldQuad 返回形状内容框在世界（页面）坐标系的四角。
+	WorldQuad() (Quad, error)
+	// WorldAABB 返回 WorldQuad 的轴对齐包围框。
+	WorldAABB() (Rect, error)
 }
 
 // ---------- 通用形状句柄基元 ----------
@@ -379,7 +389,6 @@ func addPlainAttrPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, name, 
 }
 
 // ---------- Slide.Shapes / Slide.Placeholders ----------
-
 // Shapes 返回页面顶层形状（spTree 直接子元素，z-order = 文档序）。
 // 组合/图形框等返回 *OpaqueShape（内容编辑随后续工作包）；组合的
 // 子形状不在此展开。顺序解析不要求理解对象全部内容。
@@ -460,13 +469,54 @@ func classifyShape(p *Presentation, part opc.PartName, doc *xmlstore.XMLDocument
 	case "sp":
 		return &AutoShape{shapeNode: shapeNode{p: p, part: part, path: path}}
 	case "grpSp":
-		return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeGroup}
+		return &GroupShape{shapeNode: shapeNode{p: p, part: part, path: path}}
 	case "cxnSp":
 		return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeConnector}
 	case "graphicFrame":
 		return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeGraphicFrame}
 	}
 	return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeOpaque}
+}
+
+// ---------- GroupShape ----------
+
+// GroupShape 是页面组合（p:grpSp）的受控句柄。
+//
+// 组合含自己的几何框（grpSpPr/a:xfrm：off/ext 为父坐标框，chOff/chExt
+// 为子坐标映射源）与子形状（组直接子元素，顺序即组内 z-order）。子形状
+// 坐标经组映射 G（非等比缩放+平移）到组父坐标后再组合组级翻转旋转
+// （Mgroup=T(C)·R·F·T(-C)·G，§8），嵌套组按父矩阵左乘。组句柄的
+// Bounds 返回组框（off/ext）；WorldQuad/WorldAABB 返回组框经自身翻转
+// 旋转与祖先组链后的世界边界。
+type GroupShape struct {
+	shapeNode
+}
+
+// Kind 返回形状类别（恒为 ShapeGroup）。
+func (g *GroupShape) Kind() ShapeKind { return ShapeGroup }
+
+// Children 返回组合的直接子形状（组内 z-order = 文档序）。
+// 嵌套组作为子形状返回（再经其 Children 递归）；组不在此展开
+// 顶层簿记元素（nvGrpSpPr/grpSpPr）。子形状的本地坐标空间是组的
+// 子坐标（ch 空间），经 WorldQuad 才映射到页面坐标。
+func (g *GroupShape) Children() ([]Shape, error) {
+	doc, el, err := g.locate()
+	if err != nil {
+		return nil, Annotate(err, "GroupShape.Children")
+	}
+	var out []Shape
+	for _, cid := range el.Children {
+		c := doc.Node(cid)
+		if c.Namespace != nsPresentationML {
+			continue
+		}
+		switch c.Local() {
+		case "nvGrpSpPr", "grpSpPr":
+			continue
+		}
+		out = append(out, classifyShape(g.p, g.part, doc, c))
+	}
+	return out, nil
 }
 
 // ---------- AutoShape ----------
