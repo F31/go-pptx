@@ -18,6 +18,7 @@
 | 2026-09-08 | XML-02 补丁与受控插入：`SpanPatch` 区间替换（统一校验+升序重建、重叠/范围/锚定冲突检测 ErrPatch*）、`EscapeText`/`EscapeAttrValue`（XML 1.0 非法字符显式拒绝、空白属性逐字保留）、`SetAttrValuePatch`/`NewTextPatch`、`InsertBefore/After/AppendChild`（片段单根 well-formed + 前缀自足或插入点作用域可解析，否则 ErrFragmentNamespace；自闭合 AppendChild 拒绝） | patch.go/insert.go；覆盖率 86.2%；含垂直验证单元级雏形 TestPatchPreservesUntouchedRegions（改一个 Run，动画分支/未知子树字节逐字不变） |
 | 2026-09-08 | 语料清单模板：`testdata/corpus/README.md`（QA-01 起步，24 条目标清单） | 待落实样本与许可 |
 | 2026-09-08 | OPC-02 关系图/Content Types/主 Part 发现（M1 首项）：`ParseContentTypes`（Override 精确→大小写兜底→Default；重复/缺属性拒绝）、`ParseRelationships`（rId 唯一、目标相对源 Part 解析、越出包根拒绝、TargetMode 缺省 Internal + 绝对 URI 自动 External、百分号解码）、`Package.Load`（装配 + 全部 .rels 解析 + 双源冲突检测）、`MainPart`（officeDocument 关系、非固定名称）、`RelatedParts`/`RelatedByIDs`/`Walk`（visited 防循环） | package.go/relationships.go/contenttypes.go；非固定名称/循环关系/Override 金样三项验收均过 |
+| 2026-09-08 | MODEL-01 公共 API 骨架：`Presentation`（New/Open/OpenReader/Save/Write/Close/Validate）、`Slide` 受控句柄、ErrClosed/ErrStaleHandle 语义、revision 事务骨架（stagePatch/stageDelete/commit、保存计划 revision 快照 + ErrConcurrentModification 守卫）、库内最小合法模板（presentation+master+layout+theme+docProps，原创生成无第三方素材）、原位保存拒绝（同路径/同文件实体） | presentation.go/slide.go/template.go；根包覆盖率 70.7%；M1 代码项全部完成 |
 | 2026-09-08 | SAVE-01 保存计划与未变 Part 复制：`BuildSavePlan`（ChangeSet{Patched/Added/Deleted} → 唯一 PlannedEntry 清单；交叉冲突/存在性/名称校验）、CT 与变更集同源再生成（确定性序列化）、删除自动连带关系流、悬空关系 OPC_DANGLING_REL 诊断、`SavePlan.Write`（CopyOriginal 复制源解压内容，条目按名排序）；**B1 哈希回归全绿**（空变更集逐 Part 哈希一致 = AT-01 等价、补丁保存仅目标 Part 变化、增删后其余 Part 一致） | saveplan.go + contenttypes.go 写侧；opc 覆盖率 86.2%；原子落盘/失败恢复属 SAVE-02 |
 | 2026-09-08 | SAVE-02 原子保存与失败恢复：`SavePlan.SaveToFile`（目标检查 → 同目录临时文件 → 写入 → fsync(可选) → Close → 输出校验（ZIP 结构+条目集一致）→ 原子替换（POSIX rename / Windows MoveFileEx REPLACE_EXISTING）→ 目录 fsync(可选)）；默认禁覆盖（ErrOutputExists），`WithOverwrite(true)` 显式启用；`WithDurability(DurabilityFull)` 文件+目录 fsync；替换失败保留旧目标 ErrAtomicReplaceUnavailable，**绝不删旧再写**；提交前失败清理临时文件（清理失败 errors.Join 附加不掩盖主错误）；writer 故障注入（zip.Writer 全程缓冲、Close 单次落盘） | save.go；**AT-11 等价用例全绿**（写入失败/目录不可写/默认禁覆盖三态旧目标不变、零临时残留）；opc 覆盖率 84.0% |
 
@@ -47,7 +48,7 @@
 | OPC-02 | 关系图、Content Types、主 Part 发现 | M1 | 已完成（代码+单测；真实样本冒烟待语料） |
 | SAVE-01 | 保存计划、未变 Part 复制 | M1 | 已完成（代码+单测，B1 回归全绿；接 DocumentStore 后回填 BaseRevision） |
 | SAVE-02 | 原子保存、失败恢复、输出检查 | M1 | 已完成（代码+单测，AT-11 等价用例全绿；平台真机测试随 CI 三 OS 扩展） |
-| MODEL-01 | 页面/形状/句柄/惰性读取 | M1 | 未开始 |
+| MODEL-01 | Presentation/Slide 句柄与惰性读取、事务/revision 骨架 | M1 | 已完成（代码+单测） |
 | TEXT-01 | 段落/Run、属性 patch、备注 | M2 | 未开始 |
 | TEXT-02 | 跨 Run 替换与整批变更 | M2 | 未开始 |
 | STYLE-01 | 基础占位符与样式解析 | M2 | 未开始 |

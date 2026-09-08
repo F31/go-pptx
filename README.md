@@ -29,7 +29,8 @@
 - [x] SAVE-01：保存计划（PlannedEntry 四动作）、未变 Part 复制、CT 同源再生成、B1 哈希回归全绿（`internal/opc`）
 - [x] SAVE-02：原子落盘（临时文件→Close+校验→原子替换）、失败保留旧目标、WithOverwrite/WithDurability（`internal/opc`）
 - [ ] M0 垂直验证：真实语料 B1 哈希比对（**阻塞于语料收集**）
-- [ ] MODEL-01 …：按实施计划 §12 顺序推进
+- [x] MODEL-01：Presentation 骨架（New/Open/OpenReader/Save/Write/Close/Validate）、Slide 受控句柄、revision 事务骨架、库内最小合法模板
+- [ ] M2 文本模板 MVP（TEXT-01/STYLE-01/TEXT-02/IMAGE-01/页面 API/docProps）：按实施计划 §12 推进
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
 

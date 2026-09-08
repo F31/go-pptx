@@ -15,5 +15,5 @@
 //     目标、WithOverwrite/WithDurability）（SAVE-02）
 //
 // 关系/Content Types 的增删改与主文档顺序再生成必须基于同一变更集
-//（方案 §18.2）；公共 API 边界的错误映射由上层 DocumentStore 完成。
+// （方案 §18.2）；公共 API 边界的错误映射由上层 DocumentStore 完成。
 package opc
