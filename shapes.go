@@ -41,6 +41,8 @@ const (
 	ShapeConnector
 	// ShapeGraphicFrame 是 p:graphicFrame（表格/图表/对象框等）。
 	ShapeGraphicFrame
+	// ShapeTable 是含 a:tbl 的 p:graphicFrame（TABLE-01）。
+	ShapeTable
 	// ShapeOpaque 是未知或未支持的形状容器。
 	ShapeOpaque
 )
@@ -59,6 +61,8 @@ func (k ShapeKind) String() string {
 		return "connector"
 	case ShapeGraphicFrame:
 		return "graphic-frame"
+	case ShapeTable:
+		return "table"
 	case ShapeOpaque:
 		return "opaque"
 	}
@@ -473,6 +477,10 @@ func classifyShape(p *Presentation, part opc.PartName, doc *xmlstore.XMLDocument
 	case "cxnSp":
 		return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeConnector}
 	case "graphicFrame":
+		// 图形框内含 a:tbl → 表格句柄（TABLE-01）；其余按不透明容器。
+		if tableOfGraphic(doc, el) != nil {
+			return &TableShape{shapeNode: shapeNode{p: p, part: part, path: path}}
+		}
 		return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeGraphicFrame}
 	}
 	return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeOpaque}

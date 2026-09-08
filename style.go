@@ -64,6 +64,11 @@ const (
 	SourceTheme
 	// SourceFallback 是调用方 ResolveContext.Fallback 回退值。
 	SourceFallback
+	// SourceCellExplicit 是单元格显式样式覆盖（a:tcPr；TABLE-01）。
+	SourceCellExplicit
+	// SourceTableStyle 是表格样式库的区域部分（tableStyles.xml；
+	// TABLE-01），如 firstRow/band1H/nwCell 等。
+	SourceTableStyle
 )
 
 func (s StyleSource) String() string {
@@ -78,6 +83,10 @@ func (s StyleSource) String() string {
 		return "theme"
 	case SourceFallback:
 		return "fallback"
+	case SourceCellExplicit:
+		return "cell-explicit"
+	case SourceTableStyle:
+		return "table-style"
 	default:
 		return "unknown"
 	}

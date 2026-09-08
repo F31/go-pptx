@@ -14,10 +14,12 @@
 // 文档级元数据（docProps 5.1）、页面 API（Slide(index)/Slides/Layouts/
 // AddSlide/MoveSlide/RemoveSlide/Shapes/Placeholders，§20.1）与
 // 无障碍替代文本（AltText 8.1，PictureShape/AutoShape）。
-// 已交付（M3 首项）：单位与几何（GEOM-01，§5.2/§8）——EMU 单位换算、
+// 已交付（M3）：单位与几何（GEOM-01，§5.2/§8）——EMU 单位换算、
 // Point/Rect/Quad 值类型、3×3 仿射矩阵（列向量）、组映射
 // Mgroup=T(C)·R·F·T(-C)·G 与嵌套组左乘、Shape 的 Bounds/WorldQuad/
-// WorldAABB、GroupShape.Children。
-// 待真实语料后的 M2 闭环一验收与 TABLE-01 等 M3 后续工作包。
+// WorldAABB、GroupShape.Children；表格（TABLE-01，§9.1）——TableShape
+// 与逻辑网格、富文本 Cell、Merge/Unmerge（AT-09 多非空默认拒绝）、
+// 行高列宽、样式子集与 EffectiveCellStyle。
+// 待真实语料后的 M2 闭环一验收与格式深度子集等 M3 后续工作包。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx
