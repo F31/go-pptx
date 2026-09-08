@@ -93,6 +93,11 @@ type Shape interface {
 	WorldQuad() (Quad, error)
 	// WorldAABB 返回 WorldQuad 的轴对齐包围框。
 	WorldAABB() (Rect, error)
+	// Line 返回形状线条（spPr/a:ln）解析结果（M3 格式深度子集）。
+	// 组合（grpSp）等无 spPr 的形状返回空 LineStyle 与 nil 错误。
+	Line() (LineStyle, []Diagnostic, error)
+	// StyleMatrixRefs 返回形状样式矩阵引用链（a:spPr/a:style；M3）。
+	StyleMatrixRefs() ([]StyleMatrixRef, []Diagnostic, error)
 }
 
 // ---------- 通用形状句柄基元 ----------

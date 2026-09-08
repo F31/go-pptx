@@ -1,7 +1,6 @@
 package pptx
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -582,35 +581,6 @@ func fontSchemeName(major bool) string {
 
 // ---------- 颜色解析 ----------
 
-// applyColorTransform 应用单个颜色变换（百分比 val 值域 0..100000；
-// ST_TransformEffect 千分比）。返回 ok=false 表示未知变换。
-func applyColorTransform(channel uint8, local, val string) (uint8, bool) {
-	pct, err := parseUint32(val)
-	if err != nil || pct > 100000 {
-		return channel, false
-	}
-	var n int64
-	switch local {
-	case "lumMod":
-		n = int64(channel) * int64(pct) / 100000 // R' = R × pct
-	case "shade":
-		n = int64(channel) * (100000 - int64(pct)) / 100000 // 向黑混合 pct
-	case "lumOff":
-		n = int64(channel) + 255*int64(pct)/100000 // R' = R + 255×pct
-	case "tint":
-		n = int64(channel) + (255-int64(channel))*int64(pct)/100000 // 向白混合 pct
-	default:
-		return channel, false
-	}
-	if n < 0 {
-		n = 0
-	}
-	if n > 255 {
-		n = 255
-	}
-	return uint8(n), true
-}
-
 // 已知系统色（sysClr）映射表；有 lastClr 属性时优先于本表。
 var sysColorFallback = map[string]string{
 	"windowtext": "000000",
@@ -671,25 +641,36 @@ func schemeRGB(tdoc *xmlstore.XMLDocument, scheme string) (rgb string, partial b
 	if !isHexRGB(base) {
 		return "", true
 	}
+	// 变换序列（GEOM/M3 颜色变换全集：由 applyColorTransforms 统一处理）。
 	rgb = base
+	var ts []ColorTransform
 	for _, cid := range colorNode.Children {
 		c := tdoc.Node(cid)
 		if c.Namespace != nsDrawingML {
 			continue
 		}
 		v, _ := c.Attr("", "val")
-		rr := hexByte(rgb[0:2])
-		gg := hexByte(rgb[2:4])
-		bb := hexByte(rgb[4:6])
-		var ok bool
-		if rr, ok = applyColorTransform(rr, c.Local(), v); !ok {
-			return base, true // 未知变换：保留基础色并标记部分解析
+		val, err := strconv.ParseInt(v, 10, 32)
+		if err != nil {
+			val = 0
 		}
-		gg, _ = applyColorTransform(gg, c.Local(), v)
-		bb, _ = applyColorTransform(bb, c.Local(), v)
-		rgb = fmt.Sprintf("%02X%02X%02X", rr, gg, bb)
+		ts = append(ts, ColorTransform{Kind: c.Local(), Value: int32(val)})
 	}
-	return rgb, false
+	out, _, unknown := applyColorTransforms(rgb, ts)
+	if len(unknown) > 0 {
+		// 未知变换：保留基础色并标记部分解析（不臆造取值）。
+		if isHexRGB(out) {
+			return out, true
+		}
+		return base, true
+	}
+	// alpha 变换无法在 RGB 输出中表达 → 标记部分解析。
+	for _, t := range ts {
+		if t.Kind == "alpha" || t.Kind == "alphaMod" || t.Kind == "alphaOff" {
+			return out, true
+		}
+	}
+	return out, false
 }
 
 func isHexRGB(s string) bool {

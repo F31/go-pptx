@@ -39,11 +39,12 @@
 - [x] 形状枚举与 AltText(8.1)（M2 收口）：Slide.Shapes()/Placeholders()（z-order 枚举，nvGrpSpPr/grpSpPr 跳过；Shape 公共面 ID/Name/Kind/AltText/IsDecorative）、AutoShape 句柄（TextBox/AutoShape 判别、TextFrame 读写、占位符 Type/Index 规范化 obj/0）、OpaqueShape 只读回退、AutoShape/PictureShape §8.1 读写（装饰标记与空串语义互斥区分，共用 shapeNode 基元）、保存往返保真
 - [x] M2 代码项全部收口（QA-01 语料冒烟与真实客户端验证待语料/环境到位）
 
-## 当前状态（M3 格式与表格）
+## 当前状态（M3 格式与表格，GEOM-01/TABLE-01/格式深度子集已完成）
 
 - [x] GEOM-01：EMU 单位与换算（舍入+溢出检查）、Point/Rect/Quad 几何值类型、3×3 仿射矩阵（列向量）、xfrm 解析（负坐标合法、rot=1/60000 度顺时针、flipH/flipV）、组映射 Mgroup=T(C)·R·F·T(-C)·G（非等比缩放 G=T(off)·S·T(-chOff)、chExt 零拒绝除法）、嵌套组父矩阵左乘、Shape 接口 Bounds/WorldQuad/WorldAABB（本地框=直接父坐标 off/ext；WorldQuad=页面坐标四角）、GroupShape 正式句柄（grpSp 从 OpaqueShape 升级，Children() 组内 z-order 枚举+嵌套递归）
 - [x] TABLE-01：TableShape 句柄（含 a:tbl 的图形框）与逻辑网格（gridSpan/rowSpan + hMerge/vMerge continuation 映射）、富文本 Cell（复用 TextFrame）、Merge/Unmerge（矩形与跨边界校验、**AT-09 多非空单元格默认拒绝**、可明确保留锚点文本）、RowHeight/ColumnWidth 读写、样式子集（三态区域开关 + 12 个 band/first/last 优先级矩阵 + tableStyles.xml 解析 + EffectiveCellStyle 逐属性状态，未知样式 ID → unresolved）
-- [ ] 格式深度子集：段落属性全集、Run 高级属性、线条系统、主题样式矩阵引用链与颜色变换起步解析（下一个 M3 工作包）
+- [x] 格式深度子集：颜色变换全集（19 种：lumMod/lumOff/shade/tint/{red,green,blue}{Mod,Off}/satMod/satOff/hueMod/hueOff/alpha/alphaMod/alphaOff/inv/gray/comp，整数除法 val/100000）、线条系统（a:ln 全属性：w/cap/cmpd/algn/prstDash/custDash/round/bevel/miter/headEnd/tailEnd+颜色+Unknown 子元素）、段落属性全集（a:pPr 全属性+lnSpc/spcBef/spcAft+tabLst/buChar/buAutoNum/buBlip/buFont/buSzPct/buSzPts）、Run 高级属性（a:rPr baseline/spc/cap/strike/u/lang/altLang/kern/highlight/sym 等）、主题样式矩阵引用链（fillRef/lnRef/effectRef→themeMatrixEntry 沿 fmtScheme 定位）、Shape 接口扩展 Line/StyleMatrixRefs；起步解析 R 档，未知项→Unknown 字段或诊断
+- [ ] M3 后续（QA-01 语料冒烟与真实客户端验证待语料/环境到位）
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
 
