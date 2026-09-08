@@ -2,7 +2,6 @@ package pptx
 
 import (
 	"errors"
-	"fmt"
 )
 
 // 稳定错误码（方案 §20.4）。
@@ -69,10 +68,24 @@ type OperationError struct {
 }
 
 func (e *OperationError) Error() string {
-	if e.Op == "" {
-		return e.Err.Error()
+	detail := ""
+	if e.Err != nil {
+		detail = e.Err.Error()
 	}
-	return fmt.Sprintf("pptx: %s: %v", e.Op, e.Err)
+	if e.Message != "" {
+		if detail != "" {
+			detail = e.Message + ": " + detail
+		} else {
+			detail = e.Message
+		}
+	}
+	if detail == "" {
+		return "pptx: operation failed"
+	}
+	if e.Op == "" {
+		return detail
+	}
+	return "pptx: " + e.Op + ": " + detail
 }
 
 // Unwrap 支持 errors.Is / errors.As 沿链检查。

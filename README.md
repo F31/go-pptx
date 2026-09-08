@@ -31,7 +31,8 @@
 - [ ] M0 垂直验证：真实语料 B1 哈希比对（**阻塞于语料收集**）
 - [x] MODEL-01：Presentation 骨架（New/Open/OpenReader/Save/Write/Close/Validate）、Slide 受控句柄、revision 事务骨架、库内最小合法模板
 - [x] TEXT-01：DocumentStore 增删/文档缓存扩展、Optional/FontStyle/ColorSpec、TextFrame/Paragraph/TextRun（SetPlainText/SetText/AddRun/SetFont/ResetFontProperty）、备注四 API（SpeakerNotes*）
-- [ ] M2 剩余（STYLE-01/TEXT-02/IMAGE-01/页面 API/docProps）：按实施计划 §12 推进
+- [x] TEXT-02：Paragraph/TextFrame.ReplaceText（跨 Run 字面替换、三格式策略、br/fld/链接边界、字素簇保护、ReplaceResult 报告、整批单事务提交）
+- [ ] M2 剩余（STYLE-01/IMAGE-01/页面 API/docProps）：按实施计划 §12 推进
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
 
