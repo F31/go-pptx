@@ -23,6 +23,7 @@
 | 2026-09-08 | SAVE-02 原子保存与失败恢复：`SavePlan.SaveToFile`（目标检查 → 同目录临时文件 → 写入 → fsync(可选) → Close → 输出校验（ZIP 结构+条目集一致）→ 原子替换（POSIX rename / Windows MoveFileEx REPLACE_EXISTING）→ 目录 fsync(可选)）；默认禁覆盖（ErrOutputExists），`WithOverwrite(true)` 显式启用；`WithDurability(DurabilityFull)` 文件+目录 fsync；替换失败保留旧目标 ErrAtomicReplaceUnavailable，**绝不删旧再写**；提交前失败清理临时文件（清理失败 errors.Join 附加不掩盖主错误）；writer 故障注入（zip.Writer 全程缓冲、Close 单次落盘） | save.go；**AT-11 等价用例全绿**（写入失败/目录不可写/默认禁覆盖三态旧目标不变、零临时残留）；opc 覆盖率 84.0% |
 | 2026-09-08 | TEXT-01 富文本模型与备注（M2 首项）：DocumentStore 扩展（addedParts/deletedParts/partDocs 三表、`docOf` 泛型替代仅主 Part 视图、commit 合并三类变更整体失效缓存）、`Optional[T]`/`FontStyle`/`ColorSpec` 字体模型、TextFrame/Paragraph/TextRun 三级受控句柄（nodeStep 稳定路径定位）、`SetPlainText`（结构替换保 bodyPr/lstStyle、未知扩展拒绝）、`SetText`/`AddRun`、`SetFont`/`ResetFontProperty`（rPr 自闭合展开、属性/子元素精确补丁、空 rPr 自动移除）、备注四 API（SpeakerNotesText/SpeakerNotes/EnsureSpeakerNotes/SetSpeakerNotes，notesMaster 依赖真实关系解析）、Save/Write/Validate nil ctx 兜底 | presentation.go 扩展 + font.go/text.go/notes.go/text_test.go；**修复 xmlstore 属性删除边界 bug（AttributeRecord 补 NameStart/NameEnd，删除含闭合引号）与 pathToRun 缺 r 步骤**；根包覆盖率 49.1%；WASM/Linux 交叉构建通过 |
 | 2026-09-08 | TEXT-02 跨 Run 替换与整批变更（M2 第二项）：`Paragraph.ReplaceText`（大小写敏感/字面/左到右非重叠/初始快照/不递归；空 old 拒绝；replacement 含换行拒绝）、三种格式策略 `ReplaceMode`（FirstCharacter 默认继承命中首字符 Run 格式；EqualLengthPerRune 逐 Run 等长文本替换不拆 Run；ExplicitStyle + WithReplacementStyle）、逻辑文本视图与 Text() 一致（rune 索引）、块边界（br/fld 硬边界 + 不同链接/动作 key 不可跨越）、字素簇保护（组合字符/ZWJ 序列边界拒绝）、安全保真（重建/删除 Run 前检查未知直接子元素与链接；unsafe/相邻共享 Run 冲突记 skipped 诊断）、`ReplaceResult`（Matches/Replaced/Skipped/Hits 段落 rune 定位）、`TextFrame.ReplaceText` 遍历段落；**占用 Run 区间贪心调度 + 同 Run 多命中合并单补丁 + 一次事务批量提交** | replace.go/replace_test.go；修复 `locateBlockSpan` 终点判定（gei<=hi）、`OperationError.Error()` 遗漏 Message 字段；根包覆盖率 49.1%→57.3%；vet/全仓测试/WASM/js/Linux 交叉构建通过 |
+| 2026-09-08 | STYLE-01 基础占位符与样式解析（M2 第三项）：`TextRun.EffectiveFont(ctx ResolveContext)`（方案 §6.1 契约）逐属性返回 `ResolvedValue/ResolvedColor`（Value/Resolved/Fallback/Trace 三要素 + 来源链 StyleStep）；解析链 L1 run rPr → L2 pPr defRPr → L3 列表级别样式（占位符: layout 匹配占位符 lstStyle → master 匹配占位符 lstStyle → master txStyles[class]；非占位符: otherStyle）→ L4 主题缺省字体（title 类 majorFont，其余 minorFont）；**占位符匹配 (type,idx) 规范化全等（type 缺省 obj、idx 缺省 0，ECMA CT_Placeholder）不按坐标/名称**；主题沿真实关系图导航（slide→layout→master→theme / notes→notesMaster→theme，**新增 p.relsOf 读视图含已提交 rels 补丁**）；颜色保留原始 ColorSpec 同时输出 RGB（srgbClr 直出 / sysClr lastClr 优先 / clrMap bg1..tx2 间接映射 / lumMod lumOff shade tint 按序应用，phClr 与未知变换 STYLE_PARTIAL）；"+" 主题字体引用展开（+mj-*/+mn-*）；无法解析 STYLE_UNRESOLVED、仅 ctx.Fallback 采用并标 Fallback、ctx.Strict → ErrUnresolvedStyle | style.go/style_test.go（完整链 fixture：title/body idx1/body idx2/普通文本框 × lvl0/lvl2/run rPr 覆盖/notes 冒烟）；**修复 notesPartOf 改读视图致 createNotes 后同会话可再读备注**；根包覆盖率 57.3%→73.1%；vet/全仓测试/WASM(js/wasip1)/Linux 交叉构建通过 |
 
 ### M0 剩余任务（按实施计划 §6）
 
@@ -53,7 +54,7 @@
 | MODEL-01 | Presentation/Slide 句柄与惰性读取、事务/revision 骨架 | M1 | 已完成（代码+单测） |
 | TEXT-01 | 段落/Run、属性 patch、备注 | M2 | 已完成（代码+单测；真实样本冒烟待语料） |
 | TEXT-02 | 跨 Run 替换与整批变更 | M2 | 已完成（代码+单测） |
-| STYLE-01 | 基础占位符与样式解析 | M2 | 未开始 |
+| STYLE-01 | 基础占位符与样式解析 | M2 | 已完成（代码+单测） |
 | IMAGE-01 | PNG/JPEG 与媒体暂存 | M2 | 未开始 |
 | GEOM-01 | 单位、组矩阵、四角边界 | M3 | 未开始 |
 | TABLE-01 | 富文本表格、合并、样式子集 | M3 | 未开始 |

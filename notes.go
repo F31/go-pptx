@@ -29,13 +29,14 @@ const (
 )
 
 // notesPartOf 返回页面关联的 notesSlide Part（首个内部关系）；无则
-// ("", false)。
+// ("", false)。关系读取使用当前读视图（含已提交的 rels 补丁），
+// EnsureSpeakerNotes 创建后即可被本会话后续读取发现。
 func (s *Slide) notesPartOf() (opc.PartName, bool) {
-	set, ok := s.p.pk.Relationships(s.part)
-	if !ok {
+	rels, ok, err := s.p.relsOf(s.part)
+	if err != nil || !ok {
 		return "", false
 	}
-	for _, rel := range set.All() {
+	for _, rel := range rels {
 		if rel.Type == opc.RelNotesSlide && rel.Mode == opc.TargetInternal {
 			return rel.TargetPart, true
 		}
