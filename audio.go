@@ -223,7 +223,10 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 		TrackKey:      spec.TrackKey,
 		Role:          spec.Role,
 		MediaPart:     mediaName,
+		SlidePart:     s.part,
 		ShapeID:       ShapeID(id),
+		Duration:      spec.Duration.Value,
+		Trigger:       PlaybackOnSlideEnter,
 		ContentSHA256: hex.EncodeToString(sum[:]),
 		Version:       1,
 	}
@@ -507,12 +510,79 @@ func xmlEscapeAttr(sb *strings.Builder, v string) {
 
 // AudioProfile 记录库创建的一次音频嵌入（方案 §21.4）。
 type AudioProfile struct {
-	TrackKey      string
-	Role          AudioRole
-	MediaPart     opc.PartName
-	ShapeID       ShapeID
+	TrackKey  string
+	Role      AudioRole
+	MediaPart opc.PartName
+	// SlidePart 是音轨所在 slide Part（PlanTimingSync 按页聚合用）。
+	SlidePart opc.PartName
+	ShapeID   ShapeID
+	// Duration 是音轨时长（CallerProvided 或 probe 推导；0 = 未知）。
+	Duration time.Duration
+	// StartDelay 是播放起始偏移（SetPlayback 写入）。
+	StartDelay time.Duration
+	// Trigger 是触发方式（SetPlayback 写入；默认 OnSlideEnter）。
+	Trigger       PlaybackTrigger
 	ContentSHA256 string
 	Version       int
+}
+
+// profileXMLAttrs 输出 Profile 元素的全部属性（读写两侧共享同一名集）。
+func profileXMLAttrs(prof AudioProfile) string {
+	return fmt.Sprintf(
+		`trackKey=%q role=%q media=%q slide=%q shapeID=%q durMs=%q stMs=%q trigger=%q sha256=%q version=%q`,
+		prof.TrackKey, prof.Role.String(), string(prof.MediaPart), string(prof.SlidePart),
+		strconv.FormatInt(int64(prof.ShapeID), 10),
+		strconv.FormatInt(prof.Duration.Milliseconds(), 10),
+		strconv.FormatInt(prof.StartDelay.Milliseconds(), 10),
+		prof.Trigger.String(),
+		prof.ContentSHA256, strconv.Itoa(prof.Version),
+	)
+}
+
+// parseAudioProfile 从 Profile 元素节点解析 AudioProfile。
+func parseAudioProfile(n *xmlstore.NodeRecord) (AudioProfile, bool) {
+	tk, ok := n.Attr("", "trackKey")
+	if !ok || tk == "" {
+		return AudioProfile{}, false
+	}
+	ap := AudioProfile{TrackKey: tk}
+	if v, _ := n.Attr("", "role"); v != "" {
+		ap.Role = roleFromString(v)
+	}
+	if v, _ := n.Attr("", "media"); v != "" {
+		ap.MediaPart = opc.PartName(v)
+	}
+	if v, _ := n.Attr("", "slide"); v != "" {
+		ap.SlidePart = opc.PartName(v)
+	}
+	if v, _ := n.Attr("", "shapeID"); v != "" {
+		if sid, err := strconv.ParseInt(v, 10, 64); err == nil {
+			ap.ShapeID = ShapeID(sid)
+		}
+	}
+	if v, _ := n.Attr("", "durMs"); v != "" {
+		if ms, err := strconv.ParseInt(v, 10, 64); err == nil {
+			ap.Duration = time.Duration(ms) * time.Millisecond
+		}
+	}
+	if v, _ := n.Attr("", "stMs"); v != "" {
+		if ms, err := strconv.ParseInt(v, 10, 64); err == nil {
+			ap.StartDelay = time.Duration(ms) * time.Millisecond
+		}
+	}
+	switch v, _ := n.Attr("", "trigger"); v {
+	case "onClick":
+		ap.Trigger = PlaybackOnClick
+	default:
+		ap.Trigger = PlaybackOnSlideEnter
+	}
+	ap.ContentSHA256, _ = n.Attr("", "sha256")
+	if v, _ := n.Attr("", "version"); v != "" {
+		if ver, err := strconv.Atoi(v); err == nil {
+			ap.Version = ver
+		}
+	}
+	return ap, true
 }
 
 // recordAudioProfile 把 Profile 落 `/docProps/audio.xml` 自有命名空间扩展。
@@ -530,13 +600,9 @@ func (p *Presentation) recordAudioProfile(prof AudioProfile) error {
 		fmt.Fprintf(buf,
 			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
 				`<AudioProfiles xmlns=%q>`+
-				`<Profile trackKey=%q role=%q media=%q shapeID=%q sha256=%q version=%q/>`+
+				`<Profile %s/>`+
 				`</AudioProfiles>`,
-			xmlns,
-			prof.TrackKey, prof.Role.String(), string(prof.MediaPart),
-			strconv.FormatInt(int64(prof.ShapeID), 10),
-			prof.ContentSHA256,
-			strconv.Itoa(prof.Version),
+			xmlns, profileXMLAttrs(prof),
 		)
 		if err := p.stageAdd(partName, buf.Bytes(), "application/xml"); err != nil {
 			return Annotate(err, "recordAudioProfile")
@@ -544,28 +610,18 @@ func (p *Presentation) recordAudioProfile(prof AudioProfile) error {
 		p.commit()
 		return nil
 	}
-	// 既有 → 在根元素末尾追加新 Profile，再 stagePatch 整 Part。
-	doc, err := xmlstore.Index(existing)
-	if err != nil {
-		return Annotate(err, "recordAudioProfile")
-	}
-	_ = doc.Root()
-	// 找到 </AudioProfiles> 前缀位置插入。
+	// 既有 → 在 </AudioProfiles> 前插入新 Profile，再 stagePatch 整 Part。
 	closeTag := []byte("</AudioProfiles>")
 	idx := bytes.Index(existing, closeTag)
 	if idx < 0 {
-		// 既有内容损坏：直接 stageAdd 重置。
+		// 既有内容损坏：重置为仅含本条目。
 		buf := bytes.NewBuffer(nil)
 		fmt.Fprintf(buf,
 			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
 				`<AudioProfiles xmlns=%q>`+
-				`<Profile trackKey=%q role=%q media=%q shapeID=%q sha256=%q version=%q/>`+
+				`<Profile %s/>`+
 				`</AudioProfiles>`,
-			xmlns,
-			prof.TrackKey, prof.Role.String(), string(prof.MediaPart),
-			strconv.FormatInt(int64(prof.ShapeID), 10),
-			prof.ContentSHA256,
-			strconv.Itoa(prof.Version),
+			xmlns, profileXMLAttrs(prof),
 		)
 		if err := p.stagePatch(partName, buf.Bytes()); err != nil {
 			return Annotate(err, "recordAudioProfile")
@@ -574,20 +630,81 @@ func (p *Presentation) recordAudioProfile(prof AudioProfile) error {
 		return nil
 	}
 	ins := append([]byte(nil), existing[:idx]...)
-	newEntry := fmt.Sprintf(
-		`<Profile trackKey=%q role=%q media=%q shapeID=%q sha256=%q version=%q/>`,
-		prof.TrackKey, prof.Role.String(), string(prof.MediaPart),
-		strconv.FormatInt(int64(prof.ShapeID), 10),
-		prof.ContentSHA256,
-		strconv.Itoa(prof.Version),
-	)
-	ins = append(ins, []byte(newEntry)...)
+	ins = append(ins, []byte("<Profile "+profileXMLAttrs(prof)+"/>")...)
 	ins = append(ins, existing[idx:]...)
 	if err := p.stagePatch(partName, ins); err != nil {
 		return Annotate(err, "recordAudioProfile")
 	}
 	p.commit()
 	return nil
+}
+
+// updateAudioProfile 按 TrackKey 修改 Profile（mutate 就地改写后全量重写
+// 该 Part）。不存在返回 ErrNotFound。
+func (p *Presentation) updateAudioProfile(trackKey string, mutate func(*AudioProfile)) error {
+	const partName opc.PartName = "/docProps/audio.xml"
+	b, err := p.partBytes(partName)
+	if err != nil {
+		return Annotate(err, "updateAudioProfile")
+	}
+	doc, err := xmlstore.Index(b)
+	if err != nil {
+		return Annotate(err, "updateAudioProfile")
+	}
+	root := doc.Root()
+	found := false
+	out := bytes.NewBuffer(nil)
+	out.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<AudioProfiles xmlns="https://schemas.example.org/F31/go-pptx/audio/2026">`)
+	for _, id := range root.Children {
+		n := doc.Node(id)
+		if n == nil {
+			continue
+		}
+		prof, ok := parseAudioProfile(n)
+		if !ok {
+			continue
+		}
+		if prof.TrackKey == trackKey {
+			mutate(&prof)
+			found = true
+		}
+		out.WriteString("<Profile " + profileXMLAttrs(prof) + "/>")
+	}
+	out.WriteString(`</AudioProfiles>`)
+	if !found {
+		return Annotate(ErrNotFound, "updateAudioProfile")
+	}
+	if err := p.stagePatch(partName, out.Bytes()); err != nil {
+		return Annotate(err, "updateAudioProfile")
+	}
+	p.commit()
+	return nil
+}
+
+// audioProfilesOfSlide 返回挂在指定 slide Part 上的全部 Profile。
+func (p *Presentation) audioProfilesOfSlide(slide opc.PartName) []AudioProfile {
+	const partName opc.PartName = "/docProps/audio.xml"
+	b, err := p.partBytes(partName)
+	if err != nil {
+		return nil
+	}
+	doc, err := xmlstore.Index(b)
+	if err != nil {
+		return nil
+	}
+	root := doc.Root()
+	var out []AudioProfile
+	for _, id := range root.Children {
+		n := doc.Node(id)
+		if n == nil {
+			continue
+		}
+		if prof, ok := parseAudioProfile(n); ok && prof.SlidePart == slide {
+			out = append(out, prof)
+		}
+	}
+	return out
 }
 
 // findAudioProfile 按 TrackKey 查已有 Profile。
@@ -607,25 +724,9 @@ func (p *Presentation) findAudioProfile(trackKey string) *AudioProfile {
 		if n == nil {
 			continue
 		}
-		if v, ok := n.Attr("", "trackKey"); ok && v == trackKey {
-			role, _ := n.Attr("", "role")
-			media, _ := n.Attr("", "media")
-			sha, _ := n.Attr("", "sha256")
-			shapeID, _ := n.Attr("", "shapeID")
-			ver, _ := n.Attr("", "version")
-			ap := &AudioProfile{
-				TrackKey:      trackKey,
-				Role:          roleFromString(role),
-				MediaPart:     opc.PartName(media),
-				ContentSHA256: sha,
-			}
-			if id, err := strconv.ParseInt(shapeID, 10, 64); err == nil {
-				ap.ShapeID = ShapeID(id)
-			}
-			if v, err := strconv.Atoi(ver); err == nil {
-				ap.Version = v
-			}
-			return ap
+		if prof, ok := parseAudioProfile(n); ok && prof.TrackKey == trackKey {
+			cp := prof
+			return &cp
 		}
 	}
 	return nil
