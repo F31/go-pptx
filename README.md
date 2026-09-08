@@ -34,7 +34,8 @@
 - [x] TEXT-02：Paragraph/TextFrame.ReplaceText（跨 Run 字面替换、三格式策略、br/fld/链接边界、字素簇保护、ReplaceResult 报告、整批单事务提交）
 - [x] STYLE-01：占位符 (type,idx) 规范化匹配、EffectiveFont 样式链（Run→段落→占位符/版式/母版→主题）、每属性 Value/Resolved/SourceTrace、主题色/字体解析（clrMap、sysClr、lumMod/lumOff/shade/tint、+mj-*/+mn-*）、未决/部分解析诊断与回退/Strict 语义
 - [x] IMAGE-01：MediaSource 适配器与 PNG/JPEG 探测、Slide.AddPicture 四 Fit 模式（原尺寸/拉伸/Contain/Cover-crop）、媒体内容哈希去重、ReplaceImage 共享引用保护、AltText/IsDecorative
-- [ ] M2 剩余（页面 API/docProps）：按实施计划 §12 推进
+- [x] docProps(5.1)：CoreProperties/CustomProperties 读写（Optional patch 语义、Modified 保存时自动更新、core/custom.xml 缺失按需建 Part/CT/根关系、lpwstr/i4/bool/filetime 四变体）
+- [ ] M2 剩余（页面 API/AltText 收口）：按实施计划 §12 推进
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
 

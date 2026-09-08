@@ -33,6 +33,12 @@ type Presentation struct {
 	rev    uint64
 	closed bool
 
+	// coreAutoModified 表示 Modified 时间戳处于"库代管"状态：最近一次
+	// SetCoreProperties 未显式携带 Modified 时置位；Save/Write 前若置位
+	// 自动把 core.xml 的 dcterms:modified 刷新为当前 UTC 时间
+	//（方案 §5.1）。显式传入 Modified 后清除。
+	coreAutoModified bool
+
 	// DocumentStore 骨架（§18）：overrides/addedParts/deletedParts 保存
 	// 已提交变更的最新字节与内容类型（读取视图优先于包内原始内容）；
 	// pending 是当前隐式事务的暂存区，仅在公共修改方法执行期间非空
@@ -318,6 +324,10 @@ func (p *Presentation) Save(ctx context.Context, path string, opts ...SaveOption
 		}
 	}
 
+	// Modified 未显式指定时由库代管：保存前刷新为当前时间。
+	if err := p.flushAutoModified(); err != nil {
+		return SaveReport{}, Annotate(err, "Presentation.Save")
+	}
 	rev, plan, err := p.buildPlan()
 	if err != nil {
 		return SaveReport{}, Annotate(err, "Presentation.Save")
@@ -347,6 +357,10 @@ func (p *Presentation) Write(ctx context.Context, w io.Writer, opts ...SaveOptio
 	}
 	if w == nil {
 		return SaveReport{}, Annotate(ErrInvalidArgument, "Presentation.Write")
+	}
+	// Modified 未显式指定时由库代管：保存前刷新为当前时间。
+	if err := p.flushAutoModified(); err != nil {
+		return SaveReport{}, Annotate(err, "Presentation.Write")
 	}
 	rev, plan, err := p.buildPlan()
 	if err != nil {
@@ -503,6 +517,13 @@ func (p *Presentation) commit() {
 	}
 	for name, b := range p.pending.Patched {
 		p.overrides[name] = b
+		// 会话内新增（addedParts）Part 被再次修改：同步其最新字节，
+		// 使保存计划 Added 分支输出补丁后内容（buildPlan 中 Added 优先
+		// 于 Patched，仅改 overrides 会被旧 Added 内容覆盖）。
+		if a, ok := p.addedParts[name]; ok {
+			a.Content = b
+			p.addedParts[name] = a
+		}
 	}
 	for name, a := range p.pending.Added {
 		p.addedParts[name] = a
