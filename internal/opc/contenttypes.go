@@ -2,6 +2,7 @@ package opc
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -121,4 +122,82 @@ func extensionOf(name string) string {
 		return ""
 	}
 	return seg
+}
+
+// clone 返回深拷贝（保存计划对 CT 的合并改动不得影响读取视图）。
+func (ct *ContentTypes) clone() *ContentTypes {
+	out := &ContentTypes{
+		overrides:      make(map[PartName]string, len(ct.overrides)),
+		lowerOverrides: make(map[string]string, len(ct.lowerOverrides)),
+		defaults:       make(map[string]string, len(ct.defaults)),
+	}
+	for k, v := range ct.overrides {
+		out.overrides[k] = v
+	}
+	for k, v := range ct.lowerOverrides {
+		out.lowerOverrides[k] = v
+	}
+	for k, v := range ct.defaults {
+		out.defaults[k] = v
+	}
+	return out
+}
+
+// removeOverride 删除一条 Override（删除 Part 时同步 CT）。
+func (ct *ContentTypes) removeOverride(name PartName) {
+	delete(ct.overrides, name)
+	delete(ct.lowerOverrides, lookupKey(name))
+}
+
+// addOverride 新增一条 Override（新建 Part 时同步 CT）；重复返回错误。
+func (ct *ContentTypes) addOverride(name PartName, contentType string) error {
+	if !name.Valid() || contentType == "" {
+		return fmt.Errorf("%w: addOverride invalid args %s/%q", ErrMalformedPackage, name, contentType)
+	}
+	if _, dup := ct.overrides[name]; dup {
+		return fmt.Errorf("%w: override for %s already exists", ErrMalformedPackage, name)
+	}
+	ct.overrides[name] = contentType
+	ct.lowerOverrides[lookupKey(name)] = contentType
+	return nil
+}
+
+// serialize 以确定性顺序生成 Content Types 字节流：Default 按扩展名排序、
+// Override 按 Part 名排序；属性值经 EscapeAttrValue 转义。用于保存计划
+// 与变更集同源再生成 CT（方案 §18.2）。
+func (ct *ContentTypes) serialize() []byte {
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\r\n")
+	b.WriteString(`<Types xmlns="` + NsContentTypes + `">`)
+	exts := make([]string, 0, len(ct.defaults))
+	for ext := range ct.defaults {
+		exts = append(exts, ext)
+	}
+	sort.Strings(exts)
+	for _, ext := range exts {
+		b.WriteString(`<Default Extension="` + mustAttrEscape(ext) +
+			`" ContentType="` + mustAttrEscape(ct.defaults[ext]) + `"/>`)
+	}
+	parts := make([]string, 0, len(ct.overrides))
+	for p := range ct.overrides {
+		parts = append(parts, string(p))
+	}
+	sort.Strings(parts)
+	for _, p := range parts {
+		b.WriteString(`<Override PartName="` + mustAttrEscape(p) +
+			`" ContentType="` + mustAttrEscape(ct.overrides[PartName(p)]) + `"/>`)
+	}
+	b.WriteString(`</Types>`)
+	return []byte(b.String())
+}
+
+// mustAttrEscape 以双引号风格转义属性值；转义仅拒绝非法 XML 字符，
+// 序列化输入来自已验证的 CT 表，失败视为库内不变量破坏（panic 不可取，
+// 返回空串前先显式失败）。
+func mustAttrEscape(s string) string {
+	out, err := xmlstore.EscapeAttrValue(s, '"')
+	if err != nil {
+		return s // 已校验输入；保留原值并交由解析端复核
+	}
+	return out
 }

@@ -26,8 +26,9 @@
 - [x] XML-01：命名空间感知扫描器 + 节点索引树（NodeRecord/ns 环境/未知子树保留/深度预算，`internal/xmlstore`）
 - [x] XML-02：文本/属性补丁与结构插入（SpanPatch 冲突检测/转义/受控插入，含垂直验证单元级雏形）
 - [x] OPC-02：关系图、Content Types（Override 优先）、主 Part 发现（非固定名称）、循环安全遍历（`internal/opc`）
+- [x] SAVE-01：保存计划（PlannedEntry 四动作）、未变 Part 复制、CT 同源再生成、B1 哈希回归全绿（`internal/opc`）
 - [ ] M0 垂直验证：真实语料 B1 哈希比对（**阻塞于语料收集**）
-- [ ] SAVE-01 / SAVE-02 / MODEL-01 …：按实施计划 §12 顺序推进
+- [ ] SAVE-02 / MODEL-01 …：按实施计划 §12 顺序推进
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
 

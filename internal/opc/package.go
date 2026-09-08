@@ -217,7 +217,7 @@ func relsSource(name PartName) (PartName, error) {
 	}
 	base := entry[:len(entry)-len(".rels")]
 	if i := strings.LastIndex(base, "/_rels/"); i >= 0 {
-		src := base[:i] + "/" + base[i+len("/_rels/"):]
+		src := "/" + base[:i] + "/" + base[i+len("/_rels/"):]
 		return PartName(src), nil
 	}
 	if base == "_rels/" {

@@ -159,7 +159,7 @@ func loadMiniPackage(t *testing.T) *Package {
 			rel("rId1", RelSlide, "slides/slide1.xml") +
 				rel("rId2", RelSlideMaster, "slideMasters/slideMaster1.xml") +
 				rel("rId3", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", "https://example.com/")),
-		"ppt/slides/slide1.xml": `<p:sld xmlns:p="urn:p"/>`,
+		"ppt/slides/slide1.xml": `<p:sld xmlns:p="urn:p"><p:t>原始</p:t></p:sld>`,
 		"ppt/slides/_rels/slide1.xml.rels": miniRels(
 			rel("rId1", RelSlideLayout, "../slideLayouts/slideLayout1.xml")),
 		"ppt/slideLayouts/slideLayout1.xml": `<p:sldLayout xmlns:p="urn:p"/>`,
