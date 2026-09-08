@@ -286,8 +286,16 @@ func relsPart(part opc.PartName) opc.PartName {
 	return opc.PartName("/" + dir + "/_rels/" + base + ".rels")
 }
 
+// relsXML 返回 Part 的关系流当前内容（读取视图：与 relsOf 同源，
+// 优先已提交补丁/新增，其次包内原始；全无则返回空关系流）。
 func relsXML(p *Presentation, part opc.PartName) ([]byte, error) {
 	rp := relsPart(part)
+	if _, ok := p.overrides[rp]; ok {
+		return p.partBytes(rp)
+	}
+	if p.addedParts[rp].Content != nil {
+		return p.partBytes(rp)
+	}
 	if p.pk.HasPart(rp) {
 		return p.partBytes(rp)
 	}

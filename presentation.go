@@ -495,7 +495,11 @@ func (p *Presentation) commit() {
 	for name := range p.pending.Deleted {
 		delete(p.overrides, name)
 		delete(p.addedParts, name)
-		p.deletedParts[name] = true
+		if p.pk.HasPart(name) {
+			// 仅包内既有 Part 进入删除视图（保存计划可重放）；
+			// 会话内新增（未落盘）Part 被删除 = 直接丢弃，输出从未含它。
+			p.deletedParts[name] = true
+		}
 	}
 	for name, b := range p.pending.Patched {
 		p.overrides[name] = b
