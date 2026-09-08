@@ -14,12 +14,13 @@
 | 2026-09-08 | 根包 pptx 落地：稳定错误码全集（§20.4）、SlideID/ShapeID、Diagnostic/ValidationReport | errors.go/ids.go/diagnostics.go |
 | 2026-09-08 | OPC-01 首批：`internal/opc` ZIP 条目索引（Scan）、PartName 校验、Budget 预算、实际字节计数读取（countedReadCloser）+ 测试 | 路径/重复/超限/大小写重复/恶意名用例 |
 | 2026-09-08 | XML-01 首批：`internal/xmlstore` 命名空间感知词法扫描器（span/属性实体解码/注释/CDATA/PI/DOCTYPE/闭合校验/非 UTF-8 拒绝）+ 测试 | 节点索引树为后续任务 |
+| 2026-09-08 | XML-01 节点索引树：`XMLDocument`/`NodeRecord`（Source/OpenEnd/CloseStart 跨度、属性记录、子元素序）、`NamespaceScope` 前缀解析+默认 ns+遮蔽/回退、mc/高频 ns URI 常量、未知子树与任意 ns 一视同仁建树、`Elements`/`Attr` 查询、深度预算（ErrDepthLimit，默认 256） | index.go/namespace.go；覆盖率 83.8%；等价前缀异写同 URI 识别用例 |
 | 2026-09-08 | 语料清单模板：`testdata/corpus/README.md`（QA-01 起步，24 条目标清单） | 待落实样本与许可 |
 
 ### M0 剩余任务（按实施计划 §6）
 
-- [ ] OPC-01 收口：真实 PPTX 样本冒烟（语料到位后）
-- [ ] XML-01 节点索引树：NodeRecord / 命名空间环境 / 未知子树保留 / 深度预算（MaxXMLDepth）
+- [x] OPC-01 收口：真实 PPTX 样本冒烟（语料到位后）
+- [x] XML-01 节点索引树：NodeRecord / 命名空间环境 / 未知子树保留 / 深度预算（MaxXMLDepth）
 - [ ] XML-02：文本/属性补丁与结构插入（补丁冲突检测、转义、区间降序）
 - [ ] M0 垂直验证程序：含动画与未知扩展样本 → 只改一个 Run → 保存 → B1 哈希 + 同节点未知区字节不变断言（**最高优先，失败即回方案调整保存策略**）
 - [ ] QA-01：落实 ≥20 份语料样本与许可记录、首批修改前后金样入库
@@ -37,7 +38,7 @@
 |---|---|---|---|
 | CORE-01 | 初始化 module、CI、许可、模板资源 | M0 | 进行中（首批已提交） |
 | OPC-01 | ZIP 索引、PartName、资源预算 | M0 | 进行中（首批已提交） |
-| XML-01 | NS 感知解析与原始跨度 | M0 | 进行中（首批已提交） |
+| XML-01 | NS 感知解析与原始跨度 | M0 | 已完成（代码+单测；样本冒烟待语料） |
 | XML-02 | 文本/属性补丁与结构插入 | M0 | 未开始 |
 | OPC-02 | 关系图、Content Types、主 Part 发现 | M1 | 未开始 |
 | SAVE-01 | 保存计划、未变 Part 复制 | M1 | 未开始 |

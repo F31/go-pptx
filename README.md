@@ -23,8 +23,8 @@
 
 - [x] CORE-01：module/目录/许可/CI 骨架（含 `GOOS=js GOARCH=wasm` 编译验证 job）
 - [x] OPC-01 首批：ZIP 条目索引、PartName 校验、资源预算、实际字节计数读取（`internal/opc`）
-- [x] XML-01 首批：命名空间感知的词法扫描器（span/属性/注释/CDATA/闭合校验，`internal/xmlstore`）
-- [ ] XML-01 后续：节点索引树（NodeRecord/ns 环境/未知子树保留）
+- [x] XML-01：命名空间感知扫描器 + 节点索引树（NodeRecord/ns 环境/未知子树保留/深度预算，`internal/xmlstore`）
+- [ ] XML-02：文本/属性补丁与结构插入（区间降序/冲突检测/转义）
 - [ ] OPC-02 / SAVE-01 …：按实施计划 §12 顺序推进
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
