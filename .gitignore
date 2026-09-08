@@ -1,0 +1,18 @@
+# 构建产物与临时输出
+/bin/
+/out/
+*.exe
+*.test
+*.prof
+coverage.out
+
+# 编辑器与系统文件
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+.DS_Store
+
+# 运行期临时文件（保存链路会使用同目录临时文件）
+*.pptx.tmp
+*.tmp.pptx

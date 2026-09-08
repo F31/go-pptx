@@ -1,0 +1,17 @@
+# 统一换行符：提交入仓一律 LF（Windows 检出可自动转 CRLF）
+* text=auto
+
+# 二进制（Office/图片）不做行尾转换
+*.docx binary
+*.pptx binary
+*.xlsx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.mp3 binary
+*.wav binary
+*.mp4 binary
