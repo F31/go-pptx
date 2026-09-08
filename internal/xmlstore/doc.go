@@ -12,7 +12,14 @@
 //     CloseStart、属性记录、子元素顺序）、NamespaceScope 前缀解析与
 //     默认命名空间、mc 上下文常量、未知子树与任意 ns 元素一视同仁建树、
 //     深度预算（index.go / namespace.go）
+//   - 补丁引擎（XML-02）：SpanPatch 区间替换（统一校验 + 升序重建、
+//     重叠/范围/锚定 ErrPatch* 冲突检测）、EscapeText/EscapeAttrValue
+//     转义（XML 1.0 非法字符显式拒绝）、SetAttrValuePatch/NewTextPatch
+//     便捷构造（patch.go）
+//   - 受控结构插入：InsertBefore/InsertAfter/AppendChild——片段必须
+//     well-formed 单根、显式前缀必须自足或插入点作用域可解析，
+//     否则 ErrFragmentNamespace（insert.go）
 //
-// 后续：XML-02 文本/属性补丁引擎基于 span 工作（见
-// docs/go-pptx-实施状态跟踪.md）。
+// 后续：M0 垂直验证（真实语料 B1 哈希比对；单元级雏形见
+// TestPatchPreservesUntouchedRegions），句柄映射与事务属 edit 层。
 package xmlstore
