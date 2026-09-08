@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -24,8 +23,9 @@ import (
 //     替换时旧媒体仅在其不再被任何关系引用时删除，绝不破坏共享引用。
 //
 // 无障碍元数据（§8.1）：PictureSpec 携带 AltText/IsDecorative；IsDecorative
-// 写入 a:cNvPr@decorative（规范装饰标记），AltText 写入 @descr；两者语义
-// 不同，不用空 descr 代替装饰性声明。
+// 写入 p:cNvPr@decorative（规范装饰标记），AltText 写入 @descr；两者语义
+// 不同，不用空 descr 代替装饰性声明。读写实现与 AutoShape 共用
+// shapes.go 的通用形状句柄基元（shapeNode）。
 
 // emuPerPixel96 是 96 dpi 下 1 像素的 EMU 值（914400/96）。
 const emuPerPixel96 = int64(9525)
@@ -163,209 +163,22 @@ func intString64(v int64) string { return strconv.FormatInt(v, 10) }
 // 元素路径（nodeStep）重定位。路径目标被删除返回 ErrStaleHandle；
 // 文档关闭返回 ErrClosed（与 Slide/Text 句柄语义一致，§5）。
 type PictureShape struct {
-	p    *Presentation
-	part opc.PartName
-	path []nodeStep
+	shapeNode
 }
 
-// locate 解析句柄路径，返回当前索引与 p:pic 元素。
-func (s *PictureShape) locate() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error) {
-	if s.p == nil || s.p.closed {
-		return nil, nil, Annotate(ErrClosed, "PictureShape")
-	}
-	doc, err := s.p.docOf(s.part)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return nil, nil, Annotate(ErrStaleHandle, "PictureShape")
-		}
-		return nil, nil, err
-	}
-	n := resolvePath(doc, s.path)
-	if n == nil {
-		return nil, nil, Annotate(ErrStaleHandle, "PictureShape")
-	}
-	return doc, n, nil
-}
-
-// AltText 返回替代文本（p:cNvPr@descr）；未声明返回空串。
-func (s *PictureShape) AltText() string {
-	doc, pic, err := s.locate()
-	if err != nil {
-		return ""
-	}
-	c := cNvPrOf(doc, pic)
-	if c == nil {
-		return ""
-	}
-	v, _ := c.Attr("", "descr")
-	return v
-}
-
-// IsDecorative 返回是否标记为装饰性图形（p:cNvPr@decorative="1"）。
-func (s *PictureShape) IsDecorative() bool {
-	doc, pic, err := s.locate()
-	if err != nil {
-		return false
-	}
-	c := cNvPrOf(doc, pic)
-	if c == nil {
-		return false
-	}
-	v, _ := c.Attr("", "decorative")
-	return v == "1"
-}
+// Kind 返回形状类别（恒为 ShapePicture）。
+func (s *PictureShape) Kind() ShapeKind { return ShapePicture }
 
 // SetAltText 设置替代文本；同时清除装饰性标记（二者语义互斥，§8.1）。
 // text 为空清除 @descr。
 func (s *PictureShape) SetAltText(text string) error {
-	doc, pic, err := s.locate()
-	if err != nil {
-		return Annotate(err, "PictureShape.SetAltText")
-	}
-	c := cNvPrOf(doc, pic)
-	if c == nil {
-		return &OperationError{
-			Op: "PictureShape.SetAltText", Part: string(s.part),
-			Message: "p:pic has no p:cNvPr", Err: ErrMalformedPackage,
-		}
-	}
-	var patches []xmlstore.SpanPatch
-	if d := removeDecorativePatch(doc, c); d != nil {
-		patches = append(patches, *d)
-	}
-	if text == "" {
-		if d := removeDescrPatch(doc, c); d != nil {
-			patches = append(patches, *d)
-		}
-	} else {
-		p, err := setDescrAttr(doc, c, text)
-		if err != nil {
-			return Annotate(err, "PictureShape.SetAltText")
-		}
-		patches = append(patches, p)
-	}
-	if len(patches) == 0 {
-		return nil
-	}
-	out, err := xmlstore.ApplyPatches(doc.Original(), patches)
-	if err != nil {
-		return Annotate(mapXMLError(err), "PictureShape.SetAltText")
-	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
-		return Annotate(err, "PictureShape.SetAltText")
-	}
-	s.p.commit()
-	return nil
+	return s.setAltText("PictureShape.SetAltText", text)
 }
 
 // SetDecorative 设置装饰性标记；为 true 时清除替代文本（§8.1），
 // false 时仅清除标记、保留既有 @descr。
 func (s *PictureShape) SetDecorative(decorative bool) error {
-	doc, pic, err := s.locate()
-	if err != nil {
-		return Annotate(err, "PictureShape.SetDecorative")
-	}
-	c := cNvPrOf(doc, pic)
-	if c == nil {
-		return &OperationError{
-			Op: "PictureShape.SetDecorative", Part: string(s.part),
-			Message: "p:pic has no p:cNvPr", Err: ErrMalformedPackage,
-		}
-	}
-	var patches []xmlstore.SpanPatch
-	if decorative {
-		if d := removeDescrPatch(doc, c); d != nil {
-			patches = append(patches, *d)
-		}
-		cur, _ := c.Attr("", "decorative")
-		if cur != "1" {
-			p, err := addPlainAttrPatch(doc, c, "decorative", "1")
-			if err != nil {
-				return Annotate(err, "PictureShape.SetDecorative")
-			}
-			patches = append(patches, p)
-		}
-	} else {
-		if d := removeDecorativePatch(doc, c); d != nil {
-			patches = append(patches, *d)
-		}
-	}
-	if len(patches) == 0 {
-		return nil
-	}
-	out, err := xmlstore.ApplyPatches(doc.Original(), patches)
-	if err != nil {
-		return Annotate(mapXMLError(err), "PictureShape.SetDecorative")
-	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
-		return Annotate(err, "PictureShape.SetDecorative")
-	}
-	s.p.commit()
-	return nil
-}
-
-// cNvPrOf 返回图片的非可视绘制属性元素（p:cNvPr）。
-func cNvPrOf(doc *xmlstore.XMLDocument, pic *xmlstore.NodeRecord) *xmlstore.NodeRecord {
-	nv := childOfKind(doc, pic, nsPresentationML, "nvPicPr", 0)
-	if nv == nil {
-		return nil
-	}
-	return childOfKind(doc, nv, nsPresentationML, "cNvPr", 0)
-}
-
-// removeDescrPatch 移除 @descr（存在时）。
-func removeDescrPatch(doc *xmlstore.XMLDocument, c *xmlstore.NodeRecord) *xmlstore.SpanPatch {
-	for i := range c.Attrs {
-		a := &c.Attrs[i]
-		if a.Namespace == "" && a.RawName == "descr" {
-			p := removeAttrPatch(doc, c, i)
-			return &p
-		}
-	}
-	return nil
-}
-
-// removeDecorativePatch 移除 @decorative（存在时）。
-func removeDecorativePatch(doc *xmlstore.XMLDocument, c *xmlstore.NodeRecord) *xmlstore.SpanPatch {
-	for i := range c.Attrs {
-		a := &c.Attrs[i]
-		if a.Namespace == "" && a.RawName == "decorative" {
-			p := removeAttrPatch(doc, c, i)
-			return &p
-		}
-	}
-	return nil
-}
-
-// setDescrAttr 设置 @descr（不存在则追加）。
-func setDescrAttr(doc *xmlstore.XMLDocument, c *xmlstore.NodeRecord, text string) (xmlstore.SpanPatch, error) {
-	for i := range c.Attrs {
-		a := &c.Attrs[i]
-		if a.Namespace == "" && a.RawName == "descr" {
-			if a.Value == text {
-				return xmlstore.SpanPatch{}, nil
-			}
-			p := xmlstore.SpanPatch{Start: a.ValueStart, End: a.ValueEnd, Replacement: []byte(text)}
-			return p, nil
-		}
-	}
-	esc, err := xmlstore.EscapeAttrValue(text, '"')
-	if err != nil {
-		return xmlstore.SpanPatch{}, Annotate(mapXMLError(err), "SetAltText")
-	}
-	return addPlainAttrPatch(doc, c, "descr", esc)
-}
-
-// addPlainAttrPatch 在开标签内追加 " name="value""（值需已转义）。
-func addPlainAttrPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, name, value string) (xmlstore.SpanPatch, error) {
-	if n.Source.End > len(doc.Original()) {
-		return xmlstore.SpanPatch{}, &OperationError{Message: "invalid node span", Err: ErrMalformedPackage}
-	}
-	pos := n.OpenEnd - 1
-	if n.SelfClosing() {
-		pos = n.OpenEnd - 2
-	}
-	return xmlstore.SpanPatch{Start: pos, End: pos, Replacement: []byte(" " + name + "=\"" + value + "\"")}, nil
+	return s.setDecorative("PictureShape.SetDecorative", decorative)
 }
 
 // ---------- AddPicture ----------
@@ -506,18 +319,18 @@ func buildPicFragment(id, ox, oy, cx, cy int64, rid, srcRect, altText string, de
 func (s *Slide) lastPicHandle() *PictureShape {
 	doc, err := s.p.docOf(s.part)
 	if err != nil {
-		return &PictureShape{p: s.p, part: s.part}
+		return &PictureShape{shapeNode: shapeNode{p: s.p, part: s.part}}
 	}
 	for _, tid := range doc.Elements(nsPresentationML, "spTree") {
 		tree := doc.Node(tid)
 		for i := len(tree.Children) - 1; i >= 0; i-- {
 			c := doc.Node(tree.Children[i])
 			if c.Namespace == nsPresentationML && c.Local() == "pic" {
-				return &PictureShape{p: s.p, part: s.part, path: recordPath(doc, c.ID)}
+				return &PictureShape{shapeNode: shapeNode{p: s.p, part: s.part, path: recordPath(doc, c.ID)}}
 			}
 		}
 	}
-	return &PictureShape{p: s.p, part: s.part}
+	return &PictureShape{shapeNode: shapeNode{p: s.p, part: s.part}}
 }
 
 // ---------- ReplaceImage（共享引用保护） ----------

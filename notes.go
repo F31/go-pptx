@@ -417,17 +417,24 @@ func notesMasterDeps(p *Presentation, main opc.PartName) (themeTarget, smTarget 
 }
 
 // nextPartSeq 计算目录内同类 Part 的下一个序号（max+1，至少 1）。
+// 同时扫描包内既有与已提交新增 Part，避免同会话内重复新建撞名。
 func nextPartSeq(p *Presentation, prefix, suffix string) int {
 	max := 0
-	for _, name := range p.pk.PartNames() {
+	consider := func(name opc.PartName) {
 		s := string(name)
 		if !strings.HasPrefix(s, prefix) || !strings.HasSuffix(s, suffix) {
-			continue
+			return
 		}
 		mid := strings.TrimSuffix(strings.TrimPrefix(s, prefix), suffix)
 		if n, err := strconv.Atoi(mid); err == nil && n > max {
 			max = n
 		}
+	}
+	for _, name := range p.pk.PartNames() {
+		consider(name)
+	}
+	for name := range p.addedParts {
+		consider(name)
 	}
 	return max + 1
 }

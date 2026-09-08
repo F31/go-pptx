@@ -246,16 +246,22 @@ func (p *Presentation) Slides() ([]*Slide, error) {
 					Err:     ErrMalformedPackage,
 				}
 			}
-			set, ok := p.pk.Relationships(p.main)
-			if !ok {
+			rels, ok, err := p.relsOf(p.main)
+			if err != nil || !ok {
 				return nil, &OperationError{
 					Op: "Presentation.Slides", Part: string(p.main),
 					Message: "presentation part has no relationships",
 					Err:     ErrMalformedPackage,
 				}
 			}
-			rel, ok := set.ByID(rid)
-			if !ok || rel.Mode != opc.TargetInternal {
+			var target opc.PartName
+			for _, rel := range rels {
+				if rel.ID == rid && rel.Mode == opc.TargetInternal {
+					target = rel.TargetPart
+					break
+				}
+			}
+			if target == "" {
 				return nil, &OperationError{
 					Op: "Presentation.Slides", Part: string(p.main),
 					SlideID: SlideID(id),
@@ -263,7 +269,7 @@ func (p *Presentation) Slides() ([]*Slide, error) {
 					Err:     ErrNotFound,
 				}
 			}
-			out = append(out, &Slide{p: p, id: SlideID(id), part: rel.TargetPart, rev: p.rev})
+			out = append(out, &Slide{p: p, id: SlideID(id), part: target, rev: p.rev})
 		}
 	}
 	return out, nil

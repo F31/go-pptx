@@ -3,12 +3,14 @@
 > 按《go-pptx 项目实施计划》§12 执行顺序滚动更新；工作包完成标准见计划 §5.2。
 > 更新时机：每次 PR 合并 / 里程碑评审后由负责人更新本表。
 
-## 当前阶段：M2 富文本与基础样式（执行中，docProps(5.1) 完成）
+## 当前阶段：M2 文本模板 MVP（代码项已收口；闭环一/AT 真实语料验收待样本与客户端冒烟）
 
 ### 最近更新
 
 | 日期 | 进展 | 备注 |
 |---|---|---|
+| 2026-09-08 | 页面 API 收口（M2 收口行）：`Slide(index)`（0 基越界 ErrOutOfRange）、`Slides()` 改读视图（会话新增 slide 立即可见，含 rId 内部校验）、`Layouts()`（沿主 Part→slideMaster→slideLayout 真实关系收集 LayoutRef，去重）、`AddSlide(layout)`（新建 slide Part+CT+自身 rels（→layout）+sldIdLst 注册+主 rId；**id 在 [256,2^31-1] 取最小空闲、耗尽 ErrLimitExceeded**；含自闭合/缺失 sldIdLst 展开；LayoutRef 绑定文档，跨文档 ErrForeignReference、nil ErrInvalidArgument、stale ErrNotFound）、`MoveSlide(id,index)`（**index=最终列表目标位置语义**；整元素字节搬移（删除+零长插入两组不重叠补丁）保真、未知子元素原地保留、no-op 不变更 revision）、`RemoveSlide(id)`（移除 sldIdLst 条目+主关系、删除 slide Part 与其 .rels、**连带删除关联 notesSlide（notesMaster 保留）**、**未知 Part 引用阻止删除 ErrUnsupportedEdit**、媒体等共享资源不 GC） | pages.go/pages_test.go（9 用例：下标越界/模板 Layouts/AddSlide 往返持久化与双加页/跨文档与关闭错误/MoveSlide 前移后移与 no-op/删除中间页持久化/备注连带删除/未知引用阻止/句柄失效）；**修复 nextPartSeq 不扫会话新增致同会话重复建 Part 撞名（notes 路径潜在 bug）** |
+| 2026-09-08 | 形状枚举与 AltText(8.1) AutoShape（M2 收口行）：`Slide.Shapes()`/`Slide.Placeholders()`（spTree 直接子元素 z-order 枚举，跳过 nvGrpSpPr/grpSpPr，组内子形状不展开；`Shape` 公共面 ID/Name/Kind/AltText/IsDecorative；分类 sp→AutoShape[pic→PictureShape 其余→OpaqueShape 按元素 kind]）；`AutoShape` 句柄（cNvSpPr@txBox=1 判别 TextBox、`TextFrame()` 读写正文、`Placeholder()` 返回规范化 type/idx（缺省 obj/0，ECMA））；`OpaqueShape` 只读通用面；**§8.1 在 AutoShape 落地**（SetAltText/SetDecorative 与 PictureShape 共用 shapeNode 基元：写文本清 decorative、装饰性标记清除 descr、空串清 descr 不写装饰、读取两未声明→空值不臆测）；保存往返保真；形状句柄 ErrClosed/ErrStaleHandle 语义 | shapes.go/shapes_test.go（6 用例：枚举序/元信息、§8.1 互斥语义、往返持久化、TextFrame 读写与无正文 ErrNotFound、占位符讲稿读取闭环、生命周期）；PictureShape 重构嵌入 shapeNode（既有 image 测试全绿）；根包覆盖率 76.0%→76.3%；vet/全仓测试/WASM(js+wasip1)/Linux 交叉构建通过 |
 | 2026-09-08 | CORE-01 建仓首批：go.mod（占位 module `go-pptx`，go 1.24.0）、LICENSE（MIT 默认）、.gitignore、README、CI（三 OS × 1.24/1.27 + WASM 编译 job + race） | 正式 module path/许可待组织确认后替换 |
 | 2026-09-08 | CORE-02：module path 正式化 `github.com/F31/go-pptx`；许可证切换为 Apache-2.0（与远程仓库 LICENSE 字节一致）；关联远程 origin `https://github.com/F31/go-pptx.git` | 远程 Initial commit（仅 LICENSE）已并入本地历史 |
 | 2026-09-08 | 根包 pptx 落地：稳定错误码全集（§20.4）、SlideID/ShapeID、Diagnostic/ValidationReport | errors.go/ids.go/diagnostics.go |

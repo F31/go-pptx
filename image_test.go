@@ -132,7 +132,7 @@ func slidePics(t *testing.T, s *Slide) []picView {
 				continue
 			}
 			v := picView{}
-			if c := cNvPrOf(doc, pic); c != nil {
+			if c := elementCNvPr(doc, pic); c != nil {
 				if id, ok := c.Attr("", "id"); ok {
 					v.id, _ = strconv.ParseInt(id, 10, 64)
 				}

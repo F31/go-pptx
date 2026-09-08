@@ -9,6 +9,11 @@
 // Close/Validate、Slide 受控句柄、ErrClosed/ErrStaleHandle 语义、
 // revision 事务骨架（隐式事务 stage/commit、保存计划快照与
 // ErrConcurrentModification 守卫）、库内最小合法模板。
-// 后续：M2 文本模板 MVP（TEXT-01/STYLE-01/TEXT-02/IMAGE-01、页面 API、docProps）。
+// 已交付（M2 文本模板 MVP）：富文本与备注（TEXT-01）、跨 Run 替换
+// （TEXT-02）、有效样式解析（STYLE-01）、图片与媒体（IMAGE-01）、
+// 文档级元数据（docProps 5.1）、页面 API（Slide(index)/Slides/Layouts/
+// AddSlide/MoveSlide/RemoveSlide/Shapes/Placeholders，§20.1）与
+// 无障碍替代文本（AltText 8.1，PictureShape/AutoShape）。
+// 待真实语料后的 M2 闭环一验收与 M3（GEOM/TABLE）等。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx
