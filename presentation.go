@@ -52,6 +52,10 @@ type Presentation struct {
 	// partDocs 是按 Part 缓存的解析文档（惰性），键值保存其构建时的
 	// revision；commit 递增 revision 后整体失效（Part 数量少，重建便宜）。
 	partDocs map[opc.PartName]*partDocEntry
+
+	// chartWorkbookBuilder 是图表嵌入工作簿适配器（CHART-01，方案
+	// §9.2）；nil 时使用 DefaultWorkbookBuilder。
+	chartWorkbookBuilder ChartWorkbookBuilder
 }
 
 // partDocEntry 是某 Part 最新 revision 下的解析缓存。

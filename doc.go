@@ -21,7 +21,10 @@
 // 与逻辑网格、富文本 Cell、Merge/Unmerge（AT-09 多非空默认拒绝）、
 // 行高列宽、样式子集与 EffectiveCellStyle；格式深度子集——颜色变换
 // 全集（19 种）、线条系统、段落属性全集、Run 高级属性、主题样式
-// 矩阵引用链与 themeMatrixEntry。
+// 矩阵引用链与 themeMatrixEntry；配音（M4）——媒体探测、音频嵌入、
+// 受限播放树与计时计划；图表（CHART-01，M5 首项）——受限三类
+// （柱/折/饼）创建、ChartWorkbookBuilder 工作簿适配、缓存读取与
+// 受限 SetData（缓存与工作簿一致重建）。
 // 待真实语料后的 M2 闭环一验收与 M4 配音功能包。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx

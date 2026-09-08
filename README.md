@@ -45,6 +45,7 @@
 - [x] TABLE-01：TableShape 句柄（含 a:tbl 的图形框）与逻辑网格（gridSpan/rowSpan + hMerge/vMerge continuation 映射）、富文本 Cell（复用 TextFrame）、Merge/Unmerge（矩形与跨边界校验、**AT-09 多非空单元格默认拒绝**、可明确保留锚点文本）、RowHeight/ColumnWidth 读写、样式子集（三态区域开关 + 12 个 band/first/last 优先级矩阵 + tableStyles.xml 解析 + EffectiveCellStyle 逐属性状态，未知样式 ID → unresolved）
 - [x] 格式深度子集：颜色变换全集（19 种：lumMod/lumOff/shade/tint/{red,green,blue}{Mod,Off}/satMod/satOff/hueMod/hueOff/alpha/alphaMod/alphaOff/inv/gray/comp，整数除法 val/100000）、线条系统（a:ln 全属性：w/cap/cmpd/algn/prstDash/custDash/round/bevel/miter/headEnd/tailEnd+颜色+Unknown 子元素）、段落属性全集（a:pPr 全属性+lnSpc/spcBef/spcAft+tabLst/buChar/buAutoNum/buBlip/buFont/buSzPct/buSzPts）、Run 高级属性（a:rPr baseline/spc/cap/strike/u/lang/altLang/kern/highlight/sym 等）、主题样式矩阵引用链（fillRef/lnRef/effectRef→themeMatrixEntry 沿 fmtScheme 定位）、Shape 接口扩展 Line/StyleMatrixRefs；起步解析 R 档，未知项→Unknown 字段或诊断
 - [x] M4 配音功能包：MEDIA-01 媒体探测（WAV chunk 遍历/MP3 ID3+Xing/VBRI VBR/三级时长来源）；AUDIO-01 嵌入与 AudioProfile（/docProps/audio.xml 自有扩展、SHA-256 去重、未知时长拒绝）；AUDIO-02 受限播放树（纯音频 p:timing 幂等重建、复杂树 ErrTimingConflict、SetAdvanceAfter）；AUDIO-03 UpsertNarration 幂等三态 + PlanTimingSync/ApplyTimingPlan（Ej 公式、revision 校验、未知时长策略）
+- [x] CHART-01（M5 首项）：受限三类图表（柱/折/饼）——`Slide.AddChart` 创建 chart Part + 嵌入工作簿 + 双侧关系 + graphicFrame；`ChartWorkbookBuilder` 可替换工作簿适配接口（默认纯 Go 最小 xlsx，inlineStr，无第三方依赖）；`ChartShape.Data()` 读取缓存（标题/类别/系列，支持 strRef/numRef/字面量与组合图取首组）；`SetData` 受限数据更新——缓存与工作簿同数据快照重建保证一致（AT-10 代码级等价），仅规范布局可编辑（外部/被改写图表 ErrUnsupportedEdit 拒绝部分合并，类型不可变更）
 - [ ] M3 后续（QA-01 语料冒烟与真实客户端验证待语料/环境到位）
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
