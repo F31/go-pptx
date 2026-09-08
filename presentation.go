@@ -33,16 +33,25 @@ type Presentation struct {
 	rev    uint64
 	closed bool
 
-	// DocumentStore 骨架（§18）：overrides 保存已提交补丁的最新字节，
-	// 读取视图优先于包内原始内容；pending 是当前隐式事务的暂存区，
-	// 仅在公共修改方法执行期间非空（提交即合并入 overrides）。
-	overrides map[opc.PartName][]byte
-	pending   *opc.ChangeSet
+	// DocumentStore 骨架（§18）：overrides/addedParts/deletedParts 保存
+	// 已提交变更的最新字节与内容类型（读取视图优先于包内原始内容）；
+	// pending 是当前隐式事务的暂存区，仅在公共修改方法执行期间非空
+	//（提交即合并入上述三表）。addedParts 与 deletedParts 同时服务
+	// 保存计划（ChangeSet.Added/Deleted），使增删在多次提交后仍可重放。
+	overrides    map[opc.PartName][]byte
+	addedParts   map[opc.PartName]opc.AddedPart
+	deletedParts map[opc.PartName]bool
+	pending      *opc.ChangeSet
 
-	// presentation.xml 的解析缓存（惰性），docRev 为缓存对应的 revision；
-	// 主 Part 提交变更后失效。
-	doc    *xmlstore.XMLDocument
-	docRev uint64
+	// partDocs 是按 Part 缓存的解析文档（惰性），键值保存其构建时的
+	// revision；commit 递增 revision 后整体失效（Part 数量少，重建便宜）。
+	partDocs map[opc.PartName]*partDocEntry
+}
+
+// partDocEntry 是某 Part 最新 revision 下的解析缓存。
+type partDocEntry struct {
+	doc *xmlstore.XMLDocument
+	rev uint64
 }
 
 // NewOption 是 New 的函数式选项。
@@ -90,9 +99,12 @@ func New(opts ...NewOption) (*Presentation, error) {
 		return nil, Annotate(mapOCError(err), "Presentation.New")
 	}
 	return &Presentation{
-		pk:        pk,
-		main:      mustMainPart(pk),
-		overrides: make(map[opc.PartName][]byte),
+		pk:           pk,
+		main:         mustMainPart(pk),
+		overrides:    make(map[opc.PartName][]byte),
+		addedParts:   make(map[opc.PartName]opc.AddedPart),
+		deletedParts: make(map[opc.PartName]bool),
+		partDocs:     make(map[opc.PartName]*partDocEntry),
 	}, nil
 }
 
@@ -129,11 +141,14 @@ func Open(path string, opts ...OpenOption) (*Presentation, error) {
 		return nil, Annotate(mapOCError(err), "Presentation.Open")
 	}
 	return &Presentation{
-		pk:        pk,
-		main:      mustMainPart(pk),
-		srcPath:   path,
-		srcFile:   f,
-		overrides: make(map[opc.PartName][]byte),
+		pk:           pk,
+		main:         mustMainPart(pk),
+		srcPath:      path,
+		srcFile:      f,
+		overrides:    make(map[opc.PartName][]byte),
+		addedParts:   make(map[opc.PartName]opc.AddedPart),
+		deletedParts: make(map[opc.PartName]bool),
+		partDocs:     make(map[opc.PartName]*partDocEntry),
 	}, nil
 }
 
@@ -149,9 +164,12 @@ func OpenReader(r io.ReaderAt, size int64, opts ...OpenOption) (*Presentation, e
 		return nil, Annotate(mapOCError(err), "Presentation.OpenReader")
 	}
 	return &Presentation{
-		pk:        pk,
-		main:      mustMainPart(pk),
-		overrides: make(map[opc.PartName][]byte),
+		pk:           pk,
+		main:         mustMainPart(pk),
+		overrides:    make(map[opc.PartName][]byte),
+		addedParts:   make(map[opc.PartName]opc.AddedPart),
+		deletedParts: make(map[opc.PartName]bool),
+		partDocs:     make(map[opc.PartName]*partDocEntry),
 	}, nil
 }
 
@@ -321,6 +339,9 @@ func (p *Presentation) Write(ctx context.Context, w io.Writer, opts ...SaveOptio
 	if p.closed {
 		return SaveReport{}, Annotate(ErrClosed, "Presentation.Write")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if err := ctx.Err(); err != nil {
 		return SaveReport{}, Annotate(err, "Presentation.Write")
 	}
@@ -355,6 +376,9 @@ func (p *Presentation) Validate(ctx context.Context, opts ...ValidateOption) Val
 			Code: "CLOSED", Severity: SeverityError, Message: "document is closed",
 		})
 		return report
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	_ = opts // 预留：ValidationMode/外部严格校验属后续 WP
 	for _, name := range p.pk.PartNames() {
@@ -415,6 +439,35 @@ func (p *Presentation) stagePatch(name opc.PartName, newBytes []byte) error {
 	return nil
 }
 
+// stageAdd 暂存新建 Part。name 必须尚不存在于包与已提交视图；contentType
+// 为空时要求该扩展名已有 Default 覆盖，否则在保存计划阶段失败
+// （不允许产出无类型的 Part，方案 §18.2）。字节与内容类型均拷贝。
+func (p *Presentation) stageAdd(name opc.PartName, content []byte, contentType string) error {
+	if p.closed {
+		return Annotate(ErrClosed, "stageAdd")
+	}
+	if !name.Valid() {
+		return &OperationError{Message: "invalid part name " + string(name), Err: ErrInvalidArgument}
+	}
+	if p.pk.HasPart(name) || p.addedParts[name].Content != nil {
+		return &OperationError{Part: string(name), Message: "part already exists", Err: ErrInvalidArgument}
+	}
+	if p.pending == nil {
+		p.pending = &opc.ChangeSet{}
+	}
+	if p.pending.Added == nil {
+		p.pending.Added = make(map[opc.PartName]opc.AddedPart)
+	}
+	if _, clash := p.pending.Patched[name]; clash {
+		return &OperationError{Part: string(name), Message: "part is staged for patching", Err: ErrInvalidArgument}
+	}
+	p.pending.Added[name] = opc.AddedPart{
+		Content:     append([]byte(nil), content...),
+		ContentType: contentType,
+	}
+	return nil
+}
+
 // stageDelete 暂存删除（连带关系流由保存计划层处理）。
 func (p *Presentation) stageDelete(name opc.PartName) error {
 	if p.closed {
@@ -434,26 +487,34 @@ func (p *Presentation) stageDelete(name opc.PartName) error {
 }
 
 // commit 把当前暂存合并为一次提交：更新读取视图、递增 revision、
-// 失效主 Part 解析缓存。空事务是 no-op。
+// 失效全部解析缓存。空事务是 no-op。
 func (p *Presentation) commit() {
 	if p.pending == nil {
 		return
 	}
 	for name := range p.pending.Deleted {
 		delete(p.overrides, name)
+		delete(p.addedParts, name)
+		p.deletedParts[name] = true
 	}
 	for name, b := range p.pending.Patched {
 		p.overrides[name] = b
 	}
+	for name, a := range p.pending.Added {
+		p.addedParts[name] = a
+		p.overrides[name] = a.Content
+	}
 	p.pending = nil
 	p.rev++
-	if _, touched := p.overrides[p.main]; touched {
-		p.doc = nil // 主 Part 变更使 presentation.xml 缓存失效
-	}
+	p.partDocs = make(map[opc.PartName]*partDocEntry) // 全部缓存随 revision 失效
 }
 
-// partBytes 是读取视图：优先已提交补丁，其次包内原始内容。
+// partBytes 是读取视图：优先已提交补丁/新增，其次包内原始内容。
+// 已删除 Part 返回 ErrNotFound。
 func (p *Presentation) partBytes(name opc.PartName) ([]byte, error) {
+	if p.deletedParts[name] {
+		return nil, Annotate(ErrNotFound, "partBytes")
+	}
 	if b, ok := p.overrides[name]; ok {
 		return append([]byte(nil), b...), nil
 	}
@@ -469,10 +530,21 @@ func (p *Presentation) partBytes(name opc.PartName) ([]byte, error) {
 // 计划是当前 revision 的只读快照（§18）。
 func (p *Presentation) buildPlan() (uint64, *opc.SavePlan, error) {
 	cs := &opc.ChangeSet{
-		Patched: make(map[opc.PartName][]byte, len(p.overrides)),
+		Patched: make(map[opc.PartName][]byte),
+		Added:   make(map[opc.PartName]opc.AddedPart),
+		Deleted: make(map[opc.PartName]bool),
 	}
 	for name, b := range p.overrides {
 		cs.Patched[name] = b
+	}
+	for name, a := range p.addedParts {
+		cs.Added[name] = a
+		delete(cs.Patched, name) // Added 与 Patched 互斥（同一最新字节只走 Added）
+	}
+	for name := range p.deletedParts {
+		cs.Deleted[name] = true
+		delete(cs.Patched, name)
+		delete(cs.Added, name)
 	}
 	plan, err := opc.BuildSavePlan(p.pk, cs)
 	if err != nil {
@@ -481,24 +553,30 @@ func (p *Presentation) buildPlan() (uint64, *opc.SavePlan, error) {
 	return p.rev, plan, nil
 }
 
-// presentationDoc 惰性解析并缓存 presentation.xml。
-func (p *Presentation) presentationDoc() (*xmlstore.XMLDocument, error) {
-	if p.doc != nil && p.docRev == p.rev {
-		return p.doc, nil
+// docOf 惰性解析并缓存指定 Part 的 XML 索引（当前 revision 快照）。
+// 缓存随 commit 递增 revision 整体失效。
+func (p *Presentation) docOf(part opc.PartName) (*xmlstore.XMLDocument, error) {
+	if e, ok := p.partDocs[part]; ok && e.rev == p.rev {
+		return e.doc, nil
 	}
-	data, err := p.partBytes(p.main)
+	data, err := p.partBytes(part)
 	if err != nil {
 		return nil, err
 	}
 	doc, err := xmlstore.Index(data)
 	if err != nil {
 		return nil, &OperationError{
-			Op: "Presentation.parse", Part: string(p.main),
-			Message: "presentation part is not well-formed XML", Err: mapXMLError(err),
+			Op: "Presentation.parse", Part: string(part),
+			Message: "part is not well-formed XML", Err: mapXMLError(err),
 		}
 	}
-	p.doc, p.docRev = doc, p.rev
+	p.partDocs[part] = &partDocEntry{doc: doc, rev: p.rev}
 	return doc, nil
+}
+
+// presentationDoc 惰性解析并缓存 presentation.xml（主 Part 便捷封装）。
+func (p *Presentation) presentationDoc() (*xmlstore.XMLDocument, error) {
+	return p.docOf(p.main)
 }
 
 // sameSourceEntity 判断 path 是否与 Open 的源文件是同一文件实体

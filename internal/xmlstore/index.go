@@ -56,6 +56,10 @@ type AttributeRecord struct {
 	Value   string
 	// Namespace 是属性名前缀解析后的 URI；xmlns 声明自身为空。
 	Namespace string
+	// NameStart/NameEnd 是属性名原始字节区间（半开）；删除/移动属性
+	// 时提供精确锚点，避免文本反向搜索（值内可能含同名文本）。
+	NameStart int
+	NameEnd   int
 	// ValueStart/ValueEnd 是引号内原始值区间（半开）。
 	ValueStart int
 	ValueEnd   int
@@ -226,6 +230,8 @@ func IndexWith(data []byte, opts IndexOptions) (*XMLDocument, error) {
 					rec := AttributeRecord{
 						RawName:    a.RawName,
 						Value:      a.Value,
+						NameStart:  a.NameStart,
+						NameEnd:    a.NameEnd,
 						ValueStart: a.ValueStart,
 						ValueEnd:   a.ValueEnd,
 					}
