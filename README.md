@@ -25,8 +25,9 @@
 - [x] OPC-01 首批：ZIP 条目索引、PartName 校验、资源预算、实际字节计数读取（`internal/opc`）
 - [x] XML-01：命名空间感知扫描器 + 节点索引树（NodeRecord/ns 环境/未知子树保留/深度预算，`internal/xmlstore`）
 - [x] XML-02：文本/属性补丁与结构插入（SpanPatch 冲突检测/转义/受控插入，含垂直验证单元级雏形）
+- [x] OPC-02：关系图、Content Types（Override 优先）、主 Part 发现（非固定名称）、循环安全遍历（`internal/opc`）
 - [ ] M0 垂直验证：真实语料 B1 哈希比对（**阻塞于语料收集**）
-- [ ] OPC-02 / SAVE-01 …：按实施计划 §12 顺序推进
+- [ ] SAVE-01 / SAVE-02 / MODEL-01 …：按实施计划 §12 顺序推进
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
 
