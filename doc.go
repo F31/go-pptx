@@ -66,5 +66,17 @@
 // 解析到主题 a:fontScheme 的 latin/ea/cs 字体名），并把主题条目解析为
 // 可呈现颜色（StyleMatrixRef.ThemeColor，phClr 以引用方颜色代入后套用
 // 主题条目自身变换）。R 档——解析并输出诊断，不提供写入 API。
+// 几何/填充/效果 R 档报告（GEOM-02，M6 第七项收尾）——Shape 扩展三方法
+// Geometry() / Fill() / Effects()，均走 R 档只读报告；GeometryInfo 覆盖
+// a:prstGeom 预设全集与 a:custGeom 自定义路径（gdLst 公式 / pathLst 命令
+// moveTo/lnTo/arcTo/cubicBezTo/quadBezTo/close 与坐标）；FillInfo 覆盖
+// spPr/a:fill 六类（noFill/solidFill/gradFill 含 gsLst 渐变停止与 lin/path
+// 子容器/pattFill/blipFill 含 srcRect/blip@embed 与 dpi/grpFill），复用
+// tablestyle.go 的 FillKind（FillUnspecified/FillNone/FillSolid/FillGradient/
+// FillPattern/FillPicture/FillGroup）；EffectInfo 覆盖 spPr/a:effectLst 与
+// a:effectDag 容器下 outerShdw/innerShdw/glow/softEdge/reflection/
+// fillOverlay + a:scene3d（camera/lightRig/backdrop）+ a:sp3d（extrusionH/
+// contourW/bevelT/bevelB/presetMaterial）。R 档——解析失败降级为
+// Diagnostic；不提供写入 API。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx

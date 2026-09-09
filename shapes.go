@@ -112,6 +112,14 @@ type Shape interface {
 	Line() (LineStyle, []Diagnostic, error)
 	// StyleMatrixRefs 返回形状样式矩阵引用链（a:spPr/a:style；M3）。
 	StyleMatrixRefs() ([]StyleMatrixRef, []Diagnostic, error)
+	// Geometry 返回形状几何（spPr/a:prstGeom 或 a:custGeom）R 档解析
+	// 结果（GEOM-02，M6 第七项）。无 spPr 的形状返回零值 + Warning。
+	Geometry() (GeometryInfo, []Diagnostic, error)
+	// Fill 返回形状填充（spPr/a:fill）R 档解析结果（GEOM-02）。
+	Fill() (FillInfo, []Diagnostic, error)
+	// Effects 返回形状效果（spPr/a:effectLst|a:effectDag + scene3d +
+	// sp3d）R 档解析结果（GEOM-02）。
+	Effects() (EffectInfo, []Diagnostic, error)
 }
 
 // ---------- 通用形状句柄基元 ----------
