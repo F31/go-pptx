@@ -1,6 +1,7 @@
 // Command pptx 提供 go-pptx SDK 的命令行界面（TOOL-01，方案 §23.2）。
 //
-// 子命令：inspect / validate / replace / narrate / timing-plan / export-ir。
+// 子命令：inspect / validate / replace / narrate / timing-plan / export-ir /
+// capability / bind。
 //   - JSON 写到 stdout；
 //   - 进度/错误摘要写到 stderr；
 //   - 退出码：0 成功，1 执行/I/O 错误，2 参数错误，3 校验或能力限制，
@@ -56,6 +57,8 @@ func main() {
 		exitRun(cmdRunExportIR(args))
 	case "capability":
 		exitRun(cmdRunCapability(args))
+	case "bind":
+		exitRun(cmdRunBind(args))
 	case "-h", "--help", "help":
 		printUsage(true)
 		osExit(ExitOK)
@@ -96,10 +99,11 @@ func printUsageTo(w io.Writer) {
 	fmt.Fprintln(w, "  timing-plan   preview timing sync plan (read-only)")
 	fmt.Fprintln(w, "  export-ir     export intermediate representation (JSON)")
 	fmt.Fprintln(w, "  capability    emit capability manifest (JSON, read-only)")
+	fmt.Fprintln(w, "  bind          render template with a JSON data source (writes --output)")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Common flags:")
 	fmt.Fprintln(w, "  --json                ensure single JSON object on stdout")
-	fmt.Fprintln(w, "  --output <path>       required for write commands (replace, narrate, export-ir)")
+	fmt.Fprintln(w, "  --output <path>       required for write commands (replace, narrate, export-ir, bind)")
 	fmt.Fprintln(w, "  --overwrite           allow replacing an existing output file")
 }
 

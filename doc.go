@@ -94,6 +94,13 @@
 // wasm_exec.js,pptx_check.wasm,smoke.cjs}` 静态网页 UI 与 node.js
 // 烟雾测试；`scripts/check_wasm.{sh,ps1}` 构建脚本。文件不离开用户设备
 // ——无外网、无 CDN、无后端；离线加载即可使用（V2.6 §23.2 + §26）。
+// 模板数据绑定引擎（TPL-01，M7 第四项，方案 §2.4 / ADR 013）——
+// Presentation.Bind(data) 按数据源渲染模板标记：内联占位符
+// `{{path}}`（复用 TEXT-02 跨 Run 保真替换）、条件段落
+// `{{#if}}…{{/if}}`、表格行循环 `{{#each}}…{{/each}}`（模板行按数据
+// 条数复制，条目为作用域）、图表数据绑定（数据源中值为 ChartData 且
+// 键等于图表形状名）。两阶段：plan 纯读取校验（失败不落任何补丁）+
+// apply 按 Part 聚合、单事务提交（无部分写入）。
 // 动画时序只读 IR（TIMIR-01，M7 第三项，方案 §21.5）——
 // Slide.TimingTreeRaw() 返回 p:timing 原始字节；ir 包把 p:timing →
 // tnLst → par/cTn 树投影为只读时序 IR（PageTiming/TimingNode：Kind

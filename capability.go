@@ -466,8 +466,13 @@ func populateCapabilityFeatures(m *CapabilityManifest) {
 		{
 			Key: "template.binding", Name: "模板数据绑定引擎",
 			Stage: "M7", TargetTier: "E", WorkPackage: "TPL-01",
-			Status: StatusUntested,
-			Notes:  "ADR 013：构建在保真补丁与跨 Run 替换之上。",
+			Status: StatusPartial,
+			Notes:  "ADR 013：构建在保真补丁与跨 Run 替换之上；plan 纯读校验 + 单事务提交。",
+			Limits: []string{
+				"仅绑定幻灯片形状/表格/图表，不覆盖备注页与母版/版式文本。",
+				"行循环内不支持嵌套条件段落；标记须独占段落且 #each/#/each 同行配对。",
+				"图表绑定需以 pptx.ChartData 类型值按形状名匹配（JSON/CLI 无法表达）。",
+			},
 		},
 		{
 			Key: "diff.semantic_audit", Name: "语义 diff 与审计",

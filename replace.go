@@ -277,6 +277,35 @@ func (p *Paragraph) ReplaceText(old, replacement string, opts ...ReplaceOption) 
 	if err != nil {
 		return res, Annotate(err, "Paragraph.ReplaceText")
 	}
+	res, patches, err := replacePatches(doc, para, old, replacement, o)
+	if err != nil {
+		return res, Annotate(err, "Paragraph.ReplaceText")
+	}
+	if len(patches) == 0 {
+		return res, nil
+	}
+	out, err := xmlstore.ApplyPatches(doc.Original(), patches)
+	if err != nil {
+		return res, Annotate(mapXMLError(err), "Paragraph.ReplaceText")
+	}
+	if err := p.p.stagePatch(p.part, out); err != nil {
+		return res, Annotate(err, "Paragraph.ReplaceText")
+	}
+	p.p.commit()
+	return res, nil
+}
+
+// replacePatches 在给定段落上计算替换补丁，不做暂存与提交——供
+// Paragraph.ReplaceText（单段落事务）与 TPL-01 绑定引擎（按 Part
+// 聚合多段落补丁、单事务提交）共用同一条保真替换路径（ADR 013：
+// 不引入第二套编辑路径）。
+//
+// 返回的补丁均相对 doc.Original() 定位，调用方须在同一 revision 快照
+// 上一次性 ApplyPatches。
+func replacePatches(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord, old, replacement string, o replaceOptions) (ReplaceResult, []xmlstore.SpanPatch, error) {
+	var res ReplaceResult
+	repRunes := []rune(replacement)
+	oldRunes := []rune(old)
 	blocks := paragraphBlocks(doc, para)
 
 	// 1) 初始快照上收集全部命中（非重叠、从左到右），做块内定位与
@@ -314,7 +343,7 @@ func (p *Paragraph) ReplaceText(old, replacement string, opts ...ReplaceOption) 
 		}
 	}
 	if len(occs) == 0 {
-		return res, nil
+		return res, nil, nil
 	}
 
 	// 2) 贪心调度（前向、先到先得）：rebuild 命中占用 [ri..rj] 整段
@@ -405,7 +434,7 @@ func (p *Paragraph) ReplaceText(old, replacement string, opts ...ReplaceOption) 
 			if o.style.anySet() {
 				frag, err := buildRPrFragment(occ.blk.runs[occ.ri].prefix, o.style)
 				if err != nil {
-					return res, Annotate(err, "Paragraph.ReplaceText")
+					return res, nil, Annotate(err, "replacePatches")
 				}
 				repRPr = frag
 			}
@@ -417,15 +446,7 @@ func (p *Paragraph) ReplaceText(old, replacement string, opts ...ReplaceOption) 
 	for r, changes := range inplaceByRun {
 		patches = append(patches, inplaceRunPatch(doc, occs[0].blk, r, changes))
 	}
-	out, err := xmlstore.ApplyPatches(doc.Original(), patches)
-	if err != nil {
-		return res, Annotate(mapXMLError(err), "Paragraph.ReplaceText")
-	}
-	if err := p.p.stagePatch(p.part, out); err != nil {
-		return res, Annotate(err, "Paragraph.ReplaceText")
-	}
-	p.p.commit()
-	return res, nil
+	return res, patches, nil
 }
 
 // isRebuild 判定命中是否需要重建/删除 Run（true）或仅原地改 t。
