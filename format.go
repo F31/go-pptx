@@ -46,14 +46,32 @@ type ParsedColor struct {
 	Resolved bool
 }
 
-// 已知变换名集合（ST_ColorTransform 相关元素；全集解析，未知入诊断）。
+// 已知变换名集合（ECMA EG_ColorTransform 全集 28 种；未知入诊断）。
+//
+// 分类（单位均为 val 属性的整数）：
+//   - 相对量（*Mod = 乘 1/1000 百分比，*Off = 加 1/1000 百分比）：
+//     lumMod/lumOff/satMod/satOff/hueMod/hueOff/redMod/redOff/
+//     greenMod/greenOff/blueMod/blueOff/alphaMod/alphaOff
+//   - 绝对量（直接赋值，单位同相对量）：hue（1/60000 度）、
+//     sat/lum/red/green/blue/alpha（1/1000 百分比）
+//   - 无参复合：comp（补色 +180°）、inv（反相）、gray（灰度）
+//   - 曲线：gamma（伽马校正）、invGamma（逆伽马校正）
+//   - 简写：tint（向白混合 = lumOff 的补）、shade（向黑混合 = lumMod 的补）
 var knownTransformKinds = map[string]bool{
-	"tint": true, "shade": true, "lumMod": true, "lumOff": true,
-	"satMod": true, "satOff": true, "hueMod": true, "hueOff": true,
+	// 相对量
+	"lumMod": true, "lumOff": true, "satMod": true, "satOff": true,
+	"hueMod": true, "hueOff": true,
 	"redMod": true, "redOff": true, "greenMod": true, "greenOff": true,
-	"blueMod": true, "blueOff": true,
-	"alpha": true, "alphaMod": true, "alphaOff": true,
+	"blueMod": true, "blueOff": true, "alphaMod": true, "alphaOff": true,
+	// 绝对量（STYLE-02 补齐）
+	"hue": true, "sat": true, "lum": true,
+	"red": true, "green": true, "blue": true, "alpha": true,
+	// 无参复合
 	"comp": true, "inv": true, "gray": true,
+	// 曲线（STYLE-02 补齐）
+	"gamma": true, "invGamma": true,
+	// 简写
+	"tint": true, "shade": true,
 }
 
 // parseColorNode 解析颜色元素节点（srgbClr/schemeClr/sysClr/prstClr/
@@ -208,6 +226,28 @@ func applyColorTransforms(rgb string, ts []ColorTransform) (out string, alpha fl
 			alpha = alpha * float64(v) / 100000
 		case "alphaOff":
 			alpha = alpha + float64(v)/100000
+		// ---- STYLE-02 补齐：绝对量通道赋值（val 1/1000 百分比）----
+		case "red":
+			r = v * 255 / 100000
+		case "green":
+			g = v * 255 / 100000
+		case "blue":
+			b = v * 255 / 100000
+		// ---- STYLE-02 补齐：伽马曲线（逐通道；c 归一化到 [0,1]）----
+		// 语义按 ECMA-376 Part 1 §20.1.2.3.13/14 常见解释（与 LibreOffice、
+		// POI 一致）：gamma 为 pow(c, 1/g)、invGamma 为 pow(c, g)，其中
+		// g = val/100000。g<=0 或 val 缺失视为无操作（不臆造取值）。
+		case "gamma", "invGamma":
+			gv := float64(v) / 100000
+			if gv > 0 {
+				exp := gv
+				if t.Kind == "gamma" {
+					exp = 1 / gv
+				}
+				r = int(math.Pow(float64(r)/255, exp)*255 + 0.5)
+				g = int(math.Pow(float64(g)/255, exp)*255 + 0.5)
+				b = int(math.Pow(float64(b)/255, exp)*255 + 0.5)
+			}
 		case "inv":
 			r, g, b = 255-r, 255-g, 255-b
 		case "gray":
@@ -226,6 +266,17 @@ func applyColorTransforms(rgb string, ts []ColorTransform) (out string, alpha fl
 				h = h + v
 			case "comp":
 				h = (h + 10800000) % 21600000
+			// ---- STYLE-02 补齐：HSL 绝对量赋值 ----
+			// val 单位与内部表示一致（hue 1/60000 度，sat/lum 1/100000）。
+			case "hue":
+				h = v % 21600000
+				if h < 0 {
+					h += 21600000
+				}
+			case "sat":
+				s = clampPct(v)
+			case "lum":
+				l = clampPct(v)
 			}
 			r, g, b = hslToRGB(h, s, l)
 		}
@@ -240,6 +291,18 @@ func clamp8(v int) int {
 	}
 	if v > 255 {
 		return 255
+	}
+	return v
+}
+
+// clampPct 把百分比整数（0..100000 = 0%..100%）约束到合法区间；
+// 用于 sat/lum 等绝对量赋值变换（STYLE-02）。
+func clampPct(v int) int {
+	if v < 0 {
+		return 0
+	}
+	if v > 100000 {
+		return 100000
 	}
 	return v
 }
@@ -341,7 +404,16 @@ func hslToRGB(h, s, l int) (r, g, b int) {
 		q = lum + sat - lum*sat
 	}
 	p := 2*lum - q
-	hf := hue / 60
+	// hue 单位为度（0..360），hue2rgb 的 t 参数要求归一化到 [0,1]，
+	// 故除以 360（STYLE-02 修复：原实现误用 /60，得到 0..6 的量纲，
+	// 使 satMod/hueMod/hueOff/comp/hue/sat/lum 全部 HSL 变换失真）。
+	hf := hue / 360
+	// conv 把 tc（归一化的色相段位置）映射为 [0,1] 通道值。
+	//
+	// 注意：p/q 是本函数的常量，conv 每次调用必须用**局部**变量 v 承接，
+	// 绝不写回 p——否则三次调用会串行污染（STYLE-02 修复：原实现把
+	// p 当作累加器，导致 satMod/hueMod/hue/hueOff/comp 等 HSL 变换的
+	// 后两个通道沿用前一个通道已被修改的 p，结果失真）。
 	conv := func(tc float64) int {
 		if tc < 0 {
 			tc += 1
@@ -349,15 +421,16 @@ func hslToRGB(h, s, l int) (r, g, b int) {
 		if tc > 1 {
 			tc -= 1
 		}
+		v := p
 		switch {
 		case tc < 1.0/6:
-			p += (q - p) * 6 * tc
+			v = p + (q-p)*6*tc
 		case tc < 0.5:
-			p = q
+			v = q
 		case tc < 2.0/3:
-			p += (q - p) * (2.0/3 - tc) * 6
+			v = p + (q-p)*(2.0/3-tc)*6
 		}
-		return int(p*255 + 0.5)
+		return int(v*255 + 0.5)
 	}
 	return clamp8(conv(hf + 1.0/3)), clamp8(conv(hf)), clamp8(conv(hf - 1.0/3))
 }
@@ -859,6 +932,9 @@ const (
 	RefLine
 	// RefEffect 是效果样式引用（a:effectRef）。
 	RefEffect
+	// RefFont 是字体样式引用（a:fontRef）；STYLE-02 新增，解析到主题
+	// a:fontScheme 的 majorFont/minorFont。
+	RefFont
 )
 
 func (k MatrixRefKind) String() string {
@@ -869,13 +945,16 @@ func (k MatrixRefKind) String() string {
 		return "lnRef"
 	case RefEffect:
 		return "effectRef"
+	case RefFont:
+		return "fontRef"
 	}
 	return "unknown"
 }
 
 // StyleMatrixRef 是形状样式矩阵引用（a:spPr/a:style 内的 fillRef/
-// lnRef/effectRef）的解析结果（R 档：解析并输出诊断，不提供写入）。
+// lnRef/effectRef/fontRef）的解析结果（R 档：解析并输出诊断，不提供写入）。
 type StyleMatrixRef struct {
+	// Kind 是引用类型；STYLE-02 起含 RefFont。
 	Kind MatrixRefKind
 	// Index 是引用下标（1 基；ECMA idx 从 1 起）。
 	Index int32
@@ -883,6 +962,15 @@ type StyleMatrixRef struct {
 	Color ParsedColor
 	// ThemeEntry 是主题 fmtScheme 中对应条目的元素名（如 solidFill）。
 	ThemeEntry string
+	// ThemeColor 是主题条目解析出的可呈现颜色（STYLE-02）。
+	// 主题条目以 phClr 声明时，基色取 Color 并套用主题条目自身的变换；
+	// 无法解析时 RGB 为空、Resolved=false。
+	ThemeColor ParsedColor
+	// ThemeTypeface 仅 RefFont 有效：主题 fontScheme majorFont/minorFont
+	// 的字体名（latin 优先，退化 ea/cs）；未解析时为空（STYLE-02）。
+	ThemeTypeface string
+	// FontSlot 仅 RefFont 有效：idx 映射到的主题字体槽位。
+	FontSlot ThemeFontSlot
 	// Resolved 表示引用与主题条目均已解析。
 	Resolved bool
 }
@@ -921,15 +1009,38 @@ func (s *shapeNode) StyleMatrixRefs() ([]StyleMatrixRef, []Diagnostic, error) {
 			kind = RefLine
 		case "effectRef":
 			kind = RefEffect
+		case "fontRef":
+			kind = RefFont // STYLE-02
 		default:
 			continue
 		}
 		ref := StyleMatrixRef{Kind: kind}
+		idxRaw := ""
 		if v, ok := c.Attr("", "idx"); ok {
+			idxRaw = v
 			ref.Index = intAttr(v)
 		}
 		ref.Color = s.p.parseColorNode(doc, env, string(s.part), colorChildOf(doc, c), &diags)
 		ref.ThemeEntry, ref.Resolved = s.p.themeMatrixEntry(env, kind, ref.Index)
+		if kind == RefFont {
+			// a:fontRef：idx 为 "major"/"minor" 或 1/2，解析到主题字体槽位。
+			ref.FontSlot, ref.ThemeTypeface = s.p.themeFontTypeface(env, idxRaw)
+			ref.Resolved = ref.FontSlot != FontSlotUnknown && ref.ThemeTypeface != ""
+		} else if kind == RefFill || kind == RefLine {
+			// STYLE-02：把主题条目进一步解析为可呈现颜色（phClr 代入）。
+			// 仅填充/线条条目含颜色；effectRef 无颜色元素，不产生诊断。
+			tdoc, entryNode, ok := s.p.themeMatrixEntryNode(env, kind, ref.Index)
+			if ok {
+				tc, resolved := s.p.themeEntryColor(tdoc, env, string(s.part), entryNode, ref.Color, &diags)
+				ref.ThemeColor = tc
+				if !resolved {
+					diags = append(diags, Diagnostic{
+						Code: "STYLE_UNRESOLVED", Severity: SeverityInfo, Part: string(s.part),
+						Message: "theme entry color not resolved for " + kind.String() + " idx=" + idxRaw,
+					})
+				}
+			}
+		}
 		if !ref.Resolved {
 			diags = append(diags, Diagnostic{
 				Code: "STYLE_UNRESOLVED", Severity: SeverityInfo, Part: string(s.part),

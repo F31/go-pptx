@@ -57,5 +57,14 @@
 // RelHandoutMaster 讲义母版（缺关系目标记 layout.handout.broken_ref）、
 // 母版 p:txStyles 文本样式的 a:lang/altLang/kumimoji/kinsoku 聚合
 // （KinsokuRule 按 lang 文档序聚合）。四项均不提供写入 API。
+// 主题样式矩阵与颜色变换全集（STYLE-02，M6 第六项）——颜色变换补齐到
+// ECMA EG_ColorTransform 全集 28 种（新增绝对量 hue/sat/lum/red/green/
+// blue 与曲线 gamma/invGamma）；修复 hslToRGB 两处缺陷（conv 闭包写回
+// 共享 p 导致通道串行污染；hf 误用 /60 应为 /360，量纲 0..6 而非 0..1），
+// 使全部 HSL 变换（satMod/hueMod/hueOff/comp/hue/sat/lum）结果正确；
+// 样式矩阵引用链新增 a:fontRef（RefFont + ThemeFontSlot major/minor，
+// 解析到主题 a:fontScheme 的 latin/ea/cs 字体名），并把主题条目解析为
+// 可呈现颜色（StyleMatrixRef.ThemeColor，phClr 以引用方颜色代入后套用
+// 主题条目自身变换）。R 档——解析并输出诊断，不提供写入 API。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx
