@@ -54,6 +54,8 @@ func main() {
 		exitRun(cmdRunTimingPlan(args))
 	case "export-ir":
 		exitRun(cmdRunExportIR(args))
+	case "capability":
+		exitRun(cmdRunCapability(args))
 	case "-h", "--help", "help":
 		printUsage(true)
 		osExit(ExitOK)
@@ -93,6 +95,7 @@ func printUsageTo(w io.Writer) {
 	fmt.Fprintln(w, "  narrate       embed audio from tracks.json (writes --output)")
 	fmt.Fprintln(w, "  timing-plan   preview timing sync plan (read-only)")
 	fmt.Fprintln(w, "  export-ir     export intermediate representation (JSON)")
+	fmt.Fprintln(w, "  capability    emit capability manifest (JSON, read-only)")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Common flags:")
 	fmt.Fprintln(w, "  --json                ensure single JSON object on stdout")
@@ -119,6 +122,7 @@ func basename(path string) string { return filepath.Base(path) }
 //	cmdRunNarrate(args []string) ExitCode
 //	cmdRunTimingPlan(args []string) ExitCode
 //	cmdRunExportIR(args []string) ExitCode
+//	cmdRunCapability(args []string) ExitCode
 //
 // 本文件仅做分发与退出码包装。
 var _ = "TOOL-01 subcommand registrar"

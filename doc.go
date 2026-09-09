@@ -78,5 +78,12 @@
 // fillOverlay + a:scene3d（camera/lightRig/backdrop）+ a:sp3d（extrusionH/
 // contourW/bevelT/bevelB/presetMaterial）。R 档——解析失败降级为
 // Diagnostic；不提供写入 API。
+// Capability manifest（CAP-01，M7 首项）——Presentation.Capability(
+// sourcePath) 返回 CapabilityManifest（六维状态 Inspect/Create/Edit/
+// Preserve/Render/Play × Supported/Partial/Unsupported/Untested，与
+// SaveReport 同事实来源）；CapabilityFeature 对应 §24 一行工作包 + §2.3
+// 一行特性（矩阵↔工作包追溯不断）；schemaVersion="go-pptx.capability/1.0"
+// （独立于 SDK 版本）；未实现 M7/M8 工作包（TOOL-02/TIMIR-01/TPL-01/
+// DIFF-01）显式 Untested；`pptx capability` CLI 入口（§23.2，CAP-01）。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx
