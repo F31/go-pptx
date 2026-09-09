@@ -43,6 +43,74 @@ func (s *Slide) alive() error {
 	return Annotate(ErrStaleHandle, "Slide")
 }
 
+// PartName 返回页面 Part 名（OPC 风格路径，如 "/ppt/slides/slide1.xml"）。
+// 句柄失效（页面被删除或文档关闭）返回空串。
+func (s *Slide) PartName() string {
+	if s == nil {
+		return ""
+	}
+	if err := s.alive(); err != nil {
+		return ""
+	}
+	return string(s.part)
+}
+
+// Name 返回页面名称（presentation 端的可读标识）。当前实现返回
+// PartName 的基础名（与 PowerPoint 行为对齐留口；M6 LAYOUT-01 接入
+// 后改为 sld@name 与 rels 派名）。失败或 PartName 为空返回 ""。
+func (s *Slide) Name() string {
+	pn := s.PartName()
+	if pn == "" {
+		return ""
+	}
+	// 取最末路径段（去 .xml）。
+	base := pn
+	for i := len(pn) - 1; i >= 0; i-- {
+		if pn[i] == '/' {
+			base = pn[i+1:]
+			break
+		}
+	}
+	for i := 0; i < len(base); i++ {
+		if base[i] == '.' {
+			base = base[:i]
+			break
+		}
+	}
+	return base
+}
+
+// HasTiming 返回本页是否含任何 timing 子树（p:timing 或 c:timing 元素）。
+// 用于 IR/M6 时间轴投影前的快速探测，不解析子树。
+func (s *Slide) HasTiming() bool {
+	if err := s.alive(); err != nil {
+		return false
+	}
+	doc, _, err := s.slideTree()
+	if err != nil {
+		return false
+	}
+	// 查询 p:timing 与 c:timing（命名空间在 doc 已绑定）。
+	for _, ns := range []string{nsPresentationML, "http://schemas.openxmlformats.org/drawingml/2006/main"} {
+		if len(doc.Elements(ns, "timing")) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// NotesPart 返回备注页 Part 名（如 "/ppt/notesSlides/notesSlide1.xml"）；
+// 页面无备注返回 ""。
+func (s *Slide) NotesPart() string {
+	if err := s.alive(); err != nil {
+		return ""
+	}
+	if name, ok := s.notesPartOf(); ok {
+		return string(name)
+	}
+	return ""
+}
+
 // partName 返回页面 Part 名（OPC 风格）。当前仅库内部与测试使用；
 // 随 TEXT-01（段落/Run）扩展为公共能力。
 func (s *Slide) partName() (opc.PartName, error) {

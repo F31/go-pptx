@@ -26,7 +26,9 @@
 // （柱/折/饼）创建、ChartWorkbookBuilder 工作簿适配、缓存读取与
 // 受限 SetData（缓存与工作簿一致重建）；页面复制（CLONE-01）——
 // 同文档受限克隆（依赖闭包 + Part 映射 + 关系重写，图表数据隔离，
-// 未知关系整体拒绝）。
-// 待真实语料后的 M2 闭环一验收与 M4 配音功能包。
+// 未知关系整体拒绝）；CLI 与 IR（TOOL-01）——只读中间表示
+// ir.FromPresentation（schemaVersion="go-pptx.ir/1.0"，不嵌入媒体）
+// 与 cmd/pptx 六子命令（inspect / validate / replace / narrate /
+// timing-plan / export-ir；统一退出码 0/1/2/3/4，§23.2）。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx
