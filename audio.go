@@ -76,6 +76,10 @@ type AudioShape struct {
 	profile AudioProfile // 嵌入时的 Profile（AddAudio 写入；UpsertNarration 复用更新）
 }
 
+// Kind 返回形状类别：恒为 ShapeAudio（classifyShape 在读取时按
+// blipFill 子树 a:audioFile 命中此值）。
+func (a *AudioShape) Kind() ShapeKind { return ShapeAudio }
+
 // Role 返回音频角色。
 func (a *AudioShape) Role() AudioRole { return a.role }
 

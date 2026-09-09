@@ -111,8 +111,10 @@ type clonePlan struct {
 	allocSeq  map[string]int
 	allocUsed map[opc.PartName]bool
 
-	profileAdds  []AudioProfile
-	profileTaken map[string]bool
+	profileAdds   []AudioProfile
+	profileTaken  map[string]bool
+	profileAddsV  []VideoProfile
+	profileTakenV map[string]bool
 }
 
 // buildClonePlan 遍历依赖闭包并构造复制计划。本阶段只读：任何拒绝都
@@ -144,6 +146,7 @@ func (p *Presentation) buildClonePlan(s *Slide, policy ClonePolicy) (*clonePlan,
 		allocSeq:         map[string]int{},
 		allocUsed:        map[opc.PartName]bool{},
 		profileTaken:     p.allAudioTrackKeys(),
+		profileTakenV:    p.allVideoTrackKeys(),
 	}
 	// 源页 Part 必须在当前读视图存在。
 	if !p.hasPartCurrent(plan.src) {
@@ -163,6 +166,21 @@ func (p *Presentation) buildClonePlan(s *Slide, policy ClonePolicy) (*clonePlan,
 			np.MediaPart = dstM
 		}
 		plan.profileAdds = append(plan.profileAdds, np)
+	}
+	// 库创建视频的 Profile 克隆（派生 TrackKey、指向目标页；独立媒体时同步重映射）。
+	for _, vp := range p.videoProfilesOfSlide(plan.src) {
+		np := vp
+		np.TrackKey = uniqueTrackKey(vp.TrackKey+"-c", plan.profileTakenV)
+		np.SlidePart = plan.dst
+		if dstM, hit := plan.remap[vp.MediaPart]; hit {
+			np.MediaPart = dstM
+		}
+		if vp.PosterPart != "" {
+			if dstM, hit := plan.remap[vp.PosterPart]; hit {
+				np.PosterPart = dstM
+			}
+		}
+		plan.profileAddsV = append(plan.profileAddsV, np)
 	}
 	return plan, nil
 }
@@ -510,6 +528,12 @@ func (p *Presentation) applyClonePlan(plan *clonePlan) error {
 			return err
 		}
 	}
+	// 5) 库创建视频的 Profile 追加（同一事务）。
+	if len(plan.profileAddsV) > 0 {
+		if err := p.stageAppendVideoProfiles(plan.profileAddsV); err != nil {
+			return err
+		}
+	}
 	committed = true
 	p.commit()
 	return nil
@@ -613,6 +637,81 @@ func (p *Presentation) allAudioTrackKeys() map[string]bool {
 		}
 	}
 	return taken
+}
+
+// stageAppendVideoProfiles 把派生 Profile 追加到 /docProps/video.xml（同事务生效）。
+func (p *Presentation) stageAppendVideoProfiles(adds []VideoProfile) error {
+	const partName opc.PartName = "/docProps/video.xml"
+	b, err := p.partBytes(partName)
+	if err != nil {
+		return &OperationError{Op: "clone.profiles", Part: string(partName),
+			Message: "video profile part disappeared", Err: err}
+	}
+	idx := bytes.Index(b, []byte("</VideoProfiles>"))
+	if idx < 0 {
+		return &OperationError{Op: "clone.profiles", Part: string(partName),
+			Message: "video profile part is malformed (no closing root)", Err: ErrMalformedPackage}
+	}
+	var buf bytes.Buffer
+	buf.Write(b[:idx])
+	for _, prof := range adds {
+		buf.WriteString("<Profile " + videoProfileXMLAttrs(prof) + "/>")
+	}
+	buf.Write(b[idx:])
+	return p.stagePatch(partName, buf.Bytes())
+}
+
+// allVideoTrackKeys 返回文档内全部已用 TrackKey（视频 Profile 派生键去重用）。
+func (p *Presentation) allVideoTrackKeys() map[string]bool {
+	taken := map[string]bool{}
+	const partName opc.PartName = "/docProps/video.xml"
+	b, err := p.partBytes(partName)
+	if err != nil {
+		return taken
+	}
+	doc, err := xmlstore.Index(b)
+	if err != nil {
+		return taken
+	}
+	root := doc.Root()
+	if root == nil {
+		return taken
+	}
+	for _, id := range root.Children {
+		n := doc.Node(id)
+		if n == nil {
+			continue
+		}
+		if vp, ok := parseVideoProfile(n); ok {
+			taken[vp.TrackKey] = true
+		}
+	}
+	return taken
+}
+
+// videoProfilesOfSlide 返回挂在指定 slide 上的全部 VideoProfile。
+func (p *Presentation) videoProfilesOfSlide(slide opc.PartName) []VideoProfile {
+	const partName opc.PartName = "/docProps/video.xml"
+	b, err := p.partBytes(partName)
+	if err != nil {
+		return nil
+	}
+	doc, err := xmlstore.Index(b)
+	if err != nil {
+		return nil
+	}
+	root := doc.Root()
+	var out []VideoProfile
+	for _, id := range root.Children {
+		n := doc.Node(id)
+		if n == nil {
+			continue
+		}
+		if vp, ok := parseVideoProfile(n); ok && vp.SlidePart == slide {
+			out = append(out, vp)
+		}
+	}
+	return out
 }
 
 // uniqueTrackKey 在 taken 约束下生成唯一派生键：base、base-1、base-2…

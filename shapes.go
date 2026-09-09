@@ -45,6 +45,12 @@ const (
 	ShapeTable
 	// ShapeChart 是引用 chart Part 的 p:graphicFrame（CHART-01）。
 	ShapeChart
+	// ShapeAudio 是含 a:audioFile 的 p:pic（AUDIO-01）。读取时按
+	// blipFill 子树探测；AddAudio 写时也命中此值。
+	ShapeAudio
+	// ShapeVideo 是含 p:videoFile 的 p:pic（VIDEO-01）。读取时按
+	// blipFill 子树探测；AddVideo 写时也命中此值。
+	ShapeVideo
 	// ShapeOpaque 是未知或未支持的形状容器。
 	ShapeOpaque
 )
@@ -67,6 +73,10 @@ func (k ShapeKind) String() string {
 		return "table"
 	case ShapeChart:
 		return "chart"
+	case ShapeAudio:
+		return "audio"
+	case ShapeVideo:
+		return "video"
 	case ShapeOpaque:
 		return "opaque"
 	}
@@ -474,10 +484,20 @@ func (s *Slide) Placeholders() ([]*Placeholder, error) {
 }
 
 // classifyShape 按元素类别返回形状句柄。
+//
+// p:pic 在 blipFill 子树内探测 a:audioFile/p:videoFile 区分视频/音频/
+// 图片三类；其它元素按容器类别。视频与音频独立分类便于读取侧区分
+// （AUDIO-01 / VIDEO-01 E 档；M6 后续切分若需更细行为，再细化）。
 func classifyShape(p *Presentation, part opc.PartName, doc *xmlstore.XMLDocument, el *xmlstore.NodeRecord) Shape {
 	path := recordPath(doc, el.ID)
 	switch el.Local() {
 	case "pic":
+		switch picMediaKind(doc, el) {
+		case "video":
+			return &VideoShape{shapeNode: shapeNode{p: p, part: part, path: path}}
+		case "audio":
+			return &AudioShape{shapeNode: shapeNode{p: p, part: part, path: path}, role: findRoleForAudio(el, doc)}
+		}
 		return &PictureShape{shapeNode: shapeNode{p: p, part: part, path: path}}
 	case "sp":
 		return &AutoShape{shapeNode: shapeNode{p: p, part: part, path: path}}
@@ -497,6 +517,24 @@ func classifyShape(p *Presentation, part opc.PartName, doc *xmlstore.XMLDocument
 		return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeGraphicFrame}
 	}
 	return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeOpaque}
+}
+
+// picMediaKind 返回 pic 内 blipFill 子树的媒体类别（"video"/"audio"/""）。
+// 返回 "" 表示普通图片或未探测。
+func picMediaKind(doc *xmlstore.XMLDocument, pic *xmlstore.NodeRecord) string {
+	for _, cid := range pic.Children {
+		c := doc.Node(cid)
+		if c == nil || c.Namespace != nsPresentationML || c.Local() != "blipFill" {
+			continue
+		}
+		if childOfKind(doc, c, nsPresentationML, "videoFile", 0) != nil {
+			return "video"
+		}
+		if childOfKind(doc, c, nsDrawingML, "audioFile", 0) != nil {
+			return "audio"
+		}
+	}
+	return ""
 }
 
 // ---------- GroupShape ----------

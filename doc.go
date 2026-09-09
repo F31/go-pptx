@@ -33,5 +33,8 @@
 // 过渡动画（ANIM-02，M6 首项）——p:transition 受限白名单
 // （none/fade/push/wipe/split/cover/cut/dissolve）、容器属性 spd 与
 // advClick、p14:morph 整体拒绝、与 p:timing 共存不破坏 timing 树。
+// 视频形状（VIDEO-01，M6 第二项）——Slide.AddVideo 嵌入 MP4/WebM
+// 视频 Part + video 关系 + p:pic/p:blipFill/p:videoFile 片段；
+// VideoProfile 落 /docProps/video.xml；可选 PosterFrame 叠加占位图片。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx
