@@ -29,6 +29,9 @@
 // 未知关系整体拒绝）；CLI 与 IR（TOOL-01）——只读中间表示
 // ir.FromPresentation（schemaVersion="go-pptx.ir/1.0"，不嵌入媒体）
 // 与 cmd/pptx 六子命令（inspect / validate / replace / narrate /
-// timing-plan / export-ir；统一退出码 0/1/2/3/4，§23.2）。
+// timing-plan / export-ir；统一退出码 0/1/2/3/4，§23.2）；
+// 过渡动画（ANIM-02，M6 首项）——p:transition 受限白名单
+// （none/fade/push/wipe/split/cover/cut/dissolve）、容器属性 spd 与
+// advClick、p14:morph 整体拒绝、与 p:timing 共存不破坏 timing 树。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx

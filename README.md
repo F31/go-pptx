@@ -48,6 +48,7 @@
 - [x] CHART-01（M5 首项）：受限三类图表（柱/折/饼）——`Slide.AddChart` 创建 chart Part + 嵌入工作簿 + 双侧关系 + graphicFrame；`ChartWorkbookBuilder` 可替换工作簿适配接口（默认纯 Go 最小 xlsx，inlineStr，无第三方依赖）；`ChartShape.Data()` 读取缓存（标题/类别/系列，支持 strRef/numRef/字面量与组合图取首组）；`SetData` 受限数据更新——缓存与工作簿同数据快照重建保证一致（AT-10 代码级等价），仅规范布局可编辑（外部/被改写图表 ErrUnsupportedEdit 拒绝部分合并，类型不可变更）
 - [x] CLONE-01（M5）：同文档受限页面复制 `Slide.Clone(ClonePolicy)`——依赖闭包遍历（remap visited 防循环）、版式/母版复用、图表+嵌入工作簿**总是独立复制**（数据隔离金样）、媒体默认共享/可策略独立、外部关系逐字节保留、未知内部关系整体拒绝（ErrUnsupportedEdit，AT-13 同文档口径，零残留）；rId 保留 + Target 仅重写被克隆 Part、ShapeID/timing 节点 ID 页内作用域恒等成立；notesSlide 克隆并回引重写、AudioProfile 派生 TrackKey 落新页；验证与暂存两阶段 + 单事务提交（失败恢复暂存区）
 - [x] TOOL-01（M5 收口）：**ir 包** 只读中间表示（schemaVersion="go-pptx.ir/1.0"，不嵌入媒体二进制，FromPresentation 投影核心属性、页面顺序、形状摘要与 Chart/Table/AutoShape 文本，**Unmarshal 严格 schemaVersion 校验**）+ **CLI 二进制**（cmd/pptx）：inspect / validate / replace / narrate / timing-plan / export-ir 六子命令；统一退出码 0/1/2/3/4（§23.2）；JSON 写 stdout 日志写 stderr；写命令要求 `--output`、明确 `--overwrite` 才覆盖；tracks.json schemaVersion 校验（"go-pptx.tracks/1.0"）；只读命令拒绝 `--output`
+- [x] **ANIM-02（M6 首项）**：受限过渡动画基础子集——`Slide.Transition()/SetTransition(TransitionSpec)/RemoveTransition()`；白名单 8 个过渡类型（none/fade/push/wipe/split/cover/cut/dissolve）+ 容器属性 spd（slow/med/fast）+ advClick（指针 *bool 区分默认/显式关闭）+ advTm（由 SetAdvanceAfter 维护，SetTransition 保留不覆盖）；`p:transition` 子元素仅识别白名单，p14:morph 等未支持子元素整体拒绝 ErrUnsupportedEdit（不做部分合并）；新建容器按 CT_Slide 子元素序插在 cSld/clrMapOvr 之后、timing 之前；与 p:timing 树共存不破坏 timing
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
 
