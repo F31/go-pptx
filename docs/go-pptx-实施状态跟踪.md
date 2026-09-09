@@ -76,7 +76,7 @@
 | CHART-01 | 受限图表与数据源适配 | M5 | 已完成（代码+单测：AT-10 代码级等价（缓存/工作簿一致）；真实客户端"可编辑"冒烟待语料） |
 | CLONE-01 | 同文档受限复制 | M5 | 已完成（代码+单测：数据隔离金样与未知关系拒绝通过；跨文档复制属 M6） |
 | TOOL-01 | CLI 与 IR | M5 | 已完成（代码+单测：ir 包 schemaVersion 独立、cmd/pptx 六子命令统一退出码 0/1/2/3/4、只读约束与 --overwrite 开关、tracks.json schemaVersion 校验；交叉构建 WASM/Linux CGO=0） |
-| GEOM-02/STYLE-02/LAYOUT-01/ANIM-02/VIDEO-01/CHART-02/TEXT-03 | M6 扩展七包 | M6 | 未开始 |
+| GEOM-02/STYLE-02/LAYOUT-01/ANIM-02/VIDEO-01/CHART-02/TEXT-03 | M6 扩展七包 | M6 | **排序输入已登记** docs/M6-排序输入.md（预排 ANIM-02 → VIDEO-01 → TEXT-03 → CHART-02 → LAYOUT-01 → STYLE-02 → GEOM-02，§2.3+§12 候选锚定，待语料回填） |
 | CAP-01/TIMIR-01/TPL-01/TOOL-02 | M7 创新 I | M7 | 未开始 |
 | DIFF-01 | M8 创新 II | M8 | 未开始 |
 | QA-01 | 语料、fuzz、兼容报告 | 持续 | 进行中（模板已建） |
