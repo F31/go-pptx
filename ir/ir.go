@@ -104,15 +104,19 @@ type Page struct {
 
 // Shape 是单个形状的只读摘要。
 type Shape struct {
-	ID         pptx.ShapeID `json:"id"`
-	Name       string       `json:"name,omitempty"`
-	Kind       string       `json:"kind"`
-	AltText    string       `json:"altText,omitempty"`
-	Decorative bool         `json:"decorative,omitempty"`
-	Bounds     *Box         `json:"bounds,omitempty"`
-	WorldBox   *Box         `json:"worldBox,omitempty"`
-	Text       string       `json:"text,omitempty"`
-	Children   []Shape      `json:"children,omitempty"`
+	ID   pptx.ShapeID `json:"id"`
+	Name string       `json:"name,omitempty"`
+	Kind string       `json:"kind"`
+	// NodePath 是形状在所属 Part 内的元素路径（形如
+	// p:sld/p:cSld/p:spTree/p:sp[2]）——DIFF-01 报告据此回溯到
+	// Part/NodePath（设计 §18.3）。句柄失效时为空。
+	NodePath   string  `json:"nodePath,omitempty"`
+	AltText    string  `json:"altText,omitempty"`
+	Decorative bool    `json:"decorative,omitempty"`
+	Bounds     *Box    `json:"bounds,omitempty"`
+	WorldBox   *Box    `json:"worldBox,omitempty"`
+	Text       string  `json:"text,omitempty"`
+	Children   []Shape `json:"children,omitempty"`
 	// Chart 专属字段（ShapeChart）。
 	ChartType string `json:"chartType,omitempty"`
 	// Table 专属字段（ShapeTable）。
@@ -376,6 +380,7 @@ func shapeSummary(sh pptx.Shape) Shape {
 		ID:         sh.ID(),
 		Name:       sh.Name(),
 		Kind:       sh.Kind().String(),
+		NodePath:   sh.NodePath(),
 		AltText:    sh.AltText(),
 		Decorative: sh.IsDecorative(),
 	}

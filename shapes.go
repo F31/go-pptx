@@ -3,6 +3,7 @@ package pptx
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -93,6 +94,12 @@ func (k ShapeKind) String() string {
 type Shape interface {
 	// ID 返回形状标识（p:cNvPr@id）；无 cNvPr 时返回 0。
 	ID() ShapeID
+	// NodePath 返回形状在所属 Part 内的元素路径（形如
+	// p:sld/p:cSld/p:spTree/p:sp[2]），用于诊断定位与 DIFF-01 的
+	// Part/NodePath 回溯（设计 §18.3 / §24 DIFF-01 验收）。句柄失效
+	// 或 Part 不可读时返回空串——不返回错误，避免诊断路径成为
+	// 报告生成的失败源。
+	NodePath() string
 	// Name 返回形状名称（p:cNvPr@name）；未命名返回空串。
 	Name() string
 	// Kind 返回形状类别。
@@ -234,6 +241,33 @@ func (s *shapeNode) ID() ShapeID {
 }
 
 // Name 返回形状名称（p:cNvPr@name）。
+// NodePath 渲染句柄路径为 "p:sld/p:cSld/p:spTree/p:sp[2]" 形态。
+//
+// 前缀按命名空间映射（PresentationML→p，DrawingML→a，其余用本地名）；
+// [n] 为同名兄弟中的 0 基序号。句柄路径为空（根元素）返回空串。
+func (s *shapeNode) NodePath() string {
+	if s == nil || len(s.path) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, st := range s.path {
+		if i > 0 {
+			b.WriteByte('/')
+		}
+		switch st.ns {
+		case nsPresentationML:
+			b.WriteString("p:")
+		case nsDrawingML:
+			b.WriteString("a:")
+		}
+		b.WriteString(st.local)
+		b.WriteByte('[')
+		b.WriteString(intString(st.nth))
+		b.WriteByte(']')
+	}
+	return b.String()
+}
+
 func (s *shapeNode) Name() string {
 	doc, el, err := s.locate()
 	if err != nil {

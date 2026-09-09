@@ -83,9 +83,9 @@
 // Preserve/Render/Play × Supported/Partial/Unsupported/Untested，与
 // SaveReport 同事实来源）；CapabilityFeature 对应 §24 一行工作包 + §2.3
 // 一行特性（矩阵↔工作包追溯不断）；schemaVersion="go-pptx.capability/1.0"
-// （独立于 SDK 版本）；未落地工作包（TPL-01/DIFF-01）显式 Untested，
-// 已落地但有已知限制的工作包（TOOL-02/TIMIR-01）标 Partial 并在
-// Limits 登记；`pptx capability` CLI 入口（§23.2，CAP-01）。
+// （独立于 SDK 版本）；已落地但有已知限制的工作包
+// （TOOL-02/TIMIR-01/TPL-01/DIFF-01）标 Partial 并在 Limits 登记；
+// `pptx capability` CLI 入口（§23.2，CAP-01）。
 // WASM 浏览器端检查工具（TOOL-02，M7 第二项）——`wasm/check` 包导出
 // 纯函数 Inspect/Capability/Validate（统一返回带 ok/error envelope 的
 // JSON 字符串，便于 wasm/js 边界消费）；`cmd/pptx_check` WASM 主入口
@@ -108,5 +108,12 @@
 // 动画目标 Target）；未识别子元素输出 OpaqueNode 并计入诊断（不猜
 // 测、不省略）。R 档——不提供动画编辑 API；估计值 Duration 不承诺与
 // Office 客户端播放帧一致，且不得作为 AdvanceAfter 计算输入（§21.5）。
+// 语义 diff 与审计（DIFF-01，M8 首项，方案 §18.3 / §24）——ir.Diff
+// 以 IR 为输入视图比较两份文档：页面对齐用加权 LCS（SlideID 强匹配 /
+// 形状 ID Jaccard 相似度，乱序残留二次配对），页内形状按 ShapeID 配对
+// 逐字段比较（文本/几何/类型/名称/表格尺寸/图表类型，组递归），备注与
+// 动画时序摘要单独成项；未识别区域聚合为 opaque diff（Part + NodePath
+// 定位可回溯，不猜测内部变化）。报告 schemaVersion
+// "go-pptx.diff/1.0"；`pptx diff` CLI 入口（只读）。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx

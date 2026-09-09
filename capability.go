@@ -477,8 +477,13 @@ func populateCapabilityFeatures(m *CapabilityManifest) {
 		{
 			Key: "diff.semantic_audit", Name: "语义 diff 与审计",
 			Stage: "M8", TargetTier: "R", WorkPackage: "DIFF-01",
-			Status: StatusUntested,
-			Notes:  "依赖 TIMIR-01；未识别区域标记 opaque。",
+			Status: StatusPartial,
+			Notes:  "已落地（ir.Diff + pptx diff CLI）；构建在 IR 投影与 TIMIR-01 时序摘要之上。",
+			Limits: []string{
+				"页面对齐按 SlideID/形状 ID 相似度启发式，复杂重排可能报为删页+加页",
+				"未识别结构差异聚合为 opaque 摘要，不深入元素级",
+				"图表/媒体仅比较存在性与文件级摘要，不比较内部数据点",
+			},
 		},
 		{
 			Key: "rendering.native", Name: "原生渲染（Renderer 接口 + 高质量缩略图）",

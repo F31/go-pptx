@@ -124,14 +124,10 @@ func TestCapability_FutureWorkMarkedUntested(t *testing.T) {
 	m := p.Capability("")
 	for _, f := range m.Features {
 		switch f.WorkPackage {
-		case "DIFF-01":
-			if f.Status != StatusUntested {
-				t.Errorf("%s must be Untested until that WP ships, got %s (%s)",
-					f.WorkPackage, f.Status, f.Key)
-			}
-		case "TIMIR-01", "TPL-01":
-			// 已落地但有已知限制：Partial（TIMIR-01 空 childTnLst
-			// 边缘 case；TPL-01 行循环/图表绑定子集，见各自包注释）。
+		case "DIFF-01", "TIMIR-01", "TPL-01":
+			// 已落地但有已知限制：Partial（DIFF-01 页面对齐为启发式、
+			// 未识别区域聚合 opaque；TIMIR-01 空 childTnLst 边缘 case；
+			// TPL-01 行循环/图表绑定子集，见各自包注释）。
 			if f.Status != StatusPartial {
 				t.Errorf("%s must be Partial after shipping, got %s (%s)",
 					f.WorkPackage, f.Status, f.Key)
