@@ -85,5 +85,13 @@
 // 一行特性（矩阵↔工作包追溯不断）；schemaVersion="go-pptx.capability/1.0"
 // （独立于 SDK 版本）；未实现 M7/M8 工作包（TOOL-02/TIMIR-01/TPL-01/
 // DIFF-01）显式 Untested；`pptx capability` CLI 入口（§23.2，CAP-01）。
+// WASM 浏览器端检查工具（TOOL-02，M7 第二项）——`wasm/check` 包导出
+// 纯函数 Inspect/Capability/Validate（统一返回带 ok/error envelope 的
+// JSON 字符串，便于 wasm/js 边界消费）；`cmd/pptx_check` WASM 主入口
+// （仅 `js && wasm` 构建约束，syscall/js 注册 GoPptxCheck.{schemeVersion,
+// inspect, capability, validate}）；`wasm/site/{check.html,check.js,
+// wasm_exec.js,pptx_check.wasm,smoke.cjs}` 静态网页 UI 与 node.js
+// 烟雾测试；`scripts/check_wasm.{sh,ps1}` 构建脚本。文件不离开用户设备
+// ——无外网、无 CDN、无后端；离线加载即可使用（V2.6 §23.2 + §26）。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx

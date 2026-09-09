@@ -16,3 +16,7 @@ Thumbs.db
 # 运行期临时文件（保存链路会使用同目录临时文件）
 *.pptx.tmp
 *.tmp.pptx
+
+# WASM 站点（脚本构建时再生成；CI 与本地一致）
+/wasm/site/pptx_check.wasm
+/wasm/site/wasm_exec.js

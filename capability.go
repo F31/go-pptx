@@ -167,6 +167,24 @@ func newCapabilityManifest() CapabilityManifest {
 	}
 }
 
+// NewCapabilityManifest 是 newCapabilityManifest 的公共入口——wasm/check
+// 等复用此 API 构建默认能力报告而无需打开 Presentation。
+func NewCapabilityManifest() CapabilityManifest { return newCapabilityManifest() }
+
+// PopulateCapabilityDimensions 填充六维状态。公共入口，便于 WASM/CLI
+// 等所有需要展示能力维度的工具共享同一事实来源。
+func PopulateCapabilityDimensions(m *CapabilityManifest) { populateCapabilityDimensions(m) }
+
+// PopulateCapabilityFeatures 填充 2.3 矩阵的逐项状态。公共入口。
+func PopulateCapabilityFeatures(m *CapabilityManifest) { populateCapabilityFeatures(m) }
+
+// SortCapabilityFeatures 按 Key 字典序稳定排序 Feature 列表。公共入口。
+func SortCapabilityFeatures(m *CapabilityManifest) {
+	sort.SliceStable(m.Features, func(i, j int) bool {
+		return m.Features[i].Key < m.Features[j].Key
+	})
+}
+
 // SDKVersion 由链接器注入（-ldflags '-X github.com/F31/go-pptx.SDKVersion=v0.x.y'）。
 // 留空时 Capability() 默认 "dev"；CI 发布构建要求注入且与 git tag 一致。
 var SDKVersion = ""

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>go-pptx 浏览器检查工具（TOOL-02）</title>
+	<style>
+		:root {
+			color-scheme: light dark;
+			--bg: #fafafa;
+			--fg: #1a1a1a;
+			--card: #ffffff;
+			--border: #d4d4d4;
+			--muted: #6e6e6e;
+			--accent: #0d6efd;
+			--warn: #b58800;
+			--error: #c62828;
+			--ok: #2e7d32;
+		}
+		@media (prefers-color-scheme: dark) {
+			:root {
+				--bg: #161616;
+				--fg: #e8e8e8;
+				--card: #1f1f1f;
+				--border: #3a3a3a;
+				--muted: #9a9a9a;
+				--accent: #4ca0ff;
+				--warn: #f7c948;
+				--error: #ff6b6b;
+				--ok: #66bb6a;
+			}
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft Yahei", sans-serif;
+			background: var(--bg);
+			color: var(--fg);
+			padding: 24px;
+			max-width: 980px;
+			margin: 0 auto;
+		}
+		h1 { margin: 0 0 8px; font-size: 22px; }
+		h2 { margin: 24px 0 8px; font-size: 16px; }
+		.meta { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
+		.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+		input[type=file] { color: var(--fg); }
+		button {
+			background: var(--accent); color: white; border: 0; border-radius: 4px;
+			padding: 8px 14px; cursor: pointer; margin-right: 8px; font-size: 13px;
+		}
+		button:disabled { opacity: 0.5; cursor: not-allowed; }
+		button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--border); }
+		pre {
+			background: rgba(0,0,0,0.04); border-radius: 4px; padding: 12px; overflow-x: auto;
+			white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.4;
+		}
+		@media (prefers-color-scheme: dark) {
+			pre { background: rgba(255,255,255,0.06); }
+		}
+		.tag { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px; }
+		.tag-Supported { background: rgba(46,125,50,0.15); color: var(--ok); }
+		.tag-Partial { background: rgba(245,124,0,0.15); color: #ef6c00; }
+		.tag-Untested { background: rgba(0,0,0,0.08); color: var(--muted); }
+		.tag-Unsupported { background: rgba(198,40,40,0.15); color: var(--error); }
+		.dim-grid { display: grid; grid-template-columns: 100px 90px 1fr; gap: 8px 12px; align-items: baseline; }
+		.dim-key { font-weight: 600; }
+		.dim-status { font-size: 12px; }
+		.warn { color: var(--warn); }
+		.error { color: var(--error); }
+		.ok { color: var(--ok); }
+		.privacy {
+			border-left: 3px solid var(--accent);
+			padding: 8px 12px;
+			background: rgba(13,110,253,0.06);
+			border-radius: 4px;
+			margin: 12px 0;
+		}
+	</style>
+</head>
+<body>
+	<h1>go-pptx 浏览器检查工具</h1>
+	<div class="meta">
+		TOOL-02（WASM 静态网页检查工具；§23.2 + §2.4 创新方向）——
+		<span id="sdkVersion">loading…</span> · schemaVersion <code id="schemaVersion">go-pptx.capability/v</code>
+	</div>
+
+	<div class="privacy">
+		<strong>隐私承诺：</strong>所有解析在本机浏览器中完成，文件不离开您的设备。
+		无任何后端、无上传、无 CDN 依赖——打开本页后断网仍可使用。
+	</div>
+
+	<div class="card">
+		<h2>① 选择 PPTX 文件</h2>
+		<input type="file" id="fileInput" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation">
+		<div class="meta" id="fileMeta" style="margin-top:8px"></div>
+		<button id="inspectBtn" disabled>Inspect</button>
+		<button id="validateBtn" disabled>Validate</button>
+		<button id="capabilityBtn">Capability（不需文件）</button>
+		<button id="clearBtn" class="secondary">清空</button>
+	</div>
+
+	<div class="card" id="result" style="display:none">
+		<h2>② 检查结果</h2>
+		<div class="meta" id="resultMeta"></div>
+		<pre id="resultJSON"></pre>
+	</div>
+
+	<div class="card" id="errorCard" style="display:none">
+		<h2 class="error">错误</h2>
+		<pre id="errorText"></pre>
+	</div>
+
+	<footer class="meta">
+		构建信息：wasm=<code id="wasmSize">…</code> · wasm_exec=<code id="execSize">…</code> —
+		完整加载即可离线使用；reset 时清空全部状态（不会缓存到 localStorage）。
+	</footer>
+
+	<script src="wasm_exec.js"></script>
+	<script src="check.js"></script>
+</body>
+</html>
