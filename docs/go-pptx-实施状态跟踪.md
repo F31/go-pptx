@@ -87,6 +87,6 @@
 | CLONE-01 | 同文档受限复制 | M5 | 已完成（代码+单测：数据隔离金样与未知关系拒绝通过；跨文档复制属 M6） |
 | TOOL-01 | CLI 与 IR | M5 | 已完成（代码+单测：ir 包 schemaVersion 独立、cmd/pptx 六子命令统一退出码 0/1/2/3/4、只读约束与 --overwrite 开关、tracks.json schemaVersion 校验；交叉构建 WASM/Linux CGO=0） |
 | GEOM-02/STYLE-02/LAYOUT-01/ANIM-02/VIDEO-01/CHART-02/TEXT-03 | M6 扩展七包 | M6 | **七包全部完成**（ANIM-02/VIDEO-01/TEXT-03/CHART-02/LAYOUT-01/STYLE-02/GEOM-02 按预排 ANIM-02→VIDEO-01→TEXT-03→CHART-02→LAYOUT-01→STYLE-02→GEOM-02 落地） |
-| CAP-01/TIMIR-01/TPL-01/TOOL-02 | M7 创新 I | M7 | **CAP-01 + TOOL-02 已完成**（能力 manifest + `pptx capability` CLI + WASM 编译目标 + 浏览器端只读检查工具 + 离线静态网页 + node.js 烟雾测试 + 构建脚本）；余下两项 TIMIR-01 / TPL-01 待启动 |
+| CAP-01/TIMIR-01/TPL-01/TOOL-02 | M7 创新 I | M7 | **CAP-01 + TOOL-02 + TIMIR-01 已完成（前三项）**（能力 manifest + `pptx capability` CLI + WASM 编译目标 + 浏览器端只读检查工具 + 离线静态网页 + node.js 烟雾测试 + 构建脚本 + 动画时序只读 IR）；余下 TPL-01 待启动 |
 | DIFF-01 | M8 创新 II | M8 | 未开始 |
 | QA-01 | 语料、fuzz、兼容报告 | 持续 | 进行中（模板已建） |

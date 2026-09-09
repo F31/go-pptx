@@ -89,14 +89,17 @@ type Core struct {
 
 // Page 是单页 IR 视图。
 type Page struct {
-	Index       int          `json:"index"`
-	SlideID     pptx.SlideID `json:"slideID"`
-	Part        string       `json:"part"`
-	Name        string       `json:"name,omitempty"`
-	Shapes      []Shape      `json:"shapes"`
-	NotesText   string       `json:"notesText,omitempty"`
-	HasTiming   bool         `json:"hasTiming,omitempty"`
-	Diagnostics Diagnostics  `json:"diagnostics,omitempty"`
+	Index     int          `json:"index"`
+	SlideID   pptx.SlideID `json:"slideID"`
+	Part      string       `json:"part"`
+	Name      string       `json:"name,omitempty"`
+	Shapes    []Shape      `json:"shapes"`
+	NotesText string       `json:"notesText,omitempty"`
+	HasTiming bool         `json:"hasTiming,omitempty"`
+	// Timing 是 PageTiming 投影（TIMIR-01）。当 IncludeTimingIR=false 或
+	// 页无 timing 时为空。
+	Timing      *PageTiming `json:"timing,omitempty"`
+	Diagnostics Diagnostics `json:"diagnostics,omitempty"`
 }
 
 // Shape 是单个形状的只读摘要。
@@ -132,6 +135,8 @@ type Options struct {
 	// IncludeTimingNode 仅在 HasTiming=true 时置位；本页是否含任何 timing
 	// 子树（不做投影，TIMIR-01）。
 	IncludeTimingNode bool
+	// IncludeTimingIR 控制是否把 p:timing 投影为 PageTiming（TIMIR-01）。
+	IncludeTimingIR bool
 }
 
 // DefaultOptions 默认 IR 投影参数。
@@ -139,6 +144,7 @@ func DefaultOptions() Options {
 	return Options{
 		IncludeNotes:      true,
 		IncludeTimingNode: true,
+		IncludeTimingIR:   true,
 	}
 }
 
@@ -261,6 +267,27 @@ func projectPage(p *pptx.Presentation, s *pptx.Slide, idx int, opts Options) (Pa
 	}
 	if opts.IncludeTimingNode {
 		page.HasTiming = s.HasTiming()
+	}
+	if opts.IncludeTimingIR && page.HasTiming {
+		raw, _, err := s.TimingTreeRaw()
+		if err != nil {
+			page.Diagnostics = append(page.Diagnostics, Diagnostic{
+				Code: "IR_TIMING_READ", Severity: SevWarning,
+				Part:    s.PartName(),
+				Message: err.Error(),
+			})
+		} else if len(raw) > 0 {
+			pt, perr := projectTimingTree(s.PartName(), raw)
+			if perr != nil {
+				page.Diagnostics = append(page.Diagnostics, pt.Diagnostics...)
+				// Parse 失败但仍能透出诊断；不让 IR 整体失败。
+			} else {
+				page.Timing = &pt
+				if len(pt.Diagnostics) > 0 {
+					page.Diagnostics = append(page.Diagnostics, pt.Diagnostics...)
+				}
+			}
+		}
 	}
 	return page, nil
 }

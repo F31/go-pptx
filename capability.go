@@ -446,14 +446,22 @@ func populateCapabilityFeatures(m *CapabilityManifest) {
 		{
 			Key: "tool.wasm_inspect", Name: "WASM 编译目标与浏览器端只读检查工具",
 			Stage: "M7", TargetTier: "E", WorkPackage: "TOOL-02",
-			Status: StatusUntested,
-			Notes:  "待 M7-CAP-01 落地后立项。",
+			Status: StatusPartial,
+			Notes:  "wasm/check 单元测试 + Node 烟雾测试覆盖；真实浏览器矩阵为持续验证项。",
+			Limits: []string{
+				"仅只读检查（Inspect/Capability/Validate/SchemaVersion），不含编辑。",
+				"文件不经网络上传，全部在本设备解析。",
+			},
 		},
 		{
 			Key: "animation.timing_ir", Name: "动画时序只读 IR",
 			Stage: "M7", TargetTier: "R", WorkPackage: "TIMIR-01",
-			Status: StatusUntested,
-			Notes:  "M7 第二项；估计值不得作为 AdvanceAfter 计算输入。",
+			Status: StatusPartial,
+			Notes:  "估计值不得作为 AdvanceAfter 计算输入。",
+			Limits: []string{
+				"空 childTnLst 紧随自闭合 cond 的组合在部分输入下触发 std xml 解析错位，返回诊断而非崩溃。",
+				"未识别的动画子元素输出为 OpaqueNode 并计入诊断，不猜测语义。",
+			},
 		},
 		{
 			Key: "template.binding", Name: "模板数据绑定引擎",

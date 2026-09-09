@@ -83,8 +83,9 @@
 // Preserve/Render/Play × Supported/Partial/Unsupported/Untested，与
 // SaveReport 同事实来源）；CapabilityFeature 对应 §24 一行工作包 + §2.3
 // 一行特性（矩阵↔工作包追溯不断）；schemaVersion="go-pptx.capability/1.0"
-// （独立于 SDK 版本）；未实现 M7/M8 工作包（TOOL-02/TIMIR-01/TPL-01/
-// DIFF-01）显式 Untested；`pptx capability` CLI 入口（§23.2，CAP-01）。
+// （独立于 SDK 版本）；未落地工作包（TPL-01/DIFF-01）显式 Untested，
+// 已落地但有已知限制的工作包（TOOL-02/TIMIR-01）标 Partial 并在
+// Limits 登记；`pptx capability` CLI 入口（§23.2，CAP-01）。
 // WASM 浏览器端检查工具（TOOL-02，M7 第二项）——`wasm/check` 包导出
 // 纯函数 Inspect/Capability/Validate（统一返回带 ok/error envelope 的
 // JSON 字符串，便于 wasm/js 边界消费）；`cmd/pptx_check` WASM 主入口
@@ -93,5 +94,12 @@
 // wasm_exec.js,pptx_check.wasm,smoke.cjs}` 静态网页 UI 与 node.js
 // 烟雾测试；`scripts/check_wasm.{sh,ps1}` 构建脚本。文件不离开用户设备
 // ——无外网、无 CDN、无后端；离线加载即可使用（V2.6 §23.2 + §26）。
+// 动画时序只读 IR（TIMIR-01，M7 第三项，方案 §21.5）——
+// Slide.TimingTreeRaw() 返回 p:timing 原始字节；ir 包把 p:timing →
+// tnLst → par/cTn 树投影为只读时序 IR（PageTiming/TimingNode：Kind
+// 并行/序列/cTn/audio/video/cmd/anim/set/opaque，触发条件 Begin/End，
+// 动画目标 Target）；未识别子元素输出 OpaqueNode 并计入诊断（不猜
+// 测、不省略）。R 档——不提供动画编辑 API；估计值 Duration 不承诺与
+// Office 客户端播放帧一致，且不得作为 AdvanceAfter 计算输入（§21.5）。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx

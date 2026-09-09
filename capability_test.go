@@ -124,10 +124,17 @@ func TestCapability_FutureWorkMarkedUntested(t *testing.T) {
 	m := p.Capability("")
 	for _, f := range m.Features {
 		switch f.WorkPackage {
-		case "TOOL-02", "TIMIR-01", "TPL-01", "DIFF-01":
+		case "TPL-01", "DIFF-01":
 			if f.Status != StatusUntested {
 				t.Errorf("%s must be Untested until that WP ships, got %s (%s)",
 					f.WorkPackage, f.Status, f.Key)
+			}
+		case "TIMIR-01":
+			// TIMIR-01 已落地（M7 第三项）：Partial（空 childTnLst
+			// 边缘 case 以诊断报告，见 ir/timingir.go 包注释）。
+			if f.Status != StatusPartial {
+				t.Errorf("TIMIR-01 must be Partial after shipping, got %s (%s)",
+					f.Status, f.Key)
 			}
 		}
 	}
