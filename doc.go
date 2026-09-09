@@ -36,5 +36,10 @@
 // 视频形状（VIDEO-01，M6 第二项）——Slide.AddVideo 嵌入 MP4/WebM
 // 视频 Part + video 关系 + p:pic/p:blipFill/p:videoFile 片段；
 // VideoProfile 落 /docProps/video.xml；可选 PosterFrame 叠加占位图片。
+// 文本框高级项与字段全集（TEXT-03，M6 第三项）——a:bodyPr 的
+// numCol/vert/anchorCtr（BodyProps Optional 语义）；a:fld 白名单
+// 字段 slidenum/datetime（Paragraph.AppendField/InsertField/Fields/
+// Remove/SetText/Kind/Guide），未知字段类型与 datetime 未识别格式
+// 整体拒绝；Paragraph.Text() 拼接 a:fld 缓存文本。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx

@@ -290,31 +290,15 @@ func (p *Paragraph) locatePara() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, e
 	return doc, para, nil
 }
 
-// Text 返回本段落普通 Run 文本的拼接（a:r/a:t 按文档序）；a:br/a:fld
-// 暂不贡献内容（固定规则：仅普通 Run 计入；展示字段规则随 TEXT-02）。
+// Text 返回本段落普通 Run 与字段（a:fld）缓存文本的拼接（TEXT-03：
+// 字段展示规则固定为缓存文本嵌入；a:r/a:t 与 a:fld/a:t 按文档序拼接）。
+// a:br 不贡献文本。
 func (p *Paragraph) Text() (string, error) {
 	doc, para, err := p.locatePara()
 	if err != nil {
 		return "", Annotate(err, "Paragraph.Text")
 	}
-	var sb strings.Builder
-	for _, cid := range para.Children {
-		r := doc.Node(cid)
-		if r.Namespace != nsDrawingML || r.Local() != "r" {
-			continue
-		}
-		for _, tid := range r.Children {
-			tt := doc.Node(tid)
-			if tt.Namespace == nsDrawingML && tt.Local() == "t" {
-				raw := ""
-				if !tt.SelfClosing() {
-					raw = string(doc.Original()[tt.OpenEnd:tt.CloseStart])
-				}
-				sb.WriteString(xmlUnescape(raw))
-			}
-		}
-	}
-	return sb.String(), nil
+	return paragraphText(doc, para), nil
 }
 
 // Runs 返回段落内普通 Run（a:r）句柄切片（文档序；br/fld 等非普通
