@@ -103,15 +103,16 @@ func chartTypeFromPlot(local string) (ChartType, bool) {
 	return 0, false
 }
 
-// ChartSeries 是一个数据系列（名称 + 与类别等长的数值）。
-type ChartSeries struct {
-	// Name 是系列名（显示于图例与工作簿行 1）。
-	Name string
-	// Values 是数值（长度必须等于类别数）。
-	Values []float64
-}
-
 // ChartSpec 描述新增图表（单位：EMU）。Width/Height 必需（>0）。
+//
+// 扩展字段（CHART-02，R 档白名单）：
+//   - DataLabel：nil 或 Show=false 即不写图表级 <c:dLbls>（PowerPoint
+//     默认隐藏）；Show=true 时按 Position 白名单生成。
+//   - Axes：nil = 默认（categorical catAx + 线性 valAx）；非空可启用对
+//     数轴 / 日期类别轴 / 值轴 Min/Max。
+//
+// Series 内 ErrorBars/Trendline 由各 ChartSeries 自身携带，按 OOXML 序
+// 排在 c:tx 与 c:cat 之间。
 type ChartSpec struct {
 	Type       ChartType
 	Title      string
@@ -120,14 +121,33 @@ type ChartSpec struct {
 	X, Y       int64
 	Width      int64
 	Height     int64
+	DataLabel  *ChartDataLabel   // CHART-02：可选图表级数据标签
+	Axes       *ChartAxisOptions // CHART-02：可选轴扩展
+}
+
+// ChartSeries 是一个数据系列（名称 + 与类别等长的数值）。
+type ChartSeries struct {
+	// Name 是系列名（显示于图例与工作簿行 1）。
+	Name string
+	// Values 是数值（长度必须等于类别数）。
+	Values []float64
+	// ErrorBars：可选系列级误差线（CHART-02，CHART-01 不暴露）。
+	ErrorBars *ChartErrorBars
+	// Trendline：可选系列级趋势线（CHART-02，CHART-01 不暴露）。
+	Trendline *ChartTrendline
 }
 
 // ChartData 是图表数据的读写快照：Data() 的返回值与 SetData 的入参。
+//
+// 扩展字段（CHART-02）随读回的 Data()/SetData 往返：每条 Series 含指针
+// ErrorBars/Trendline，未设时为 nil；顶层 DataLabel/Axes 同理。
 type ChartData struct {
 	Type       ChartType
 	Title      string
 	Categories []string
 	Series     []ChartSeries
+	DataLabel  *ChartDataLabel
+	Axes       *ChartAxisOptions
 }
 
 // ChartShape 是页面图表（p:graphicFrame 引用 chart Part）的受控句柄。
@@ -237,6 +257,8 @@ func (s *Slide) AddChart(ctx context.Context, spec ChartSpec) (*ChartShape, erro
 		Title:      spec.Title,
 		Categories: spec.Categories,
 		Series:     spec.Series,
+		DataLabel:  spec.DataLabel,
+		Axes:       spec.Axes,
 	}
 	if err := validateChartData(cd, "Slide.AddChart"); err != nil {
 		return nil, err
@@ -382,6 +404,40 @@ func validateChartData(cd ChartData, op string) error {
 				}
 			}
 		}
+		if cd.Type == ChartPie {
+			if ser.ErrorBars != nil {
+				return &OperationError{
+					Op: op, Message: "series " + strconv.Itoa(i) + ": pie chart does not support error bars",
+					Err: ErrInvalidArgument,
+				}
+			}
+			if ser.Trendline != nil {
+				return &OperationError{
+					Op: op, Message: "series " + strconv.Itoa(i) + ": pie chart does not support trendlines",
+					Err: ErrInvalidArgument,
+				}
+			}
+		}
+		if ser.ErrorBars != nil {
+			if err := validateChartErrorBars(*ser.ErrorBars, op); err != nil {
+				return Annotate(err, "series "+strconv.Itoa(i)+".ErrorBars")
+			}
+		}
+		if ser.Trendline != nil {
+			if err := validateChartTrendline(*ser.Trendline, op); err != nil {
+				return Annotate(err, "series "+strconv.Itoa(i)+".Trendline")
+			}
+		}
+	}
+	if cd.DataLabel != nil {
+		if err := validateChartDataLabel(*cd.DataLabel, op); err != nil {
+			return Annotate(err, "ChartDataLabel")
+		}
+	}
+	if cd.Axes != nil {
+		if err := validateChartAxisOptions(*cd.Axes, op); err != nil {
+			return Annotate(err, "ChartAxisOptions")
+		}
 	}
 	return nil
 }
@@ -425,6 +481,21 @@ func buildChartSpaceXML(cd ChartData) (string, error) {
 			sb.WriteString(`<c:tx><c:strRef><c:f>` + nameRef + `</c:f>` +
 				`<c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>` + name + `</c:v></c:pt></c:strCache>` +
 				`</c:strRef></c:tx>`)
+			// CHART-02 系列级扩展：trendline + errBars，写在 c:tx 与 c:cat 之间。
+			if ser.Trendline != nil {
+				frag, err := buildTrendlineFragment(*ser.Trendline)
+				if err != nil {
+					return Annotate(err, "series "+strconv.Itoa(i)+".Trendline")
+				}
+				sb.WriteString(frag)
+			}
+			if ser.ErrorBars != nil {
+				frag, err := buildErrBarsFragment(*ser.ErrorBars)
+				if err != nil {
+					return Annotate(err, "series "+strconv.Itoa(i)+".ErrorBars")
+				}
+				sb.WriteString(frag)
+			}
 			sb.WriteString(`<c:cat><c:strRef><c:f>` + catRef + `</c:f>` +
 				`<c:strCache><c:ptCount val="` + strconv.Itoa(n) + `"/>`)
 			for j, cat := range cd.Categories {
@@ -450,11 +521,26 @@ func buildChartSpaceXML(cd ChartData) (string, error) {
 		return nil
 	}
 
+	// dLblsFragment 是 chart-level c:dLbls（按 OOXML 序插在图表组的
+	// 适当位置：barChart 在 ser* 与 gapWidth 之间；lineChart 在 ser* 与
+	// marker 之间；pieChart 在 ser* 与 firstSliceAng 之间）。
+	dLblsFragment := ""
+	if cd.DataLabel != nil && cd.DataLabel.Show {
+		frag, err := buildChartDataLabelFragment(*cd.DataLabel)
+		if err != nil {
+			return "", Annotate(err, "ChartDataLabel")
+		}
+		dLblsFragment = frag
+	}
+
 	switch cd.Type {
 	case ChartBar:
 		sb.WriteString(`<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>`)
 		if err := writeSer(); err != nil {
 			return "", err
+		}
+		if dLblsFragment != "" {
+			sb.WriteString(dLblsFragment)
 		}
 		sb.WriteString(`<c:gapWidth val="150"/>` +
 			`<c:axId val="` + strconv.Itoa(chartCatAxID) + `"/>` +
@@ -464,6 +550,9 @@ func buildChartSpaceXML(cd ChartData) (string, error) {
 		if err := writeSer(); err != nil {
 			return "", err
 		}
+		if dLblsFragment != "" {
+			sb.WriteString(dLblsFragment)
+		}
 		sb.WriteString(`<c:marker val="1"/>` +
 			`<c:axId val="` + strconv.Itoa(chartCatAxID) + `"/>` +
 			`<c:axId val="` + strconv.Itoa(chartValAxID) + `"/></c:lineChart>`)
@@ -472,17 +561,19 @@ func buildChartSpaceXML(cd ChartData) (string, error) {
 		if err := writeSer(); err != nil {
 			return "", err
 		}
+		if dLblsFragment != "" {
+			sb.WriteString(dLblsFragment)
+		}
 		sb.WriteString(`<c:firstSliceAng val="0"/></c:pieChart>`)
 	}
 	if cd.Type == ChartBar || cd.Type == ChartLine {
-		sb.WriteString(`<c:catAx><c:axId val="` + strconv.Itoa(chartCatAxID) + `"/>` +
-			`<c:scaling><c:orientation val="minMax"/></c:scaling>` +
-			`<c:delete val="0"/><c:axPos val="b"/>` +
-			`<c:crossAx val="` + strconv.Itoa(chartValAxID) + `"/></c:catAx>`)
-		sb.WriteString(`<c:valAx><c:axId val="` + strconv.Itoa(chartValAxID) + `"/>` +
-			`<c:scaling><c:orientation val="minMax"/></c:scaling>` +
-			`<c:delete val="0"/><c:axPos val="l"/>` +
-			`<c:crossAx val="` + strconv.Itoa(chartCatAxID) + `"/></c:valAx>`)
+		// cat/date 类别轴 + val 值轴；按 ChartAxisOptions 切换。
+		axOpts := ChartAxisOptions{}
+		if cd.Axes != nil {
+			axOpts = *cd.Axes
+		}
+		sb.WriteString(buildCatOrDateAxFragment(axOpts))
+		sb.WriteString(buildValAxFragment(axOpts, chartValAxID, chartCatAxID))
 	}
 	sb.WriteString(`</c:plotArea>`)
 	sb.WriteString(`<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/>`)
@@ -581,6 +672,10 @@ func parseChartSpace(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) (Char
 		}
 	}
 	cd.Type, _ = chartTypeFromPlot(plot.Local())
+	// 图表级数据标签（CHART-02）。
+	if dl := childOfKind(doc, plot, nsChartML, "dLbls", 0); dl != nil {
+		cd.DataLabel = parseChartDLbls(doc, dl)
+	}
 	for _, cid := range plot.Children {
 		ser := doc.Node(cid)
 		if ser.Namespace != nsChartML || ser.Local() != "ser" {
@@ -592,9 +687,173 @@ func parseChartSpace(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) (Char
 			cd.Categories = cat
 		}
 		cs.Values = chartSerValues(doc, ser)
+		// CHART-02：系列级 trendline + errBars。
+		if tr := childOfKind(doc, ser, nsChartML, "trendline", 0); tr != nil {
+			cs.Trendline = parseChartTrendline(doc, tr)
+		}
+		if eb := childOfKind(doc, ser, nsChartML, "errBars", 0); eb != nil {
+			cs.ErrorBars = parseChartErrBars(doc, eb)
+		}
 		cd.Series = append(cd.Series, cs)
 	}
+	// 类别/日期轴/值轴扩展（CHART-02）。
+	cd.Axes = parseChartAxes(doc, plotArea)
 	return cd, nil
+}
+
+// parseChartDLbls 读回图表级 c:dLbls。
+// 简化 R 档：只读 showVal 与 dLblPos（其余 show* 视为显示标志位，未启
+// 用时保持默认）。
+func parseChartDLbls(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) *ChartDataLabel {
+	out := &ChartDataLabel{Show: true}
+	for _, cid := range n.Children {
+		cn := doc.Node(cid)
+		if cn.Namespace != nsChartML {
+			continue
+		}
+		switch cn.Local() {
+		case "dLblPos":
+			out.Position, _ = cn.Attr("", "val")
+		case "showVal":
+			v, _ := cn.Attr("", "val")
+			out.Show = v == "1" || v == "true"
+		}
+	}
+	return out
+}
+
+// parseChartTrendline 读回 c:trendline。
+func parseChartTrendline(doc *xmlstore.XMLDocument, tr *xmlstore.NodeRecord) *ChartTrendline {
+	out := &ChartTrendline{}
+	if n := childOfKind(doc, tr, nsChartML, "name", 0); n != nil {
+		out.Name, _ = n.Attr("", "val")
+	}
+	if n := childOfKind(doc, tr, nsChartML, "trendlineType", 0); n != nil {
+		v, _ := n.Attr("", "val")
+		out.Type = chartTrendTypeFromName(v)
+	}
+	if n := childOfKind(doc, tr, nsChartML, "dispEq", 0); n != nil {
+		v, _ := n.Attr("", "val")
+		out.DisplayEq = v == "1" || v == "true"
+	}
+	if n := childOfKind(doc, tr, nsChartML, "dispRSqr", 0); n != nil {
+		v, _ := n.Attr("", "val")
+		out.DisplayRSq = v == "1" || v == "true"
+	}
+	if n := childOfKind(doc, tr, nsChartML, "intercept", 0); n != nil {
+		v, _ := n.Attr("", "val")
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			out.SetIntercept = true
+			out.Intercept = f
+		}
+	}
+	return out
+}
+
+// parseChartErrBars 读回 c:errBars。
+func parseChartErrBars(doc *xmlstore.XMLDocument, eb *xmlstore.NodeRecord) *ChartErrorBars {
+	out := &ChartErrorBars{Direction: "both"}
+	if n := childOfKind(doc, eb, nsChartML, "errBarType", 0); n != nil {
+		v, _ := n.Attr("", "val")
+		out.Type = chartErrorTypeFromName(v)
+	}
+	if n := childOfKind(doc, eb, nsChartML, "errDir", 0); n != nil {
+		if v, _ := n.Attr("", "val"); v != "" {
+			out.Direction = v
+		}
+	}
+	if n := childOfKind(doc, eb, nsChartML, "val", 0); n != nil {
+		if v, _ := n.Attr("", "val"); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				out.Value = f
+			}
+		}
+	}
+	if n := childOfKind(doc, eb, nsChartML, "noEndCap", 0); n != nil {
+		if v, _ := n.Attr("", "val"); v == "1" || v == "true" {
+			out.NoEndCap = true
+		}
+	}
+	return out
+}
+
+// parseChartAxes 读回 catAx/dateAx/valAx 扩展配置。
+func parseChartAxes(doc *xmlstore.XMLDocument, plotArea *xmlstore.NodeRecord) *ChartAxisOptions {
+	out := &ChartAxisOptions{}
+	// cat/date/val 检测
+	for _, lk := range []string{"catAx", "dateAx", "valAx"} {
+		ax := childOfKind(doc, plotArea, nsChartML, lk, 0)
+		if ax == nil {
+			continue
+		}
+		switch lk {
+		case "dateAx":
+			out.CategoryAsDate = true
+		case "valAx":
+			if n := childOfKind(doc, ax, nsChartML, "scaling", 0); n != nil {
+				if lb := childOfKind(doc, n, nsChartML, "logBase", 0); lb != nil {
+					v, _ := lb.Attr("", "val")
+					if p, err := strconv.Atoi(v); err == nil {
+						out.ValueLogBase = p
+					}
+				}
+			}
+			if n := childOfKind(doc, ax, nsChartML, "min", 0); n != nil {
+				if v, _ := n.Attr("", "val"); v != "" {
+					if f, err := strconv.ParseFloat(v, 64); err == nil {
+						out.Min = NewOptional(f)
+					}
+				}
+			}
+			if n := childOfKind(doc, ax, nsChartML, "max", 0); n != nil {
+				if v, _ := n.Attr("", "val"); v != "" {
+					if f, err := strconv.ParseFloat(v, 64); err == nil {
+						out.Max = NewOptional(f)
+					}
+				}
+			}
+		}
+		// axPos
+		if p, ok := ax.Attr("", "axPos"); ok {
+			// axPos 是命名属性，无命名空间。
+			out.Position = p
+		}
+	}
+	return out
+}
+
+// chartTrendTypeFromName 由 trendlineType val 反查枚举。
+func chartTrendTypeFromName(v string) ChartTrendType {
+	switch v {
+	case "linear":
+		return ChartTrendLinear
+	case "log":
+		return ChartTrendLogarithmic
+	case "exp":
+		return ChartTrendExponential
+	case "poly":
+		return ChartTrendPolynomial
+	case "power":
+		return ChartTrendPower
+	case "movingAvg":
+		return ChartTrendMovingAverage
+	}
+	return ChartTrendLinear
+}
+
+// chartErrorTypeFromName 由 errBarType val 反查枚举。
+func chartErrorTypeFromName(v string) ChartErrorType {
+	switch v {
+	case "stdDev":
+		return ChartErrStandardDeviation
+	case "stdErr":
+		return ChartErrStandardError
+	case "fixed":
+		return ChartErrFixed
+	case "percentage":
+		return ChartErrPercentage
+	}
+	return ChartErrStandardError
 }
 
 // chartSerName 解析系列名：c:tx 下 strRef/strCache 或直接 c:v。
@@ -828,7 +1087,8 @@ func chartIsCanonical(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) bool
 	if plotArea == nil {
 		return false
 	}
-	// plotArea：至多一个 c:layout，恰好一个受限图表组，柱/折线需成对轴。
+	// plotArea：至多一个 c:layout，恰好一个受限图表组，柱/折线需成对轴
+	// （catAx/dateAx/valAx）。允许 dateAx 替代 catAx（CHART-02 R 档）。
 	var plot *xmlstore.NodeRecord
 	axCount := map[string]int{}
 	for _, cid := range plotArea.Children {
@@ -841,7 +1101,7 @@ func chartIsCanonical(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) bool
 			if len(cn.Children) != 0 {
 				return false // 规范布局是 <c:layout/>（空）
 			}
-		case "catAx", "valAx":
+		case "catAx", "dateAx", "valAx":
 			axCount[cn.Local()]++
 		case "barChart", "lineChart", "pieChart":
 			if plot != nil {
@@ -875,11 +1135,11 @@ func chartIsCanonical(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) bool
 			allowed := false
 			switch typ {
 			case ChartBar:
-				allowed = strIn(cn.Local(), "barDir", "grouping", "varyColors", "gapWidth")
+				allowed = strIn(cn.Local(), "barDir", "grouping", "varyColors", "gapWidth", "dLbls")
 			case ChartLine:
-				allowed = strIn(cn.Local(), "grouping", "varyColors", "marker")
+				allowed = strIn(cn.Local(), "grouping", "varyColors", "marker", "dLbls")
 			case ChartPie:
-				allowed = strIn(cn.Local(), "varyColors", "firstSliceAng")
+				allowed = strIn(cn.Local(), "varyColors", "firstSliceAng", "dLbls")
 			}
 			if !allowed {
 				return false
@@ -891,29 +1151,107 @@ func chartIsCanonical(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) bool
 	}
 	switch typ {
 	case ChartBar, ChartLine:
-		if axIDCount != 2 || axCount["catAx"] != 1 || axCount["valAx"] != 1 {
+		// 类别（catAx）或日期（dateAx）恰好 1，valAx 恰好 1。
+		catAxes := axCount["catAx"] + axCount["dateAx"]
+		if axIDCount != 2 || catAxes != 1 || axCount["valAx"] != 1 {
 			return false
 		}
 	case ChartPie:
-		if axIDCount != 0 || axCount["catAx"] != 0 || axCount["valAx"] != 0 {
+		if axIDCount != 0 || axCount["catAx"] != 0 || axCount["dateAx"] != 0 || axCount["valAx"] != 0 {
+			return false
+		}
+	}
+	// valAx 可携带 logBase / min / max（CHART-02 R 档）；任何未列出子元素
+	// 仍走整体拒绝（不部分合并）。
+	valAx := childOfKind(doc, plotArea, nsChartML, "valAx", 0)
+	if valAx != nil && !canonicalAxExtensions(doc, valAx, true) {
+		return false
+	}
+	for _, lk := range []string{"catAx", "dateAx"} {
+		ax := childOfKind(doc, plotArea, nsChartML, lk, 0)
+		if ax != nil && !canonicalAxExtensions(doc, ax, false) {
 			return false
 		}
 	}
 	return true
 }
 
+// canonicalAxExtensions 校验 catAx/dateAx/valAx 可识别子元素集合。
+// allowLogBase=true 时允许 c:logBase（仅值轴）。
+func canonicalAxExtensions(doc *xmlstore.XMLDocument, ax *xmlstore.NodeRecord, allowLogBase bool) bool {
+	for _, cid := range ax.Children {
+		cn := doc.Node(cid)
+		if cn.Namespace != nsChartML {
+			return false
+		}
+		if !strIn(cn.Local(), "axId", "scaling", "delete", "axPos", "crossAx", "min", "max") {
+			return false
+		}
+		if cn.Local() == "scaling" {
+			for _, sid := range cn.Children {
+				sn := doc.Node(sid)
+				if sn.Namespace != nsChartML {
+					return false
+				}
+				if sn.Local() == "logBase" && !allowLogBase {
+					return false
+				}
+				if !strIn(sn.Local(), "orientation", "logBase") {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
 // canonicalSer 校验系列子元素是否规范（按类型的白名单）。
+// CHART-02：扩展接受 trendline / errBars。
 func canonicalSer(doc *xmlstore.XMLDocument, ser *xmlstore.NodeRecord, typ ChartType) bool {
 	for _, cid := range ser.Children {
 		cn := doc.Node(cid)
 		if cn.Namespace != nsChartML {
 			return false
 		}
-		ok := strIn(cn.Local(), "idx", "order", "tx", "cat", "val")
+		ok := strIn(cn.Local(), "idx", "order", "tx", "cat", "val", "trendline", "errBars")
 		if typ == ChartLine && cn.Local() == "smooth" {
 			ok = true
 		}
 		if !ok {
+			return false
+		}
+		if cn.Local() == "trendline" && !canonicalTrendline(doc, cn) {
+			return false
+		}
+		if cn.Local() == "errBars" && !canonicalErrBars(doc, cn) {
+			return false
+		}
+	}
+	return true
+}
+
+// canonicalTrendline 校验 trendline 子元素白名单。
+func canonicalTrendline(doc *xmlstore.XMLDocument, tr *xmlstore.NodeRecord) bool {
+	for _, cid := range tr.Children {
+		cn := doc.Node(cid)
+		if cn.Namespace != nsChartML {
+			return false
+		}
+		if !strIn(cn.Local(), "name", "trendlineType", "dispEq", "dispRSqr", "intercept") {
+			return false
+		}
+	}
+	return true
+}
+
+// canonicalErrBars 校验 errBars 子元素白名单。
+func canonicalErrBars(doc *xmlstore.XMLDocument, eb *xmlstore.NodeRecord) bool {
+	for _, cid := range eb.Children {
+		cn := doc.Node(cid)
+		if cn.Namespace != nsChartML {
+			return false
+		}
+		if !strIn(cn.Local(), "errDir", "errBarType", "val", "noEndCap") {
 			return false
 		}
 	}

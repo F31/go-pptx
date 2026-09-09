@@ -41,5 +41,13 @@
 // 字段 slidenum/datetime（Paragraph.AppendField/InsertField/Fields/
 // Remove/SetText/Kind/Guide），未知字段类型与 datetime 未识别格式
 // 整体拒绝；Paragraph.Text() 拼接 a:fld 缓存文本。
+// 图表扩展（CHART-02，M6 第四项）——图表级数据标签 c:dLbls
+//（ChartDataLabel{Show, Position 白名单}）；系列级误差线 c:errBars
+//（ChartErrorBars，4 类型 + Direction/NoEndCap，Pie 拒绝）；系列级
+// 趋势线 c:trendline（ChartTrendline，6 类型 + DisplayEq/DisplayRSq/
+// SetIntercept，Polynomial Order∈[2,6] / MovingAverage Period≥2）；
+// 轴扩展（ChartAxisOptions，ValueLogBase ∈ {0,2..32}，Min/Max，
+// CategoryAsDate 切换 c:dateAx 替代 c:catAx）。R 档白名单严格——
+// 越界即 ErrInvalidArgument。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 package pptx
