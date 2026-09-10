@@ -3,7 +3,7 @@
 > 按《go-pptx 项目实施计划》§12 执行顺序滚动更新；工作包完成标准见计划 §5.2。
 > 更新时机：每次 PR 合并 / 里程碑评审后由负责人更新本表。
 
-## 当前阶段：M8 创新扩展 II（**CLONE-02 跨文档受限复制已落地；QA-01 语料硬阻塞已解除（36 样本索引 + 3 公开 LibreOffice 金样闭环）；QA-01 fuzz 八目标落地（打开 + 文本编辑 + 模板绑定）；CORPUS-01 公开金样 replay 自动回归入 CI 守门（build tag `corpus`）；AT-14 恶意包 panic 修复；M0 垂直验证测试落地（合成语料 + **真实语料 ext-0024 单 Run 替换 B1/未知区字节保留**）；TIMIR-01 边缘 case 修复已完成；DIFF-01 + SHAPE-CREATE + STALE-GUARD 已完成**；M7 四工作包全数落地；M6 七工作包已收尾；M2–M5 代码项已收口；**CORE-01 建仓首批补完（CI lint job）**；**OPC-01 真实样本冒烟收口（ext-0024 拓扑方案.pptx OPC 层字节恒等通过）**；**CI 红点解除（corpus-replay source 缺席从 Fatalf 改为 Skipf，待 opencode 提交公开样本后自动转真跑）**；**根目录文件级对齐设计 §3 清单（补 options.go / save.go / shape.go）**；**ADR-014 钉死"何时拆 internal/edit"触发条件，闭合"目录分歧"待议项**；**ADR-015 API 稳定性分级体系落地（3 Stable + 5 Experimental + 149 API 默认）**；**cmd/pptx 覆盖率补测 65.5% → 79.1%**；发布级 L3 客户端冒烟待 PowerPoint/WPS 真机补证据）
+## 当前阶段：M8 创新扩展 II（**CLONE-02 跨文档受限复制已落地；QA-01 语料硬阻塞已解除（36 样本索引 + 3 公开 LibreOffice 金样闭环）；QA-01 fuzz 八目标落地（打开 + 文本编辑 + 模板绑定）；CORPUS-01 公开金样 replay 自动回归入 CI 守门（build tag `corpus`）；AT-14 恶意包 panic 修复；M0 垂直验证测试落地（合成语料 + **真实语料 ext-0024 单 Run 替换 B1/未知区字节保留**）；TIMIR-01 边缘 case 修复已完成；DIFF-01 + SHAPE-CREATE + STALE-GUARD 已完成**；M7 四工作包全数落地；M6 七工作包已收尾；M2–M5 代码项已收口；**CORE-01 建仓首批补完（CI lint job）**；**OPC-01 真实样本冒烟收口（ext-0024 拓扑方案.pptx OPC 层字节恒等通过）**；**CI 红点解除（corpus-replay source 缺席从 Fatalf 改为 Skipf，待 opencode 提交公开样本后自动转真跑）**；**根目录文件级对齐设计 §3 清单（补 options.go / save.go / shape.go）**；**ADR-014 钉死"何时拆 internal/edit"触发条件，闭合"目录分歧"待议项**；**ADR-015 API 稳定性分级体系落地（3 Stable + 5 Experimental + 149 API 默认）**；**cmd/pptx 覆盖率补测 65.5% → 86.6%（main dispatch + 7 usage helper + bind 错误路径 + 强制失败注入）**；**v1.0 冻结清单 T-2 周启动（`docs/v1.0-freeze-list.md` + ADR-015 §"v1.0 锁定流程"同步）**；发布级 L3 客户端冒烟待 PowerPoint/WPS 真机补证据）
 
 ### 最近更新
 
