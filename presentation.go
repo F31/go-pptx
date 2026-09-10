@@ -108,9 +108,13 @@ func New(opts ...NewOption) (*Presentation, error) {
 	if err != nil {
 		return nil, Annotate(mapOCError(err), "Presentation.New")
 	}
+	main, err := pk.MainPart()
+	if err != nil {
+		return nil, Annotate(mapOCError(err), "Presentation.New")
+	}
 	return &Presentation{
 		pk:           pk,
-		main:         mustMainPart(pk),
+		main:         main,
 		overrides:    make(map[opc.PartName][]byte),
 		addedParts:   make(map[opc.PartName]opc.AddedPart),
 		deletedParts: make(map[opc.PartName]bool),
@@ -150,9 +154,14 @@ func Open(path string, opts ...OpenOption) (*Presentation, error) {
 		f.Close()
 		return nil, Annotate(mapOCError(err), "Presentation.Open")
 	}
+	main, err := pk.MainPart()
+	if err != nil {
+		f.Close()
+		return nil, Annotate(mapOCError(err), "Presentation.Open")
+	}
 	return &Presentation{
 		pk:           pk,
-		main:         mustMainPart(pk),
+		main:         main,
 		srcPath:      path,
 		srcFile:      f,
 		overrides:    make(map[opc.PartName][]byte),
@@ -173,9 +182,17 @@ func OpenReader(r io.ReaderAt, size int64, opts ...OpenOption) (*Presentation, e
 	if err != nil {
 		return nil, Annotate(mapOCError(err), "Presentation.OpenReader")
 	}
+	// 主 Part 发现走包级 officeDocument 关系；Load 只保证根关系流存在，
+	// 不保证 officeDocument 关系存在（或其为内部目标、目标 Part 落盘）——
+	// 恶意包可在这些情形下让 Load 通过而 MainPart 失败，必须显式报错而
+	// 非 panic（AT-14）。
+	main, err := pk.MainPart()
+	if err != nil {
+		return nil, Annotate(mapOCError(err), "Presentation.OpenReader")
+	}
 	return &Presentation{
 		pk:           pk,
-		main:         mustMainPart(pk),
+		main:         main,
 		overrides:    make(map[opc.PartName][]byte),
 		addedParts:   make(map[opc.PartName]opc.AddedPart),
 		deletedParts: make(map[opc.PartName]bool),
@@ -634,15 +651,6 @@ func (p *Presentation) sameSourceEntity(path string) bool {
 }
 
 // ---------- 内部辅助 ----------
-
-func mustMainPart(pk *opc.Package) opc.PartName {
-	main, err := pk.MainPart()
-	if err != nil {
-		// Load 已保证 officeDocument 关系存在；此处为防御性不变量。
-		panic("pptx: main part missing after successful load: " + err.Error())
-	}
-	return main
-}
 
 // buildPackageZip 把 Part 集合编码为内存 ZIP（条目名经 EntryName 转换，
 // 按名排序保证确定性输出）。
