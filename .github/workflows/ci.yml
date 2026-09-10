@@ -9,6 +9,35 @@ permissions:
   contents: read
 
 jobs:
+  # CORE-01 建仓首批 CI 补完（CORE-01-lint）。
+  # - gofmt -l . 检测未格式化文件；零输出=通过。
+  # - go vet 在默认与 corpus 两种 build tag 下分别跑一遍，确保 fuzz/corpus
+  #   代码路径的源码也走静态检查。
+  # - 不引入 staticcheck/golangci-lint 等额外依赖，避免 CI 拉取体积与
+  #   维护成本上升；待 lint 规则稳定后再视情追加。
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+      - name: gofmt check (no diff)
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "::error::The following files are not gofmt-compliant:"
+            gofmt -l .
+            exit 1
+          fi
+      - name: go vet (default build tags)
+        run: go vet ./...
+      - name: go vet (corpus build tags)
+        run: go vet -tags=corpus ./...
+
   test:
     name: test-${{ matrix.os }}-go${{ matrix.go }}
     runs-on: ${{ matrix.os }}
