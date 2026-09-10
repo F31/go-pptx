@@ -3,6 +3,62 @@
 > 按《go-pptx 项目实施计划》§12 执行顺序滚动更新；工作包完成标准见计划 §5.2。
 > 更新时机：每次 PR 合并 / 里程碑评审后由负责人更新本表。
 
+## v1.0 冻结通告（2026-09-10）
+
+按 [`docs/v1.0-freeze-list.md`](v1.0-freeze-list.md) §E 锁定流程的 **T-3 日 ~ T-0 窗口**要求，**v1.0 冻结通告**登记如下：
+
+### API 状态
+
+| 档级 | 数量 | 段落位置 | 1.x 演化 |
+|---|---|---|---|
+| **Stable** | **51 段落**（34 独立 type + 17 错误哨兵聚合集合段 1） | §A.1-A.4 + §C.1/C.6/C.6.1/C.10 累计 | 仅追加新方法/字段；不破坏已有签名 |
+| **Experimental** | **5** | §B | 1.x 内可能改；godoc 段注明演化边界 |
+| **Deprecated** | **0** | — | v1.0 后视需要启用 |
+| **API 默认** | **102** | §C 余下 | 仅追加新字段；不破坏已有默认值 |
+| **总 type** | **158** | grep `^type [A-Z]` | — |
+
+完整逐类型分配见 [`docs/v1.0-freeze-list.md`](v1.0-freeze-list.md) §"当前快照" + [ADR-015](adr/ADR-015-api-stability-tiers.md) §"v1.0 冻结清单"。
+
+### 评审执行进度（5 阶段全部收口）
+
+| 阶段 | 时间 | 增量 |
+|---|---|---|
+| 评审开始日 | 2026-09-10 | 3 Stable（ADR-015 首批核心入口 Presentation/Slide/Shape） |
+| T-2 周首批 | 2026-09-10 | +28 段落（错误码 17 集合段 + OperationError + 诊断 4 + 几何 4 + 枚举 2） |
+| T-1 周收敛 | 2026-09-10 | +6（Capability Output 4 + 句柄 ID 2） |
+| T+0 §C 精化 | 2026-09-10 | §C 各子类数量从估值改为 grep 定值 |
+| T+0 文本入口 | 2026-09-10 | +3（TextFrame/Paragraph/TextRun） |
+| T+0 末窗口形状 | 2026-09-10 | +9（ShapeKind + 8 Shape 句柄 + TextShape 别名） |
+| T-3 日补齐 | 2026-09-10 | +2（CapabilityFeature / CapabilityManifestSource 补齐 §A.4 4 type 全部有 Stable 段落；v1.0 freeze list 与代码同步） |
+
+合计：**51 Stable 段落（34 独立 type + 17 错误哨兵聚合集合段 1）/ 5 Experimental / 158 总**。
+
+### 段落形态（三种固化）
+
+1. **核心入口型**（Presentation/Slide/Shape/TextFrame/Paragraph/TextRun + 8 Shape 句柄 + TextShape 别名）—— 类型签名不变 + 仅追加新方法 + 句柄身份语义不变。
+2. **错误-Capability 契约族**（错误码 17 集合段 + OperationError + 诊断 4 + Capability Output 4）—— 字段集 + json 标签 + Unwrap/Error() 锁定 + 仅追加新字段。
+3. **枚举/值对象/ID**（ShapeKind/ReplaceMode/MultiCellTextPolicy + EMU/Point/Rect/Quad + SlideID/ShapeID）—— iota 追加到末尾 + u32/int64 底层表示不变。
+
+### 验收
+
+- gofmt / go vet（默认+corpus）零警告
+- 默认 9 包测试零失败
+- corpus 125 PASS / 1 SKIP / 0 FAIL（公开样本 s001-text/s002-table/s003-image）
+- 36 samples validate 零错误
+- 4 交叉构建（js/wasm + darwin/arm64 + wasip1/wasm + linux/arm64）零失败
+
+### 发布级缺口（已登记）
+
+- **L3 客户端矩阵**（PowerPoint/WPS 真机验证）：本机无 PowerPoint/WPS 真机环境，未跑；按 V2.6 §26 P1 发布级硬缺口，单独跟踪。
+- **覆盖率 86.6%**（cmd/pptx）/ 77.1%（根包）：低于 V2.6 §15.3 90% 门槛但**非硬性要求**——按 ADR-015 §4 覆盖率门槛待 1.x 收敛。
+
+### v1.0 tag 流程清单（[freeze list §E](v1.0-freeze-list.md)）
+
+- [x] T-2 周打开冻结清单（2026-09-10）
+- [x] T-3 日：跟踪文档登记"v1.0 冻结通告"段（2026-09-10）
+- [x] T-3 日：[CHANGELOG](../../CHANGELOG.md) 初始化 v1.0.0 段落（2026-09-10）
+- [ ] T-0：`git tag -s v1.0.0` + 发布通告（含全部 Experimental 与 ADR-015 链接，待 v1.0.0 状态最终确认）
+
 ## 当前阶段：M8 创新扩展 II（**CLONE-02 跨文档受限复制已落地；QA-01 语料硬阻塞已解除（36 样本索引 + 3 公开 LibreOffice 金样闭环）；QA-01 fuzz 八目标落地（打开 + 文本编辑 + 模板绑定）；CORPUS-01 公开金样 replay 自动回归入 CI 守门（build tag `corpus`）；AT-14 恶意包 panic 修复；M0 垂直验证测试落地（合成语料 + **真实语料 ext-0024 单 Run 替换 B1/未知区字节保留**）；TIMIR-01 边缘 case 修复已完成；DIFF-01 + SHAPE-CREATE + STALE-GUARD 已完成**；M7 四工作包全数落地；M6 七工作包已收尾；M2–M5 代码项已收口；**CORE-01 建仓首批补完（CI lint job）**；**OPC-01 真实样本冒烟收口（ext-0024 拓扑方案.pptx OPC 层字节恒等通过）**；**CI 红点解除（corpus-replay source 缺席从 Fatalf 改为 Skipf，待 opencode 提交公开样本后自动转真跑）**；**根目录文件级对齐设计 §3 清单（补 options.go / save.go / shape.go）**；**ADR-014 钉死"何时拆 internal/edit"触发条件，闭合"目录分歧"待议项**；**ADR-015 API 稳定性分级体系落地（3 Stable + 5 Experimental + 149 API 默认）**；**cmd/pptx 覆盖率补测 65.5% → 86.6%（main dispatch + 7 usage helper + bind 错误路径 + 强制失败注入）**；**v1.0 冻结清单 T-2 周启动（`docs/v1.0-freeze-list.md` + ADR-015 §"v1.0 锁定流程"同步）**；**CORPUS-01 工程化入库闭环（CI corpus-replay job 加 validate 前置 + verbose 日志归档 + helper 脚本 `scripts/run_corpus_tests.sh` + 入库指南 `docs/corpus-入库指南.md` + `corpus_replay_test.go` 跨平台路径候选支持 ext-0024 Win32 路径命中）**；发布级 L3 客户端冒烟待 PowerPoint/WPS 真机补证据）
 
 ### 最近更新

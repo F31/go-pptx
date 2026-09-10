@@ -120,6 +120,11 @@ type CapabilityDimension struct {
 // Key 是稳定的反向域名式标识（capability 维度内唯一；不跨 SDK 版本复用）。
 // Stage 是当前里程碑（M0–M8）。TargetTier 是设计态目标档位（P/R/E/F，详
 // 见 §2.3）。
+//
+// Stable: 字段集与 json 标签在 v1.0 后锁死——CapabilityFeature 是 capability
+// manifest 中按 Key 字典序稳定排列的事实单元，外部消费方按 json tag 反
+// 序列化。仅允许追加新字段（保持向后兼容），不允许重命名/移除已有字段
+// 或修改 json 标签。
 type CapabilityFeature struct {
 	Key         string           `json:"key"`
 	Name        string           `json:"name"`
@@ -134,6 +139,10 @@ type CapabilityFeature struct {
 
 // CapabilityManifestSource 描述 manifest 来源（输入文件元数据）。
 // Size 为未压缩字节数；Input 路径可空（构造时未指定时省略）。
+//
+// Stable: 字段集与 json 标签在 v1.0 后锁死——Source 作为 manifest 的来源
+// 描述（输入文件路径 + 字节数），外部消费方按 json tag 反序列化。仅允许
+// 追加新字段（保持向后兼容），不允许重命名/移除已有字段或修改 json 标签。
 type CapabilityManifestSource struct {
 	Input string `json:"input,omitempty"`
 	Size  int64  `json:"size,omitempty"`
