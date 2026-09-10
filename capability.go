@@ -38,6 +38,10 @@ const (
 )
 
 // CapabilityStatus 是六维能力条目的状态枚举。
+//
+// Stable: iota 枚举值（Supported / Partial / Unsupported / Untested）及其
+// String() 返回值在 v1.0 后锁死——capability manifest 作为机器可读 JSON
+// 的状态字段，下游解析器依赖此枚举字符串。仅允许追加新枚举值。
 type CapabilityStatus int
 
 const (

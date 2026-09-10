@@ -45,6 +45,10 @@ import (
 // t 内容替换，随后一次 ApplyPatches + 单次 stagePatch + commit。
 
 // ReplaceMode 是替换片段的格式策略（方案 §7.2 三种格式策略）。
+//
+// Stable: iota 枚举值（ReplaceFirstCharacter / ReplaceEqualLengthPerRune
+// 等）在 v1.0 后锁死——下游 switch/case 完备性依赖此枚举。仅允许追加新
+// 枚举值（追加到 iota 末尾），不可重命名或移除已有值。
 type ReplaceMode int
 
 const (

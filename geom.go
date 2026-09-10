@@ -27,6 +27,10 @@ import (
 
 // EMU 是 OOXML 长度单位（English Metric Unit，int64）。
 // 1 in = 914400 EMU，1 pt = 12700 EMU；形状坐标、尺寸均以 EMU 表示。
+//
+// Stable: int64 别名类型——基本类型不变即契约稳定。所有几何运算（Point /
+// Rect / Quad）均以 EMU 为基本单位；EMU/EMU/Pt/Inch/Cm 等构造器与常数
+// 在 v1.0 后锁死。下游代码可直接以 EMU 字面量做算术（em := EMU(12700)）。
 type EMU int64
 
 const (
@@ -70,12 +74,18 @@ func (e EMU) Points() float64 { return float64(e) / float64(EMUPerPoint) }
 // ---------- 几何值类型 ----------
 
 // Point 是 EMU 坐标点（y 向下为正）。
+//
+// Stable: 字段集（X / Y）在 v1.0 后保持稳定——下游几何运算（如两点的距离、
+// 矩形包含判断、变换矩阵）均依赖此结构。仅允许追加新字段（向后兼容）。
 type Point struct {
 	X EMU
 	Y EMU
 }
 
 // Rect 是轴对齐矩形（X/Y 为左上角，W/H 为宽高，非负）。
+//
+// Stable: 字段集（X / Y / W / H）在 v1.0 后保持稳定。Bottom/Right 等导出
+// 计算属性的语义亦锁定。仅允许追加新字段。
 type Rect struct {
 	X EMU
 	Y EMU
@@ -91,6 +101,9 @@ func (r Rect) Bottom() EMU { return r.Y + r.H }
 
 // Quad 是变换后的四角，顺序固定为左上、右上、右下、左下
 // （对未旋转矩形即原始四角；旋转/翻转后仍按角点跟随顺序）。
+//
+// Stable: 字段集（TL / TR / BR / BL，四角顺序契约）在 v1.0 后保持稳定——
+// 下游碰撞检测、变换还原、渲染适配均按此顺序迭代。仅允许追加新字段。
 type Quad struct {
 	TopLeft     Point
 	TopRight    Point

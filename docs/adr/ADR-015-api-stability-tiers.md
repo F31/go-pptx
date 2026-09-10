@@ -54,10 +54,10 @@ v1.0 标签的发布日 T-2 周起：
 
 | 标签 | 数量 | 候选列表 |
 |---|---|---|
-| Stable | 3 | `Presentation`、`Slide`、`Shape` 接口（核心对象模型入口） |
+| Stable | 3 + 28 = **31** | 核心对象模型入口 3 个 + T-2 周首批加 Stable 段落 28 个（错误码 17 个集合性段落 + OperationError 1 + 诊断契约 4 + 几何值对象 4 + 枚举 2；总计 17+1+4+4+2 = 28 个独立类型） |
 | Experimental | 5 | `ChartWorkbookBuilder`、`ChartDataBook`、`DefaultWorkbookBuilder`、`CustomPropertyKind`、`CustomPropertyValue` |
 | Deprecated | 0 | — |
-| API（默认） | 149 | 其余全部导出符号，含全部 `*Spec` / `*Option` 输入规格、`*Info` / `*Report` 只读报告 |
+| API（默认） | 122 | 其余全部导出符号，含全部 `*Spec` / `*Option` 输入规格、`*Info` / `*Report` 只读报告 |
 
 > **注**：本 ADR 不引入"冻结"以外的承诺标签——以减少语义摩擦。`// Deprecated:` 是 Go 1.19+ 标准注释惯用法，本 ADR 不重新约定。
 
@@ -65,8 +65,8 @@ v1.0 标签的发布日 T-2 周起：
 
 T-2 周启动文档：[`docs/v1.0-freeze-list.md`](../../v1.0-freeze-list.md)。要点：
 
-- **Stable 候选**（8 项，ADR-015 §决策默认 Stable）：错误码 `Err*`（12 个）、`OperationError`、诊断 `Diagnostic` / `Severity` / `ValidationReport` / `CapabilityStatus`——评审期加 `// Stable:` 段落注释。
-- **Stable 候选**（额外审查可考虑）：`Point` / `Rect` / `EMU` / `Quad` / `ReplaceMode`——值对象与枚举，对用户 switch/case 完备性有约束。
+- **Stable 候选**（17 项，ADR-015 §决策默认 Stable，已在 2026-09-10 T-2 周首批加 `// Stable:` 段落）：错误码 `Err*`（17 个，集合性段落 + OperationError + 4 个诊断契约 `Diagnostic` / `Severity` / `ValidationReport` / `CapabilityStatus`）。
+- **Stable 候选**（额外审查可考虑，已在 2026-09-10 T-2 周首批加 `// Stable:` 段落）：`Point` / `Rect` / `EMU` / `Quad`（`geom.go`）/`ReplaceMode`（`replace.go`）/`MultiCellTextPolicy`（`table.go`）——值对象与枚举，对用户 switch/case 完备性有约束。
 - **Experimental 保留**：5 项不变（已写明演化边界）。
 - **API 默认**（149 项）：按类别聚合评审，详见 freeze list §C。
 

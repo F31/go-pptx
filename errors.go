@@ -9,6 +9,11 @@ import (
 // 所有可检查错误都支持 errors.Is；具体上下文通过 errors.As 获取
 // OperationError。取消与超时保留 context.Canceled / context.DeadlineExceeded
 // 的可检测性，不在此重复包装。
+//
+// Stable: 本组哨兵错误是 API 兼容契约的硬约束。错误码字符串一旦随 v1.0
+// 发布即锁死（下游客户通过 errors.Is(err, pptx.ErrXxx) 编写分支）——
+// 1.x 内只允许追加新错误码，已存在的字符串值与语义不变；移除或重命名
+// 任何一条均视为破坏性变更，必须走 ADR-015 §"降档"流程。
 var (
 	// ErrClosed 表示文档已关闭，对象访问失败。
 	ErrClosed = errors.New("pptx: document closed")
@@ -47,6 +52,12 @@ var (
 )
 
 // OperationError 为错误附带操作上下文（方案 §20.4）。
+//
+// Stable: 结构字段 Op / Part / NodePath / SlideID / ShapeID / Message / Err
+// 在 v1.0 发布后保持稳定——下游客户可基于 errors.As(err, *OperationError)
+// 提取定位信息。仅允许在 1.x 内追加新字段（向后兼容：旧客户端零值字段
+// 不会破坏现有逻辑）；移除或重命名字段视为破坏性变更。Unwrap/Error()
+// 行为契约亦锁定。
 //
 // 分类（可检查错误）通过 Err 字段携带的哨兵错误完成：OperationError 实现
 // Unwrap，因此 errors.Is(err, pptx.ErrNotFound) 等判断可用；

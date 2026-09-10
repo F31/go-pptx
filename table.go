@@ -590,6 +590,9 @@ type CellRange struct {
 
 // MultiCellTextPolicy 决定合并区域内存在多个非空单元格时的行为
 // （AT-09：默认拒绝）。
+//
+// Stable: iota 枚举值在 v1.0 后锁死——表格合并是用户高频使用的功能，
+// 策略枚举的字符串值与语义不可变更。仅允许追加新枚举值。
 type MultiCellTextPolicy int
 
 const (
