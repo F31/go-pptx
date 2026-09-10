@@ -266,7 +266,7 @@ func populateCapabilityDimensions(m *CapabilityManifest) {
 	}
 	m.Dimensions[CapabilityRender] = CapabilityDimension{
 		Status: StatusUntested,
-		Notes:  "原生渲染不在核心里程碑（方案 §14，外部 Renderer 接口随后续立项）。",
+		Notes:  "Renderer 接口契约已落地于 render 子包（§23.1）；原生渲染实现不在核心里程碑（方案 §14），后续立项。",
 		Limits: []string{
 			"M1 不实现字体 shaping / 换行 / 复杂脚本 / SmartArt / 动画渲染。",
 			"不得用于 V1 视觉一致宣称；任何预览能力须明确标注为有限预览。",
@@ -502,9 +502,9 @@ func populateCapabilityFeatures(m *CapabilityManifest) {
 		},
 		{
 			Key: "rendering.native", Name: "原生渲染（Renderer 接口 + 高质量缩略图）",
-			Stage: "M7+", TargetTier: "F", WorkPackage: "(future)",
+			Stage: "M7+", TargetTier: "F", WorkPackage: "RENDER-01(接口) / (future)(实现)",
 			Status: StatusUntested,
-			Notes:  "核心包外后续立项；不进入核心里程碑。",
+			Notes:  "Renderer 接口契约已定义于 render 子包（§23.1：Renderer/RenderOptions/RenderCapabilities/RenderedSlide/RenderAll）；原生实现（高质量缩略图，ADR 014）仍后续立项，不进入核心里程碑。",
 		},
 	}...)
 }
