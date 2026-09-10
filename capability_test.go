@@ -124,13 +124,21 @@ func TestCapability_FutureWorkMarkedUntested(t *testing.T) {
 	m := p.Capability("")
 	for _, f := range m.Features {
 		switch f.WorkPackage {
-		case "DIFF-01", "TIMIR-01", "TPL-01":
+		case "DIFF-01", "TPL-01":
 			// 已落地但有已知限制：Partial（DIFF-01 页面对齐为启发式、
-			// 未识别区域聚合 opaque；TIMIR-01 空 childTnLst 边缘 case；
-			// TPL-01 行循环/图表绑定子集，见各自包注释）。
+			// 未识别区域聚合 opaque；TPL-01 行循环/图表绑定子集，
+			// 见各自包注释）。
 			if f.Status != StatusPartial {
 				t.Errorf("%s must be Partial after shipping, got %s (%s)",
 					f.WorkPackage, f.Status, f.Key)
+			}
+		case "TIMIR-01":
+			// TIMIR-01 在 std xml 边缘 case 通过 xmlstore 重写解析器
+			// 修复后升至 Supported（Limits 仅保留"未识别子元素
+			// 落记为 Opaque"这一语义级承诺，无具体解析缺口）。
+			if f.Status != StatusSupported {
+				t.Errorf("TIMIR-01 must be Supported after xmlstore rewrite, got %s (%s)",
+					f.Status, f.Key)
 			}
 		}
 	}

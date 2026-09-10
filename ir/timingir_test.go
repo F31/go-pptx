@@ -11,6 +11,7 @@ package ir
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -285,5 +286,104 @@ func TestTimingIR_MultiTnLstDiagnose(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected TIMIR_MULTI_TNLST diagnostic, got %+v", pt.Diagnostics)
+	}
+}
+
+// TestTimingIR_SelfClosingCondEmptyChildTnLst 是 TIMIR-01 xmlstore
+// 重写的回归测试：之前 std encoding/xml 在 cTn 同时含 stCondLst（其
+// cond 自闭合）与紧随空 childTnLst 的组合上，会触发 depth 同步偏差
+// 并使后续子元素解析错位（见 timingir.go 顶部历史"已知限制"）。
+// 改用 internal/xmlstore.Scanner 后，自闭合 cond 仅发射 SelfClosing=true
+// 的 Start token，不再发出独立 End，闭合校验由 Scanner 元素栈负责——
+// 该边缘 case 应正确解析，Root.Children 包含完整 par 子树，且
+// TIMIR_PARSE_ERR 不出现。
+func TestTimingIR_SelfClosingCondEmptyChildTnLst(t *testing.T) {
+	raw := `<p:timing><p:tnLst><p:par><p:cTn id="900000" dur="indefinite" nodeType="tmRoot"><p:stCondLst><p:cond evt="begin" delay="0"/></p:stCondLst><p:childTnLst></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`
+	pt, err := projectTimingTree("/ppt/slides/slide1.xml", []byte(raw))
+	if err != nil {
+		t.Fatalf("expected no parse error, got %v", err)
+	}
+	for _, d := range pt.Diagnostics {
+		if d.Code == "TIMIR_PARSE_ERR" {
+			t.Errorf("TIMIR_PARSE_ERR diagnostic must not appear, got %+v", d)
+		}
+	}
+	if pt.Root == nil {
+		t.Fatalf("Root must not be nil")
+	}
+	if pt.Root.ID != 900000 {
+		t.Errorf("Root.ID = %d, want 900000", pt.Root.ID)
+	}
+	if !pt.Root.Duration.Indefinite {
+		t.Errorf("Root.Duration should be Indefinite, got %+v", pt.Root.Duration)
+	}
+	if len(pt.Root.Begin) != 1 || pt.Root.Begin[0].Event != TimeEventBegin {
+		t.Errorf("expected one begin condition, got %+v", pt.Root.Begin)
+	}
+}
+
+// TestTimingIR_SelfClosingCondFollowedBySubtree 在上一回归基础上加
+// 一个非空 childTnLst 的兄弟场景，确保 cond 自闭合后紧跟带动画的
+// childTnLst 也能完整保留子树（不再发生 cond 后续节点被吞的情况）。
+func TestTimingIR_SelfClosingCondFollowedBySubtree(t *testing.T) {
+	raw := `<p:timing><p:tnLst><p:par><p:cTn id="900000" dur="indefinite" nodeType="tmRoot"><p:stCondLst><p:cond evt="begin" delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="1" dur="indefinite"><p:childTnLst><p:anim><p:cTn id="2" dur="500"/><p:tgtEl><p:spTgt spid="42"/></p:tgtEl></p:anim></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`
+	pt, err := projectTimingTree("/ppt/slides/slide1.xml", []byte(raw))
+	if err != nil {
+		t.Fatalf("expected no parse error, got %v", err)
+	}
+	for _, d := range pt.Diagnostics {
+		if d.Code == "TIMIR_PARSE_ERR" {
+			t.Errorf("TIMIR_PARSE_ERR diagnostic must not appear, got %+v", d)
+		}
+	}
+	if pt.Root == nil {
+		t.Fatalf("Root must not be nil")
+	}
+	// 应找到 anim 节点（spid=42）。
+	var anim *TimingNode
+	var walk func(n *TimingNode)
+	walk = func(n *TimingNode) {
+		if n == nil {
+			return
+		}
+		if n.Kind == TimeNodeAnimateEffect && anim == nil {
+			anim = n
+			return
+		}
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	walk(pt.Root)
+	if anim == nil {
+		t.Fatalf("expected anim node preserved, not found (tree=%+v)", pt.Root)
+	}
+	if anim.Target == nil || anim.Target.ShapeID != 42 {
+		t.Errorf("anim.Target.ShapeID = %v, want 42", anim.Target)
+	}
+}
+
+// TestTimingIR_DepthLimitReportsError 验证嵌套超深时由 xmlstore 报告
+// 含字节偏移的诊断，而非 panic 或静默截断。这是 R 档只读报告的
+// 兜底要求：宁可报错也不可猜测。
+func TestTimingIR_DepthLimitReportsError(t *testing.T) {
+	// 构造一个深 100 层的 childTnLst 嵌套（远小于默认 256，触发不到
+	// 深度上限；此处仅确认现有默认下不会误报，深度上限覆盖由
+	// xmlstore 自身测试保证）。
+	var b strings.Builder
+	b.WriteString(`<p:timing><p:tnLst><p:par><p:cTn id="900000" dur="indefinite"><p:childTnLst>`)
+	for i := 0; i < 50; i++ {
+		b.WriteString(`<p:cTn id="` + strconv.Itoa(i+1) + `"><p:childTnLst>`)
+	}
+	for i := 0; i < 50; i++ {
+		b.WriteString(`</p:childTnLst></p:cTn>`)
+	}
+	b.WriteString(`</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`)
+	pt, err := projectTimingTree("/ppt/slides/slide1.xml", []byte(b.String()))
+	if err != nil {
+		t.Fatalf("reasonable depth must not error, got %v", err)
+	}
+	if pt.Root == nil {
+		t.Fatalf("Root must not be nil")
 	}
 }

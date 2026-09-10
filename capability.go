@@ -461,10 +461,9 @@ func populateCapabilityFeatures(m *CapabilityManifest) {
 		{
 			Key: "animation.timing_ir", Name: "动画时序只读 IR",
 			Stage: "M7", TargetTier: "R", WorkPackage: "TIMIR-01",
-			Status: StatusPartial,
-			Notes:  "估计值不得作为 AdvanceAfter 计算输入。",
+			Status: StatusSupported,
+			Notes:  "基于 internal/xmlstore.Scanner 构建节点索引树；自闭合 cond + 空 childTnLst 边缘 case 已修复；估计值不得作为 AdvanceAfter 计算输入。",
 			Limits: []string{
-				"空 childTnLst 紧随自闭合 cond 的组合在部分输入下触发 std xml 解析错位，返回诊断而非崩溃。",
 				"未识别的动画子元素输出为 OpaqueNode 并计入诊断，不猜测语义。",
 			},
 		},

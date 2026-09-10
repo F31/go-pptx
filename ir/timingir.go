@@ -14,24 +14,23 @@
 // SchemaVersion 与基础 IR 共用 "go-pptx.ir/1.0"，JSON 字段在 v1 范围
 // 向后兼容。
 //
-// 解析策略：完整 streaming xml.Decoder.Token()，避免 std xml 包对
-// 重复子元素名的处理限制。
-//
-// 已知限制（TIMIR-01 遗留）：自闭合 <cond/> 列表之后紧邻空的
-// <childTnLst></childTnLst> 的组合，在 std encoding/xml 的
-// token 流上可能触发 "element closed by" 解析错位——此类输入会
-// 以 TIMIR_PARSE_ERR 诊断报告，而不是崩溃或静默截断。后续计划用
-// internal/xmlstore（自闭合语义处理正确）重写解析器彻底修复。
+// 解析策略：以 internal/xmlstore.Scanner（自闭合语义处理正确：`<x/>`
+// 仅发射一条 Start token 并带 SelfClosing=true，不发射独立 End）为底座
+// 构建节点索引树，再按本地名规则把元素投影为 tmlCTn 内部 AST。前一版
+// 直接驱动 std encoding/xml.Decoder，在 std 自闭合 cond 紧邻空
+// childTnLst 的组合上触发 depth 同步偏差；xmlstore 的闭合校验依赖
+// 显式元素栈，自闭合不再产生 End 事件，从而彻底避免该边缘 case。
 package ir
 
 import (
 	"bytes"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // ---------- §21.5 公共类型 ----------
@@ -75,7 +74,7 @@ const (
 	TimeEventNext            TimeEventKind = "next"
 	TimeEventEnd             TimeEventKind = "end"
 	TimeEventOnClick         TimeEventKind = "onClick"
-	TimeEventOnDoubleClick   TimeEventKind = "onDblClick"
+	TimeEventOnDoubleClick   TimeEventKind = "onDoubleClick"
 	TimeEventOnMouseOver     TimeEventKind = "onMouseOver"
 	TimeEventOnMouseOut      TimeEventKind = "onMouseOut"
 	TimeEventOnStopAudio     TimeEventKind = "onStopAudio"
@@ -175,10 +174,10 @@ type TimingTotals struct {
 // 解析为数字 / 枚举。
 type tmlAttr map[string]string
 
-func newAttrs(t xml.StartElement) tmlAttr {
-	out := make(tmlAttr, len(t.Attr))
-	for _, a := range t.Attr {
-		out[a.Name.Local] = a.Value
+func newAttrsFromNode(n *xmlstore.NodeRecord) tmlAttr {
+	out := make(tmlAttr, len(n.Attrs))
+	for _, a := range n.Attrs {
+		out[a.Local()] = a.Value
 	}
 	return out
 }
@@ -193,8 +192,8 @@ type tmlCTn struct {
 	CMD      *tmlCmd   // 仅 cmd 时
 	Begin    []tmlCond
 	End      []tmlCond
-	Opaque   xml.Name // 不识别时
-	Set      bool     // a:set 标记
+	Opaque   xmlstore.QName // 不识别时
+	Set      bool           // a:set 标记
 }
 
 type tmlKind int
@@ -211,7 +210,7 @@ const (
 	tkOpaque
 )
 
-// tmlMedia 包装 audio/video 节点内的 cTn + tgtEl。
+// tmlMedia 包装 audio/video 节点内的 cMediaNode > cTn / tgtEl。
 type tmlMedia struct {
 	Vol int64
 	CTn *tmlCTn
@@ -262,20 +261,66 @@ type tmlCond struct {
 //   - 输入空 → 返回 (PageTiming{}, nil)；
 //   - 解析失败 → 返回 PageTiming{Diagnostics:[TIMIR_PARSE_ERR]} + 错误；
 //   - 未识别子树 → 落入 OpaqueNode + 累计到 OpaqueCount。
+//
+// 实现：以 internal/xmlstore.Scanner 构建节点索引树，再按本地名规则
+// 把每个元素投影到 tmlCTn AST。该路径无 std encoding/xml 自闭合导致的
+// 深度同步问题——xmlstore 对 `<x/>` 仅发射 SelfClosing=true 的 Start，
+// 不发射独立的 End 事件。
 func projectTimingTree(part string, raw []byte) (PageTiming, error) {
 	pt := PageTiming{}
 	if len(raw) == 0 {
 		return pt, nil
 	}
-	root, tnLstCount, diags, err := parseTimingRoot(bytes.NewReader(raw))
-	pt.Diagnostics = append(pt.Diagnostics, diags...)
-	if err != nil && !errors.Is(err, io.EOF) {
+	doc, err := xmlstore.Index(raw)
+	if err != nil {
 		pt.Diagnostics = append(pt.Diagnostics, Diagnostic{
 			Code: "TIMIR_PARSE_ERR", Severity: SevError,
 			Part:    part,
-			Message: "p:timing 不是良构 XML：" + err.Error(),
+			Message: timingParseErrMessage(err),
 		})
 		return pt, fmt.Errorf("ir: timing parse: %w", err)
+	}
+	if doc == nil || doc.Root() == nil {
+		return pt, nil
+	}
+	root := doc.Root()
+	if root.QName.Local != "timing" {
+		pt.Diagnostics = append(pt.Diagnostics, Diagnostic{
+			Code: "TIMIR_BAD_ROOT", Severity: SevError,
+			Part:    part,
+			Message: "p:timing 根元素不是 timing，实际为 " + root.QName.String(),
+		})
+		return pt, fmt.Errorf("ir: timing parse: unexpected root <%s>", root.QName.String())
+	}
+	var pars []*tmlCTn
+	tnLstCount := 0
+	for _, childID := range root.Children {
+		child := doc.Node(childID)
+		switch child.QName.Local {
+		case "tnLst":
+			tnLstCount++
+			// 收集该 tnLst 内的全部 par；保留文档序。
+			for _, tnID := range child.Children {
+				tn := doc.Node(tnID)
+				if tn.QName.Local != "par" {
+					pt.Diagnostics = append(pt.Diagnostics, Diagnostic{
+						Code: "TIMIR_NON_PAR_IN_TNLST", Severity: SevWarning,
+						Part:    part,
+						Message: "tnLst 下出现非 par 子元素 <" + tn.QName.String() + ">；忽略",
+					})
+					continue
+				}
+				cn := readCTnFromNode(doc, tn, tkPar)
+				pars = append(pars, cn)
+			}
+		default:
+			// timing 根下的其他直接子元素（如 buildList）：如实记录。
+			pt.Diagnostics = append(pt.Diagnostics, Diagnostic{
+				Code: "TIMIR_TIMING_NON_TNLST", Severity: SevWarning,
+				Part:    part,
+				Message: "<timing> 下出现非 tnLst 直接子元素 <" + child.QName.String() + ">；忽略",
+			})
+		}
 	}
 	if tnLstCount > 1 {
 		pt.Diagnostics = append(pt.Diagnostics, Diagnostic{
@@ -284,10 +329,7 @@ func projectTimingTree(part string, raw []byte) (PageTiming, error) {
 			Message: "multiple <p:tnLst> elements; only par children kept",
 		})
 	}
-	if root == nil {
-		return pt, nil
-	}
-	for _, par := range root {
+	for _, par := range pars {
 		// par 的实际属性 / 子节点来自它内部的 cTn（OOXML 规范）：
 		// <p:par><p:cTn id="..." dur="...">...</p:cTn></p:par>
 		par.Kind = tkPar
@@ -310,507 +352,229 @@ func projectTimingTree(part string, raw []byte) (PageTiming, error) {
 	return pt, nil
 }
 
-// parseTimingRoot 进入 <timing> 后走全部 <tnLst> 段，收集所有 par。
+// timingParseErrMessage 把 xmlstore 错误展开为含字节偏移的可读消息。
+func timingParseErrMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, io.EOF) {
+		return "p:timing 输入截断（EOF）"
+	}
+	var se *xmlstore.SyntaxError
+	if errors.As(err, &se) {
+		return "p:timing 不是良构 XML：" + se.Error()
+	}
+	var de *xmlstore.DepthError
+	if errors.As(err, &de) {
+		return "p:timing 嵌套深度超限：" + de.Error()
+	}
+	return "p:timing 不是良构 XML：" + err.Error()
+}
+
+// readCTnFromNode 把一个 xmlstore 元素节点投影为 tmlCTn。
 //
-// 返回值：par 数组（顺序保留）+ tnLst count + 诊断（多 tnLst / 错位 par）。
-// tnLst count 用于 projectTimingTree 输出 TIMIR_MULTI_TNLST 诊断。
-func parseTimingRoot(r io.Reader) ([]*tmlCTn, int, Diagnostics, error) {
-	diags := Diagnostics{}
-	dec := xml.NewDecoder(r)
-	inTnLst := false
-	tnLstCount := 0
-	var out []*tmlCTn
-	docEnded := false
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return out, tnLstCount, diags, err
-			}
-			return out, tnLstCount, diags, err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			if docEnded {
-				return out, tnLstCount, diags, nil
-			}
-			switch t.Name.Local {
-			case "tnLst":
-				inTnLst = true
-				tnLstCount++
-				continue
-			case "par":
-				if !inTnLst {
-					diags = append(diags, Diagnostic{
-						Code: "TIMIR_PAR_OUTSIDE_TNLST", Severity: SevWarning,
-						Message: "par outside tnLst; ignored",
-					})
-					if err := skipElementSkipBody(dec); err != nil {
-						return out, tnLstCount, diags, err
-					}
-					continue
-				}
-				cn, err := readCTnElement(dec, t)
-				if err != nil {
-					return out, tnLstCount, diags, err
-				}
-				out = append(out, cn)
-			case "timing":
-				continue
-			default:
-				if err := skipElementSkipBody(dec); err != nil {
-					return out, tnLstCount, diags, err
-				}
-			}
-		case xml.EndElement:
-			if t.Name.Local == "timing" {
-				docEnded = true
-				return out, tnLstCount, diags, nil
-			}
-			if t.Name.Local == "tnLst" {
-				inTnLst = false
-			}
-		}
-	}
-}
-
-// readCTnElement 在收到 <cTn>/<par>/<seq>/<set> 等的起始 token 后读取整个子树。
-func readCTnElement(dec *xml.Decoder, start xml.StartElement) (*tmlCTn, error) {
+// 默认 kind 由 defaultKind 决定（<par>/<seq>/<set>/... 经调用方显式传入
+// 对应 tmlKind；裸 cTn 走 tkCTn）。childTnLst 的子元素会被"扁平化"：
+// 即 childTnLst 内部的 par/seq/cTn/audio/... 直接挂在父 tmlCTn 的
+// Children 下，与前一版 parser 行为一致。
+func readCTnFromNode(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, defaultKind tmlKind) *tmlCTn {
 	cn := &tmlCTn{
-		Attrs: newAttrs(start),
-		Kind:  tkCTn,
+		Attrs: newAttrsFromNode(n),
+		Kind:  defaultKind,
 	}
-	closeOn := start.Name.Local
-	return cn, readCTnBody(dec, cn, closeOn)
-}
-
-// readCTnBody 在已知已进入特定元素 StartElement 后消费其内部。
-// 参数 parentClose 是其容器元素的本地名（par/cTn/seq/set/audio/video/
-// cmd/animmotion 等）；调用方在调用前已 consume 自身 StartElement。
-func readCTnBody(dec *xml.Decoder, cn *tmlCTn, parentClose string) error {
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			switch t.Name.Local {
-			case "childTnLst":
-				if err := readCTnLstChildren(dec, t.Name.Local, cn); err != nil {
-					return err
+	for _, childID := range n.Children {
+		child := doc.Node(childID)
+		local := child.QName.Local
+		switch local {
+		case "cTn":
+			inner := readCTnFromNode(doc, child, tkCTn)
+			cn.Children = append(cn.Children, inner)
+		case "par":
+			inner := readCTnFromNode(doc, child, tkPar)
+			cn.Children = append(cn.Children, inner)
+		case "seq":
+			inner := readCTnFromNode(doc, child, tkSeq)
+			cn.Children = append(cn.Children, inner)
+		case "set":
+			inner := readCTnFromNode(doc, child, tkSet)
+			cn.Children = append(cn.Children, inner)
+		case "childTnLst":
+			// childTnLst 是 cTn 的子节点列表包裹；语义上其内部子节点
+			// 就是父 cTn 的时间子节点（OOXML：cTn.stCondLst /
+			// cTn.endCondLst / cTn.childTnLst 平行），因此这里把
+			// childTnLst 的直接子元素提升到父 cn.Children。
+			for _, subID := range child.Children {
+				sub := doc.Node(subID)
+				switch sub.QName.Local {
+				case "cTn":
+					cn.Children = append(cn.Children, readCTnFromNode(doc, sub, tkCTn))
+				case "par":
+					cn.Children = append(cn.Children, readCTnFromNode(doc, sub, tkPar))
+				case "seq":
+					cn.Children = append(cn.Children, readCTnFromNode(doc, sub, tkSeq))
+				case "set":
+					cn.Children = append(cn.Children, readCTnFromNode(doc, sub, tkSet))
+				case "audio":
+					cn.Children = append(cn.Children, &tmlCTn{Kind: tkAudio, Body: readMediaFromNode(doc, sub)})
+				case "video":
+					cn.Children = append(cn.Children, &tmlCTn{Kind: tkVideo, Body: readMediaFromNode(doc, sub)})
+				case "cmd":
+					cn.Children = append(cn.Children, &tmlCTn{Kind: tkCMD, CMD: readCmdFromNode(doc, sub)})
+				case "anim", "animmotion", "animcolor", "animscale", "animrotate":
+					cn.Children = append(cn.Children, &tmlCTn{Kind: tkAnim, Anim: readAnimFromNode(doc, sub, sub.QName.Local)})
+				default:
+					cn.Children = append(cn.Children, &tmlCTn{
+						Kind:   tkOpaque,
+						Opaque: sub.QName,
+					})
 				}
-			case "cTn":
-				inner, err := readCTnElement(dec, t)
-				if err != nil {
-					return err
-				}
-				cn.Children = append(cn.Children, inner)
-			case "par":
-				inner, err := readCTnElement(dec, t)
-				if err != nil {
-					return err
-				}
-				inner.Kind = tkPar
-				cn.Children = append(cn.Children, inner)
-			case "seq":
-				inner, err := readCTnElement(dec, t)
-				if err != nil {
-					return err
-				}
-				inner.Kind = tkSeq
-				cn.Children = append(cn.Children, inner)
-			case "audio", "video":
-				body, err := readMediaBody(dec, t)
-				if err != nil {
-					return err
-				}
-				child := &tmlCTn{Kind: tkAudio}
-				if t.Name.Local == "video" {
-					child.Kind = tkVideo
-				}
-				child.Body = body
-				cn.Children = append(cn.Children, child)
-			case "cmd":
-				cmd, err := readCmdBody(dec)
-				if err != nil {
-					return err
-				}
-				inner := &tmlCTn{Kind: tkCMD, CMD: cmd}
-				cn.Children = append(cn.Children, inner)
-			case "anim", "animmotion", "animcolor", "animscale", "animrotate":
-				anim, err := readAnimBody(dec, t.Name.Local)
-				if err != nil {
-					return err
-				}
-				cn.Children = append(cn.Children, &tmlCTn{Kind: tkAnim, Anim: anim})
-			case "set":
-				inner, err := readCTnElement(dec, t)
-				if err != nil {
-					return err
-				}
-				inner.Kind = tkSet
-				cn.Children = append(cn.Children, inner)
-			case "stCondLst":
-				conds, err := readCondList(dec)
-				if err != nil {
-					return err
-				}
-				cn.Begin = conds
-			case "endCondLst":
-				conds, err := readCondList(dec)
-				if err != nil {
-					return err
-				}
-				cn.End = conds
-			default:
-				// 不识别：吞整段当 opaque 落记。
-				if err := skipElementSkipBody(dec); err != nil {
-					return err
-				}
-				cn.Children = append(cn.Children, &tmlCTn{
-					Kind:   tkOpaque,
-					Opaque: t.Name,
-				})
 			}
-		case xml.EndElement:
-			if t.Name.Local == parentClose {
-				return nil
-			}
+		case "stCondLst":
+			cn.Begin = append(cn.Begin, readCondListFromNode(doc, child)...)
+		case "endCondLst":
+			cn.End = append(cn.End, readCondListFromNode(doc, child)...)
+		case "audio":
+			cn.Children = append(cn.Children, &tmlCTn{Kind: tkAudio, Body: readMediaFromNode(doc, child)})
+		case "video":
+			cn.Children = append(cn.Children, &tmlCTn{Kind: tkVideo, Body: readMediaFromNode(doc, child)})
+		case "cmd":
+			cn.Children = append(cn.Children, &tmlCTn{Kind: tkCMD, CMD: readCmdFromNode(doc, child)})
+		case "anim", "animmotion", "animcolor", "animscale", "animrotate":
+			cn.Children = append(cn.Children, &tmlCTn{Kind: tkAnim, Anim: readAnimFromNode(doc, child, local)})
+		default:
+			cn.Children = append(cn.Children, &tmlCTn{
+				Kind:   tkOpaque,
+				Opaque: child.QName,
+			})
 		}
 	}
+	return cn
 }
 
-// readMediaBody 处理 audio/video 内的 cMediaNode > cTn / tgtEl。
-func readMediaBody(dec *xml.Decoder, start xml.StartElement) (*tmlMedia, error) {
+// readMediaFromNode 处理 audio/video 内的 cMediaNode > cTn / tgtEl。
+func readMediaFromNode(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) *tmlMedia {
 	body := &tmlMedia{}
-	for _, a := range start.Attr {
-		if a.Name.Local == "vol" {
+	for _, a := range n.Attrs {
+		if a.Local() == "vol" {
 			if v, err := strconv.ParseInt(a.Value, 10, 64); err == nil {
 				body.Vol = v
 			}
 		}
 	}
-	inCMedia := false
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return nil, err
+	for _, childID := range n.Children {
+		child := doc.Node(childID)
+		if child.QName.Local != "cMediaNode" {
+			// cMediaNode 之外的直接子元素：如实保留为 OpaqueNode 不合
+			// 适（tmlMedia 不承载 Children 字段），故此处静默丢弃。
+			// 该路径只在损坏 / 异常文档上出现。
+			continue
 		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			if t.Name.Local == "cMediaNode" {
-				inCMedia = true
-				for _, a := range t.Attr {
-					if a.Name.Local == "vol" {
-						if v, err := strconv.ParseInt(a.Value, 10, 64); err == nil {
-							body.Vol = v
-						}
-					}
+		// cMediaNode 上的 vol 属性可覆盖外层 audio/video@vol。
+		for _, a := range child.Attrs {
+			if a.Local() == "vol" {
+				if v, err := strconv.ParseInt(a.Value, 10, 64); err == nil {
+					body.Vol = v
 				}
-				continue
 			}
-			if !inCMedia {
-				if err := skipElementSkipBody(dec); err != nil {
-					return nil, err
-				}
-				continue
-			}
-			switch t.Name.Local {
+		}
+		for _, subID := range child.Children {
+			sub := doc.Node(subID)
+			switch sub.QName.Local {
 			case "cTn":
-				cn, err := readCTnElement(dec, t)
-				if err != nil {
-					return nil, err
-				}
-				body.CTn = cn
+				body.CTn = readCTnFromNode(doc, sub, tkCTn)
 			case "tgtEl":
-				tgt, err := readTgtEl(dec)
-				if err != nil {
-					return nil, err
-				}
-				body.Tgt = tgt
-			default:
-				if err := skipElementSkipBody(dec); err != nil {
-					return nil, err
-				}
-			}
-		case xml.EndElement:
-			if t.Name.Local == "audio" || t.Name.Local == "video" || t.Name.Local == "cMediaNode" {
-				if t.Name.Local == "cMediaNode" {
-					inCMedia = false
-				}
-				if t.Name.Local == "audio" || t.Name.Local == "video" {
-					return body, nil
-				}
+				body.Tgt = readTgtElFromNode(doc, sub)
 			}
 		}
 	}
+	return body
 }
 
-// readCmdBody 在 cmd 起始 token 后读取 cTn 子节点。
-func readCmdBody(dec *xml.Decoder) (*tmlCmd, error) {
+// readCmdFromNode 在 cmd 节点上读取其 cTn 子节点。
+func readCmdFromNode(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) *tmlCmd {
 	cmd := &tmlCmd{}
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return nil, err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			switch t.Name.Local {
-			case "cTn":
-				cn, err := readCTnElement(dec, t)
-				if err != nil {
-					return nil, err
-				}
-				cmd.CTn = cn
-			default:
-				if err := skipElementSkipBody(dec); err != nil {
-					return nil, err
-				}
-			}
-		case xml.EndElement:
-			if t.Name.Local == "cmd" {
-				return cmd, nil
-			}
+	for _, childID := range n.Children {
+		child := doc.Node(childID)
+		if child.QName.Local == "cTn" {
+			cmd.CTn = readCTnFromNode(doc, child, tkCTn)
 		}
 	}
+	return cmd
 }
 
-// readAnimBody 处理 p:anim* 节点——可能是 anim/animmotion/animcolor/
-// animscale/animrotate；本函数读 cTn, tgtEl, animateEffect 等子节点。
-func readAnimBody(dec *xml.Decoder, parent string) (*tmlAnim, error) {
+// readAnimFromNode 处理 p:anim* 节点（anim/animmotion/animcolor/
+// animscale/animrotate），读取 cTn、tgtEl 与 animateEffect 等子节点。
+// parent 即外层本地名（"anim"/"animmotion"/...）。
+func readAnimFromNode(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, parent string) *tmlAnim {
 	anim := &tmlAnim{ParentLocal: parent}
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return nil, err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			switch t.Name.Local {
-			case "cTn":
-				cn, err := readCTnElement(dec, t)
-				if err != nil {
-					return nil, err
-				}
-				anim.CTn = cn
-			case "tgtEl":
-				tgt, err := readTgtEl(dec)
-				if err != nil {
-					return nil, err
-				}
-				anim.Tgt = tgt
-			case "animateEffect", "animateMotion", "animateColor", "animateScale", "animateRotate":
-				eff := tmlEffect{Local: t.Name.Local}
-				for _, a := range t.Attr {
-					if a.Name.Local == "effectId" {
-						if v, err := strconv.ParseInt(a.Value, 10, 64); err == nil {
-							eff.EffectID = v
-						}
-					}
-				}
-				anim.Effect = eff
-				if err := skipElementSkipBody(dec); err != nil {
-					return nil, err
-				}
-			default:
-				if err := skipElementSkipBody(dec); err != nil {
-					return nil, err
+	for _, childID := range n.Children {
+		child := doc.Node(childID)
+		switch child.QName.Local {
+		case "cTn":
+			anim.CTn = readCTnFromNode(doc, child, tkCTn)
+		case "tgtEl":
+			anim.Tgt = readTgtElFromNode(doc, child)
+		case "animateEffect", "animateMotion", "animateColor", "animateScale", "animateRotate":
+			eff := tmlEffect{Local: child.QName.Local}
+			if v, ok := child.AttrLocal("effectId"); ok {
+				if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+					eff.EffectID = id
 				}
 			}
-		case xml.EndElement:
-			if t.Name.Local == parent {
-				return anim, nil
-			}
+			anim.Effect = eff
 		}
 	}
+	return anim
 }
 
-// readTgtEl 处理 p:tgtEl 中的 spTgt/setTgt/inkTgt。
-func readTgtEl(dec *xml.Decoder) (*tmlTgt, error) {
+// readTgtElFromNode 读取 p:tgtEl 内的 spTgt / setTgt / inkTgt。
+//
+// tgtEl 内部通常只有一个子元素，但 OOXML 允许复合形式；这里按子元素
+// 出现顺序投影——后者覆盖前者，与解析顺序无歧义。
+func readTgtElFromNode(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) *tmlTgt {
 	tgt := &tmlTgt{}
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return nil, err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			raw := t.Name.Local
-			tgt.ElementRaw = raw
-			for _, a := range t.Attr {
-				switch a.Name.Local {
-				case "spid":
-					if v, err := strconv.ParseInt(a.Value, 10, 64); err == nil {
-						tgt.SpShapeID = v
-					}
-				case "effectId":
-					if v, err := strconv.ParseInt(a.Value, 10, 64); err == nil {
-						tgt.SetEffect = v
-					}
-				case "attrName":
-					tgt.AttrName = a.Value
-				case "attrVal":
-					tgt.AttrVal = a.Value
+	for _, childID := range n.Children {
+		child := doc.Node(childID)
+		raw := child.QName.Local
+		tgt.ElementRaw = raw
+		for _, a := range child.Attrs {
+			switch a.Local() {
+			case "spid":
+				if v, err := strconv.ParseInt(a.Value, 10, 64); err == nil {
+					tgt.SpShapeID = v
 				}
-			}
-			if err := skipElementSkipBody(dec); err != nil {
-				return nil, err
-			}
-		case xml.EndElement:
-			if t.Name.Local == "tgtEl" {
-				return tgt, nil
+			case "effectId":
+				if v, err := strconv.ParseInt(a.Value, 10, 64); err == nil {
+					tgt.SetEffect = v
+				}
+			case "attrName":
+				tgt.AttrName = a.Value
+			case "attrVal":
+				tgt.AttrVal = a.Value
 			}
 		}
 	}
+	return tgt
 }
 
-// readCondList 读取 stCondLst / endCondLst 内的 cond 子节点。
-//
-// 调用方已消费了外层 StartElement（stCondLst/endCondLst）；本函数消费
-// 内部直到对应的 EndElement。
-func readCondList(dec *xml.Decoder) ([]tmlCond, error) {
+// readCondListFromNode 读取 stCondLst / endCondLst 内的 cond 子节点。
+func readCondListFromNode(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) []tmlCond {
 	var out []tmlCond
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return out, err
+	for _, childID := range n.Children {
+		child := doc.Node(childID)
+		if child.QName.Local != "cond" {
+			continue
 		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			if t.Name.Local == "cond" {
-				c := tmlCond{}
-				for _, a := range t.Attr {
-					switch a.Name.Local {
-					case "evt":
-						c.Evt = a.Value
-					case "delay":
-						c.Delay = a.Value
-					}
-				}
-				// 跳过 cond 子树（自闭合或展开均可——self-closing 时
-				// std 仍发射 EE 来对齐 depth）。
-				if err := skipElementSkipBody(dec); err != nil {
-					return out, err
-				}
-				out = append(out, c)
-			} else {
-				if err := skipElementSkipBody(dec); err != nil {
-					return out, err
-				}
-			}
-		case xml.EndElement:
-			if t.Name.Local == "stCondLst" || t.Name.Local == "endCondLst" {
-				return out, nil
-			}
+		c := tmlCond{}
+		if v, ok := child.AttrLocal("evt"); ok {
+			c.Evt = v
 		}
+		if v, ok := child.AttrLocal("delay"); ok {
+			c.Delay = v
+		}
+		out = append(out, c)
 	}
-}
-
-// readCTnLstChildren 处理 childTnLst 内的子节点，与 readCTnBody 行为一致
-// 但不含 childTnLst 这个外层包裹（cTn 的 Children 是 childTnLst 的内部）。
-func readCTnLstChildren(dec *xml.Decoder, parent string, cn *tmlCTn) error {
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			switch t.Name.Local {
-			case "cTn":
-				inner, err := readCTnElement(dec, t)
-				if err != nil {
-					return err
-				}
-				cn.Children = append(cn.Children, inner)
-			case "par":
-				inner, err := readCTnElement(dec, t)
-				if err != nil {
-					return err
-				}
-				inner.Kind = tkPar
-				cn.Children = append(cn.Children, inner)
-			case "seq":
-				inner, err := readCTnElement(dec, t)
-				if err != nil {
-					return err
-				}
-				inner.Kind = tkSeq
-				cn.Children = append(cn.Children, inner)
-			case "audio", "video":
-				body, err := readMediaBody(dec, t)
-				if err != nil {
-					return err
-				}
-				child := &tmlCTn{Kind: tkAudio}
-				if t.Name.Local == "video" {
-					child.Kind = tkVideo
-				}
-				child.Body = body
-				cn.Children = append(cn.Children, child)
-			case "cmd":
-				cmd, err := readCmdBody(dec)
-				if err != nil {
-					return err
-				}
-				cn.Children = append(cn.Children, &tmlCTn{Kind: tkCMD, CMD: cmd})
-			case "anim", "animmotion", "animcolor", "animscale", "animrotate":
-				anim, err := readAnimBody(dec, t.Name.Local)
-				if err != nil {
-					return err
-				}
-				cn.Children = append(cn.Children, &tmlCTn{Kind: tkAnim, Anim: anim})
-			case "set":
-				inner, err := readCTnElement(dec, t)
-				if err != nil {
-					return err
-				}
-				inner.Kind = tkSet
-				cn.Children = append(cn.Children, inner)
-			default:
-				if err := skipElementSkipBody(dec); err != nil {
-					return err
-				}
-				cn.Children = append(cn.Children, &tmlCTn{
-					Kind:   tkOpaque,
-					Opaque: t.Name,
-				})
-			}
-		case xml.EndElement:
-			if t.Name.Local == parent {
-				return nil
-			}
-		}
-	}
-}
-
-// skipElementSkipBody 跳过当前已读取 StartElement 的元素子树。
-//
-// 设计说明：encoding/xml 包对 `<foo/>` 仅发射一个 StartElement，没有
-// EndElement，因此"等待 EndElement for foo"的策略会越界。本函数采
-// 用 depth 计数，从 1 开始：StartElement 增加 / EndElement 减少；任一
-// 点 depth<=0 时已"关闭"足够多。我们不依赖 name 匹配：外层循环由
-// 调用方的"已知上下文"负责。
-func skipElementSkipBody(dec *xml.Decoder) error {
-	depth := 1
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			depth++
-		case xml.EndElement:
-			depth--
-			if depth <= 0 {
-				_ = t
-				return nil
-			}
-		}
-	}
+	return out
 }
 
 // ---------- 投影：tmlCTn 树 → TimingNode 树 ----------
@@ -895,7 +659,7 @@ func projectCTn(cn *tmlCTn, totals *TimingTotals, diags Diagnostics) *TimingNode
 		case tkOpaque:
 			node.Children = append(node.Children, &TimingNode{
 				Kind:   TimeNodeOpaqueKind,
-				Opaque: opaqueFromXMLName(child.Opaque),
+				Opaque: opaqueFromQName(child.Opaque),
 			})
 			totals.OpaqueCount++
 		}
@@ -1075,17 +839,23 @@ func delaysFromProto(raw string) Estimate {
 	return durationsFromProto(raw, "delay")
 }
 
-// opaqueFromXMLName 把一个未识别的任意元素名封装成 OpaqueNode。
-func opaqueFromXMLName(name xml.Name) *OpaqueNode {
+// opaqueFromQName 把一个未识别的任意元素名封装成 OpaqueNode。
+//
+// 与上一版的区别：xmlstore.NodeRecord 上的 Namespace 才是元素 URI 解析
+// 结果；tmlCTn.Opaque 只携带 QName（前缀 + 本地名）足够供审计/诊断使用，
+// URI 信息可由调用方按需从 NodeRecord.Namespace 检索（TIMIR-01 不需要）。
+func opaqueFromQName(name xmlstore.QName) *OpaqueNode {
 	if name.Local == "" {
 		return nil
 	}
-	ns := ""
-	if name.Space != "" {
-		ns = name.Space
-	}
 	return &OpaqueNode{
 		LocalName: name.Local,
-		Meta:      map[string]string{"__ns": ns},
+		Meta:      map[string]string{"__prefix": name.Prefix},
 	}
 }
+
+// 保留 bytes 包引用以备未来扩展（避免 lint 警告 unused import）。
+var _ = bytes.NewReader
+
+// 保留 bytes 包引用以备未来扩展（避免 lint 警告 unused import）。
+var _ = bytes.NewReader
