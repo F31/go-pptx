@@ -225,13 +225,18 @@ func populateCapabilityDimensions(m *CapabilityManifest) {
 	}
 	m.Dimensions[CapabilityCreate] = CapabilityDimension{
 		Status: StatusPartial,
-		Notes:  "受限创建：text / picture / table / audio / video / chart / slide（六类显式）。",
+		Notes:  "受限创建：text / shape / picture / audio / video / chart / slide（显式 API，§20.2）。",
 		AppliesTo: []string{
-			"Slide.AddText / AddPicture / AddTable / AddAudio / AddVideo / AddChart",
+			"Slide.AddTextBox / AddAutoShape / AddPicture / AddAudio / AddVideo / AddChart",
+			"Slide.RemoveShape / MoveShape（z-order 调整）",
+			"TextFrame.AddParagraph（段落创建；Run 已有 AddRun）",
 			"Presentation.AddSlide / Clone 同文档受限复制",
 		},
 		Limits: []string{
 			"未声明的 shape 类型返回 ErrUnsupportedEdit。",
+			"AutoShape.Geometry 需为合法 preset 名（a:prstGeom@prst）；不白名单，由调用方自担拼写。",
+			"AddTextBox/AddAutoShape 仅创建顶层形状；组内子形状不暴露独立创建 API。",
+			"RemoveShape 拒绝删除被 p:timing 引用（@spid）的形状；媒体共享 Part 保留（GC 推迟）。",
 			"音频/视频需提供 source 字节或 MediaSource；不允许凭空构造。",
 		},
 	}

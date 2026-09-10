@@ -108,6 +108,11 @@
 // 动画目标 Target）；未识别子元素输出 OpaqueNode 并计入诊断（不猜
 // 测、不省略）。R 档——不提供动画编辑 API；估计值 Duration 不承诺与
 // Office 客户端播放帧一致，且不得作为 AdvanceAfter 计算输入（§21.5）。
+// 形状创建与管理（SHAPE-CREATE，设计 §20.2 缺口补齐）——
+// Slide.AddTextBox / AddAutoShape / RemoveShape / MoveShape +
+// TextFrame.AddParagraph；走 Part 级 stagePatch + 单事务 commit，
+// 不引入第二套编辑机制（ADR 013 续）。句柄失效语义：编辑后请重新
+// 取 Slide.Shapes() 获取新句柄。
 // 语义 diff 与审计（DIFF-01，M8 首项，方案 §18.3 / §24）——ir.Diff
 // 以 IR 为输入视图比较两份文档：页面对齐用加权 LCS（SlideID 强匹配 /
 // 形状 ID Jaccard 相似度，乱序残留二次配对），页内形状按 ShapeID 配对
