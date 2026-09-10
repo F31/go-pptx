@@ -9,7 +9,7 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-09-10
+## [1.0.0] - 2026-09-11
 
 The first stable release of go-pptx.
 

@@ -1,6 +1,6 @@
 # go-pptx v1.0.0 Release Notes
 
-> 2026-09-10 · T-0 草稿（待 `git tag -s v1.0.0` 后随 GitHub Release 发出）
+> 2026-09-11 · 已随 `git tag -s v1.0.0`（SSH 签名）发布
 
 我们很高兴发布 **go-pptx v1.0.0**——这是该项目的第一个稳定版本。M0–M8 全部里程碑收口，
 **51 个 Stable API 段落**（覆盖核心对象模型入口、错误码、诊断、几何值对象、句柄 ID、
