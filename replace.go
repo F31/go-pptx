@@ -70,29 +70,7 @@ func (m ReplaceMode) String() string {
 	return "ReplaceMode(" + intString(int(m)) + ")"
 }
 
-// replaceOptions 收集 ReplaceText 的函数式选项。
-type replaceOptions struct {
-	mode     ReplaceMode
-	style    FontStyle
-	styleSet bool
-}
-
-// ReplaceOption 是 ReplaceText 的函数式选项。
-type ReplaceOption func(*replaceOptions)
-
-// WithReplaceMode 选择格式策略；缺省 ReplaceFirstCharacter。
-func WithReplaceMode(m ReplaceMode) ReplaceOption {
-	return func(o *replaceOptions) { o.mode = m }
-}
-
-// WithReplacementStyle 提供 ExplicitStyle 策略下 replacement 的格式。
-// 仅 ReplaceExplicitStyle 使用；其它策略下调用无效果。
-func WithReplacementStyle(style FontStyle) ReplaceOption {
-	return func(o *replaceOptions) {
-		o.style = style
-		o.styleSet = true
-	}
-}
+// replaceOptions / ReplaceOption / WithReplaceMode / WithReplacementStyle 已迁出至 options.go。
 
 // ReplaceHit 是一次命中的定位与结果。StartRune/EndRune 是逻辑文本
 // 视图（= 所属段落 Text() 的 Unicode rune 序列）的半开区间 [Start,End)。

@@ -59,26 +59,7 @@ const (
 
 // ---------- 公共 API ----------
 
-// bindOptions 收集 Bind 的函数式选项。
-type bindOptions struct {
-	strict bool
-	mode   ReplaceMode
-}
-
-// BindOption 是 Presentation.Bind 的函数式选项。
-type BindOption func(*bindOptions)
-
-// WithBindStrict 设置严格模式（默认 true）：数据源缺键或值类型不可
-// 呈现时显式报错；关闭时未解析占位符保留原文并记 Warning 诊断。
-func WithBindStrict(strict bool) BindOption {
-	return func(o *bindOptions) { o.strict = strict }
-}
-
-// WithBindReplaceMode 设置占位符替换的格式策略
-// （默认 ReplaceFirstCharacter，与 Paragraph.ReplaceText 一致）。
-func WithBindReplaceMode(m ReplaceMode) BindOption {
-	return func(o *bindOptions) { o.mode = m }
-}
+// BindOption / bindOptions / WithBindStrict / WithBindReplaceMode 已迁出至 options.go。
 
 // BindReport 是一次模板绑定的执行汇总。
 type BindReport struct {

@@ -64,32 +64,7 @@ type partDocEntry struct {
 	rev uint64
 }
 
-// NewOption 是 New 的函数式选项。
-type NewOption func(*newOptions)
-
-type newOptions struct {
-	budget   opc.Budget
-	template map[opc.PartName][]byte
-}
-
-// WithNewBudget 覆盖 New 的资源预算（默认 DefaultBudget）。
-func WithNewBudget(b opc.Budget) NewOption {
-	return func(o *newOptions) { o.budget = b }
-}
-
-// WithNewTemplate 追加/替换模板 Part（键为 OPC 风格 "/..." 名）。
-// 模板整体仍须经完整的 OPC 装载校验，非法输入在 New 返回错误。
-func WithNewTemplate(parts map[string][]byte) NewOption {
-	return func(o *newOptions) {
-		if o.template == nil {
-			o.template = make(map[opc.PartName][]byte, len(parts))
-		}
-		for k, v := range parts {
-			o.template[opc.PartName(k)] = append([]byte(nil), v...)
-		}
-	}
-}
-
+// NewOption 等函数式选项已迁出至 options.go（设计文档 §3"options.go"清单）。
 // New 基于库内合法最小模板（或调用方模板）创建空演示文稿。
 func New(opts ...NewOption) (*Presentation, error) {
 	o := newOptions{budget: opc.DefaultBudget()}
@@ -122,18 +97,7 @@ func New(opts ...NewOption) (*Presentation, error) {
 	}, nil
 }
 
-// OpenOption 是 Open/OpenReader 的函数式选项。
-type OpenOption func(*openOptions)
-
-type openOptions struct {
-	budget opc.Budget
-}
-
-// WithBudget 覆盖打开时的资源预算（默认 DefaultBudget）。
-func WithBudget(b opc.Budget) OpenOption {
-	return func(o *openOptions) { o.budget = b }
-}
-
+// OpenOption 等函数式选项已迁出至 options.go。
 // Open 打开磁盘上的 PPTX 文件；文件资源由 Close 释放。
 func Open(path string, opts ...OpenOption) (*Presentation, error) {
 	o := openOptions{budget: opc.DefaultBudget()}
@@ -200,23 +164,7 @@ func OpenReader(r io.ReaderAt, size int64, opts ...OpenOption) (*Presentation, e
 	}, nil
 }
 
-// Close 释放资源。Open 打开的文件在此关闭；此后任何方法返回
-// ErrClosed（Close 本身幂等返回 ErrClosed 语义之外的 nil 无必要，
-// 重复 Close 返回 ErrClosed）。
-func (p *Presentation) Close() error {
-	if p.closed {
-		return Annotate(ErrClosed, "Presentation.Close")
-	}
-	p.closed = true
-	if p.srcFile != nil {
-		err := p.srcFile.Close()
-		p.srcFile = nil
-		if err != nil {
-			return Annotate(err, "Presentation.Close")
-		}
-	}
-	return nil
-}
+// Close / Save / Write / SaveReport 已迁出至 save.go（设计文档 §3"save.go"清单）。
 
 // Revision 返回当前文档 revision；每次成功的公共修改提交后递增。
 func (p *Presentation) Revision() uint64 {
@@ -296,115 +244,7 @@ func (p *Presentation) Slides() ([]*Slide, error) {
 	return out, nil
 }
 
-// SaveReport 是一次保存的结果。
-type SaveReport struct {
-	// Revision 是保存所基于的文档 revision。
-	Revision uint64
-	// ChangedParts 是输出中发生变化的 Part 名（排序）。
-	ChangedParts []string
-	// Diagnostics 是保存计划的非阻断诊断。
-	Diagnostics []Diagnostic
-}
-
-// SaveOption 是 Save/Write 的函数式选项。
-type SaveOption func(*saveOptions)
-
-type saveOptions struct {
-	overwrite  bool
-	durability opc.Durability
-}
-
-// WithSaveOverwrite 显式允许覆盖已存在的目标文件（不绕过原子替换语义）。
-func WithSaveOverwrite(v bool) SaveOption {
-	return func(o *saveOptions) { o.overwrite = v }
-}
-
-// WithSaveDurability 设置持久性级别（默认只保证原子可见性）。
-func WithSaveDurability(d opc.Durability) SaveOption {
-	return func(o *saveOptions) { o.durability = d }
-}
-
-// Save 将当前文档原子保存到 path（同目录临时文件 → 校验 → 原子替换）。
-//
-// 默认拒绝覆盖已存在目标（WithSaveOverwrite 启用）；且拒绝与源文件
-// 同一文件实体的原位保存——源文件仍被惰性读取，安全原位替换待后续
-// 版本（方案 §5）。返回的 SaveReport 基于保存时的 revision 快照。
-func (p *Presentation) Save(ctx context.Context, path string, opts ...SaveOption) (SaveReport, error) {
-	o := saveOptions{}
-	for _, fn := range opts {
-		fn(&o)
-	}
-	if p.closed {
-		return SaveReport{}, Annotate(ErrClosed, "Presentation.Save")
-	}
-	if err := ctx.Err(); err != nil {
-		return SaveReport{}, Annotate(err, "Presentation.Save")
-	}
-	if path == "" {
-		return SaveReport{}, Annotate(ErrInvalidArgument, "Presentation.Save")
-	}
-	if p.sameSourceEntity(path) {
-		return SaveReport{}, &OperationError{
-			Op:      "Presentation.Save",
-			Message: "saving to the source file is not supported; choose a new output path (in-place replace arrives in a later version)",
-			Err:     ErrInvalidArgument,
-		}
-	}
-
-	// Modified 未显式指定时由库代管：保存前刷新为当前时间。
-	if err := p.flushAutoModified(); err != nil {
-		return SaveReport{}, Annotate(err, "Presentation.Save")
-	}
-	rev, plan, err := p.buildPlan()
-	if err != nil {
-		return SaveReport{}, Annotate(err, "Presentation.Save")
-	}
-	if p.rev != rev { // 计划期间的变更检测（§18）
-		return SaveReport{}, Annotate(ErrConcurrentModification, "Presentation.Save")
-	}
-	err = plan.SaveToFile(p.pk, path,
-		opc.WithOverwrite(o.overwrite), opc.WithDurability(o.durability))
-	if err != nil {
-		return SaveReport{}, Annotate(mapOCError(err), "Presentation.Save")
-	}
-	return planReport(rev, plan), nil
-}
-
-// Write 将当前文档写入 w。已写入的字节无法回滚；I/O 失败时错误明确
-// 表明输出可能不完整（方案 §5）。
-func (p *Presentation) Write(ctx context.Context, w io.Writer, opts ...SaveOption) (SaveReport, error) {
-	if p.closed {
-		return SaveReport{}, Annotate(ErrClosed, "Presentation.Write")
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := ctx.Err(); err != nil {
-		return SaveReport{}, Annotate(err, "Presentation.Write")
-	}
-	if w == nil {
-		return SaveReport{}, Annotate(ErrInvalidArgument, "Presentation.Write")
-	}
-	// Modified 未显式指定时由库代管：保存前刷新为当前时间。
-	if err := p.flushAutoModified(); err != nil {
-		return SaveReport{}, Annotate(err, "Presentation.Write")
-	}
-	rev, plan, err := p.buildPlan()
-	if err != nil {
-		return SaveReport{}, Annotate(err, "Presentation.Write")
-	}
-	if p.rev != rev {
-		return SaveReport{}, Annotate(ErrConcurrentModification, "Presentation.Write")
-	}
-	if err := plan.Write(p.pk, w); err != nil {
-		return SaveReport{}, &OperationError{
-			Op:      "Presentation.Write",
-			Message: "write failed; output may be incomplete and cannot be rolled back",
-			Err:     mapOCError(err),
-		}
-	}
-	return planReport(rev, plan), nil
-}
+// SaveReport / Save / Write 已迁出至 save.go。
 
 // Validate 对当前文档执行 L0 结构校验（默认 Structural 模式）：每个
 // Part 都有 Content Types 覆盖、页面关系目标存在。返回报告不自动失败；
@@ -451,11 +291,7 @@ func (p *Presentation) Validate(ctx context.Context, opts ...ValidateOption) Val
 	return report
 }
 
-// ValidateOption 预留：校验选项（ValidationMode 等）随校验 WP 落地。
-type ValidateOption func(*validateOptions)
-
-type validateOptions struct{}
-
+// ValidateOption 等函数式选项已迁出至 options.go。
 // ---------- 事务与读取视图骨架（§18/§19.1，供后续 WP 的 Setter 使用） ----------
 
 // stagePatch 把一次节点补丁的结果暂存到当前隐式事务。失败（含重复

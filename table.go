@@ -601,18 +601,7 @@ const (
 	MergeKeepAnchorText
 )
 
-type mergeOptions struct {
-	policy MultiCellTextPolicy
-}
-
-// MergeOption 配置单次合并行为。
-type MergeOption func(*mergeOptions)
-
-// WithMergeTextPolicy 指定多非空单元格合并策略（默认
-// MergeRejectMultipleText）。
-func WithMergeTextPolicy(p MultiCellTextPolicy) MergeOption {
-	return func(o *mergeOptions) { o.policy = p }
-}
+// mergeOptions / MergeOption / WithMergeTextPolicy 已迁出至 options.go。
 
 // Merge 合并矩形区域内的单元格（§9.1）：
 //

@@ -223,21 +223,17 @@ func loadCorpusSourcePath(t *testing.T, root string) string {
 	}
 	pptxPath := filepath.Join(root, m.Files.Pptx.Path)
 	if _, err := os.Stat(pptxPath); err != nil {
-		if os.IsNotExist(err) && isLocalOnlyPath(m.Files.Pptx.Path) {
-			t.Skipf("local-only sample: source pptx not available locally: %s", pptxPath)
+		// 源 PPTX 不在位时统一跳过（与 loadCorpusActions/loadCorpusCompat 一致）。
+		// 公开样本的 .pptx/.odp 由 opencode PR 提交，私有样本（manifest 指向
+		// /mnt/... 或 Windows 绝对路径）本就只在本机可访问——两种情况在 CI
+		// 都是"无可 replay 资源"，跳过而非失败。当数据到位后 os.Stat 成功，
+		// 测试会自动转为真跑。
+		if os.IsNotExist(err) {
+			t.Skipf("source pptx not available: %s (data 尚未入库或为本地私有路径)", pptxPath)
 		}
 		t.Fatalf("stat source pptx %s: %v", pptxPath, err)
 	}
 	return pptxPath
-}
-
-// isLocalOnlyPath 判定 manifest.files.pptx.path 是否指向私有绝对路径
-// （CI 环境通常无法访问）。覆盖：
-//   - Windows 绝对路径：C:\...、D:\... 等（filepath.IsAbs 识别）
-//   - Unix 绝对路径：/mnt/...、/home/... 等（filepath.IsAbs 在 Linux 识别；
-//     在 Windows 上 filepath.IsAbs("/mnt/...") 返回 false，需额外判前缀）
-func isLocalOnlyPath(p string) bool {
-	return filepath.IsAbs(p) || strings.HasPrefix(p, "/")
 }
 
 // loadCorpusActions 解析 <id>.actions.json。文件不存在时 t.Skipf
