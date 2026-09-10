@@ -1,0 +1,192 @@
+# go-pptx PERF-01 raw benchmark log
+# timestamp: 2026-09-10T08:17:03Z
+# go-version: go version go1.27.0 windows/amd64
+# count: 10
+# benchtime: default
+# bench: BenchmarkPerf
+goos: windows
+goarch: amd64
+pkg: github.com/F31/go-pptx
+cpu: Intel(R) Core(TM) Ultra 9 275HX
+BenchmarkPerfOpen/10p-text-24         	    4486	    298551 ns/op	  48.45 MB/s	     14464 pkg-bytes	  148840 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	    4014	    303585 ns/op	  47.64 MB/s	     14464 pkg-bytes	  148984 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	    4660	   1040805 ns/op	  13.90 MB/s	     14464 pkg-bytes	  149394 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	    1227	   1142573 ns/op	  12.66 MB/s	     14464 pkg-bytes	  149250 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	    1312	   1189877 ns/op	  12.16 MB/s	     14464 pkg-bytes	  149511 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	    1196	   1128773 ns/op	  12.81 MB/s	     14464 pkg-bytes	  149888 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	    1005	   1104494 ns/op	  13.10 MB/s	     14464 pkg-bytes	  149696 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	     957	   1143695 ns/op	  12.65 MB/s	     14464 pkg-bytes	  149377 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	    1062	   1129525 ns/op	  12.81 MB/s	     14464 pkg-bytes	  149330 B/op	    1440 allocs/op
+BenchmarkPerfOpen/10p-text-24         	    1068	   1000549 ns/op	  14.46 MB/s	     14464 pkg-bytes	  149361 B/op	    1440 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     298	   3447756 ns/op	  17.80 MB/s	     61356 pkg-bytes	  625988 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     326	   3928934 ns/op	  15.62 MB/s	     61356 pkg-bytes	  626295 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     393	   3966122 ns/op	  15.47 MB/s	     61356 pkg-bytes	  626473 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     373	   3881766 ns/op	  15.81 MB/s	     61356 pkg-bytes	  627053 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     292	   4187177 ns/op	  14.65 MB/s	     61356 pkg-bytes	  627560 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     372	   4150967 ns/op	  14.78 MB/s	     61356 pkg-bytes	  625984 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     330	   4020202 ns/op	  15.26 MB/s	     61356 pkg-bytes	  627009 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     398	   3707154 ns/op	  16.55 MB/s	     61356 pkg-bytes	  625896 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     388	   4030041 ns/op	  15.22 MB/s	     61356 pkg-bytes	  625761 B/op	    6092 allocs/op
+BenchmarkPerfOpen/50p-image-24        	     339	   3755479 ns/op	  16.34 MB/s	     61356 pkg-bytes	  625960 B/op	    6092 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     145	   7720414 ns/op	4604.20 MB/s	  35546299 pkg-bytes	 1274981 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     153	   8011867 ns/op	4436.71 MB/s	  35546299 pkg-bytes	 1274597 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     607	   1828826 ns/op	19436.68 MB/s	  35546299 pkg-bytes	 1273894 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     660	   3077754 ns/op	11549.43 MB/s	  35546299 pkg-bytes	 1273590 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     325	   3816497 ns/op	9313.85 MB/s	  35546299 pkg-bytes	 1274295 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     388	   3120852 ns/op	11389.93 MB/s	  35546299 pkg-bytes	 1274124 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     451	   2273234 ns/op	15636.88 MB/s	  35546299 pkg-bytes	 1274379 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     656	   2758206 ns/op	12887.47 MB/s	  35546299 pkg-bytes	 1274071 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     345	   5849253 ns/op	6077.07 MB/s	  35546299 pkg-bytes	 1274339 B/op	   12334 allocs/op
+BenchmarkPerfOpen/100p-media-24       	     184	   7071394 ns/op	5026.77 MB/s	  35546299 pkg-bytes	 1273250 B/op	   12334 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1658	    818970 ns/op	  17.66 MB/s	     14464 pkg-bytes	  284513 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1732	    863497 ns/op	  16.75 MB/s	     14464 pkg-bytes	  284457 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1350	    895946 ns/op	  16.14 MB/s	     14464 pkg-bytes	  284252 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1485	    875102 ns/op	  16.53 MB/s	     14464 pkg-bytes	  284510 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1428	    854774 ns/op	  16.92 MB/s	     14464 pkg-bytes	  284322 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1556	    904798 ns/op	  15.99 MB/s	     14464 pkg-bytes	  284335 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1515	    855025 ns/op	  16.92 MB/s	     14464 pkg-bytes	  284318 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1398	    877030 ns/op	  16.49 MB/s	     14464 pkg-bytes	  284495 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1328	    890531 ns/op	  16.24 MB/s	     14464 pkg-bytes	  284362 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/10p-text-24     	    1592	    921404 ns/op	  15.70 MB/s	     14464 pkg-bytes	  284266 B/op	    2824 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     129	   9728818 ns/op	   6.31 MB/s	     61356 pkg-bytes	 5939008 B/op	   51168 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     118	   9404671 ns/op	   6.52 MB/s	     61356 pkg-bytes	 5943281 B/op	   51179 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     121	   9394718 ns/op	   6.53 MB/s	     61356 pkg-bytes	 5941157 B/op	   51176 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     123	   9511993 ns/op	   6.45 MB/s	     61356 pkg-bytes	 5941860 B/op	   51174 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     126	   9464989 ns/op	   6.48 MB/s	     61356 pkg-bytes	 5942326 B/op	   51171 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     126	   9197744 ns/op	   6.67 MB/s	     61356 pkg-bytes	 5939487 B/op	   51171 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     120	  10068558 ns/op	   6.09 MB/s	     61356 pkg-bytes	 5942850 B/op	   51177 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     133	   9131358 ns/op	   6.72 MB/s	     61356 pkg-bytes	 5940372 B/op	   51165 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     134	   9683556 ns/op	   6.34 MB/s	     61356 pkg-bytes	 5940189 B/op	   51164 allocs/op
+BenchmarkPerfTraverse/50p-image-24    	     121	   8930948 ns/op	   6.87 MB/s	     61356 pkg-bytes	 5940789 B/op	   51176 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      38	  32006016 ns/op	1110.61 MB/s	  35546299 pkg-bytes	22720957 B/op	  193888 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      36	  30997356 ns/op	1146.75 MB/s	  35546299 pkg-bytes	22709214 B/op	  193930 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      36	  31072253 ns/op	1143.99 MB/s	  35546299 pkg-bytes	22720381 B/op	  193931 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      40	  30515610 ns/op	1164.86 MB/s	  35546299 pkg-bytes	22712482 B/op	  193848 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      37	  31787614 ns/op	1118.24 MB/s	  35546299 pkg-bytes	22724962 B/op	  193910 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      36	  31989794 ns/op	1111.18 MB/s	  35546299 pkg-bytes	22716728 B/op	  193931 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      38	  29648500 ns/op	1198.92 MB/s	  35546299 pkg-bytes	22710341 B/op	  193887 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      37	  31451586 ns/op	1130.19 MB/s	  35546299 pkg-bytes	22722580 B/op	  193910 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      38	  31993239 ns/op	1111.06 MB/s	  35546299 pkg-bytes	22706816 B/op	  193886 allocs/op
+BenchmarkPerfTraverse/100p-media-24   	      39	  31329941 ns/op	1134.58 MB/s	  35546299 pkg-bytes	22714947 B/op	  193867 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   32474	     38701 ns/op	 373.73 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   29652	     41313 ns/op	 350.11 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   31676	     41463 ns/op	 348.84 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   31076	     41298 ns/op	 350.23 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   27320	     41165 ns/op	 351.36 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   29696	     41445 ns/op	 348.99 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   29258	     40794 ns/op	 354.56 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   29354	     38419 ns/op	 376.48 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   29150	     40171 ns/op	 360.06 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/10p-text-24      	   28857	     40434 ns/op	 357.72 MB/s	     14464 pkg-bytes	   38936 B/op	     256 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   24510	     47711 ns/op	1285.99 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   26181	     54862 ns/op	1118.37 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   25850	     47821 ns/op	1283.04 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   25281	     47217 ns/op	1299.45 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   26540	     47002 ns/op	1305.40 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   25650	     48555 ns/op	1263.63 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   24027	     46356 ns/op	1323.59 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   22438	     46317 ns/op	1324.69 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   23019	     48478 ns/op	1265.65 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/50p-image-24     	   23907	     47868 ns/op	1281.77 MB/s	     61356 pkg-bytes	   42536 B/op	     324 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   20091	     56705 ns/op	626865.48 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   19802	     59628 ns/op	596138.21 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   20391	     59188 ns/op	600566.28 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   20259	     59890 ns/op	593529.05 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   20850	     59566 ns/op	596754.46 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   20889	     57645 ns/op	616644.21 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   19152	     58259 ns/op	610140.09 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   18778	     57906 ns/op	613863.95 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   19398	     61464 ns/op	578323.63 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfReplace/100p-media-24    	   19564	     59438 ns/op	598038.84 MB/s	  35546299 pkg-bytes	   67576 B/op	     394 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     368	   2859032 ns/op	   5.06 MB/s	     14464 pkg-bytes	  103859 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     471	   3037064 ns/op	   4.76 MB/s	     14464 pkg-bytes	  102673 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     404	   3190077 ns/op	   4.53 MB/s	     14464 pkg-bytes	  103558 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     411	   2850894 ns/op	   5.07 MB/s	     14464 pkg-bytes	  103463 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     404	   2916600 ns/op	   4.96 MB/s	     14464 pkg-bytes	  103337 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     397	   2912659 ns/op	   4.97 MB/s	     14464 pkg-bytes	   98011 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     393	   2990361 ns/op	   4.84 MB/s	     14464 pkg-bytes	  100748 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     469	   2967002 ns/op	   4.87 MB/s	     14464 pkg-bytes	  100303 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     393	   3136110 ns/op	   4.61 MB/s	     14464 pkg-bytes	  100862 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/10p-text-24      	     394	   3048235 ns/op	   4.75 MB/s	     14464 pkg-bytes	  103699 B/op	     853 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  11266742 ns/op	   5.45 MB/s	     61356 pkg-bytes	  412818 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  10889785 ns/op	   5.63 MB/s	     61356 pkg-bytes	  413714 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  11283181 ns/op	   5.44 MB/s	     61356 pkg-bytes	  402503 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  11113127 ns/op	   5.52 MB/s	     61356 pkg-bytes	  402505 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  10305277 ns/op	   5.95 MB/s	     61356 pkg-bytes	  413265 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	      93	  11376633 ns/op	   5.39 MB/s	     61356 pkg-bytes	  415470 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  11631054 ns/op	   5.28 MB/s	     61356 pkg-bytes	  402950 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  11310161 ns/op	   5.42 MB/s	     61356 pkg-bytes	  402504 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  11096199 ns/op	   5.53 MB/s	     61356 pkg-bytes	  402503 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/50p-image-24     	     100	  10782238 ns/op	   5.69 MB/s	     61356 pkg-bytes	  413266 B/op	    3090 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      10	 101124310 ns/op	 351.51 MB/s	  35546299 pkg-bytes	88622166 B/op	    6912 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      12	  99984683 ns/op	 355.52 MB/s	  35546299 pkg-bytes	88593579 B/op	    6910 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      10	 105651670 ns/op	 336.45 MB/s	  35546299 pkg-bytes	88523489 B/op	    6912 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      10	 102510550 ns/op	 346.76 MB/s	  35546299 pkg-bytes	88734120 B/op	    6912 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      10	 105919690 ns/op	 335.60 MB/s	  35546299 pkg-bytes	88613236 B/op	    6911 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      12	 102050975 ns/op	 348.32 MB/s	  35546299 pkg-bytes	88597244 B/op	    6909 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      12	  99667317 ns/op	 356.65 MB/s	  35546299 pkg-bytes	88690682 B/op	    6912 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      12	 100193167 ns/op	 354.78 MB/s	  35546299 pkg-bytes	88518847 B/op	    6911 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      12	  98195733 ns/op	 361.99 MB/s	  35546299 pkg-bytes	88604782 B/op	    6912 allocs/op
+BenchmarkPerfSaveMem/100p-media-24    	      12	  95297983 ns/op	 373.00 MB/s	  35546299 pkg-bytes	88507572 B/op	    6908 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     205	   5584890 ns/op	   2.59 MB/s	     14464 pkg-bytes	  125101 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     184	   5648652 ns/op	   2.56 MB/s	     14464 pkg-bytes	  119405 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     196	   6017245 ns/op	   2.40 MB/s	     14464 pkg-bytes	  125131 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     205	   5534513 ns/op	   2.61 MB/s	     14464 pkg-bytes	  125099 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     181	   5911904 ns/op	   2.45 MB/s	     14464 pkg-bytes	  119912 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     184	   5750842 ns/op	   2.52 MB/s	     14464 pkg-bytes	  125264 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     194	   5871528 ns/op	   2.46 MB/s	     14464 pkg-bytes	  124962 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     190	   6310845 ns/op	   2.29 MB/s	     14464 pkg-bytes	  130742 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     186	   5652539 ns/op	   2.56 MB/s	     14464 pkg-bytes	  119417 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/10p-text-24     	     210	   5758641 ns/op	   2.51 MB/s	     14464 pkg-bytes	  130300 B/op	    1047 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      81	  14363165 ns/op	   4.27 MB/s	     61356 pkg-bytes	  459291 B/op	    3689 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      70	  14310357 ns/op	   4.29 MB/s	     61356 pkg-bytes	  478116 B/op	    3689 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      79	  15021838 ns/op	   4.08 MB/s	     61356 pkg-bytes	  502198 B/op	    3690 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      84	  14234904 ns/op	   4.31 MB/s	     61356 pkg-bytes	  486009 B/op	    3690 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      81	  14990023 ns/op	   4.09 MB/s	     61356 pkg-bytes	  487519 B/op	    3690 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      94	  14844301 ns/op	   4.13 MB/s	     61356 pkg-bytes	  470244 B/op	    3689 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      82	  15247540 ns/op	   4.02 MB/s	     61356 pkg-bytes	  487002 B/op	    3690 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      80	  14928122 ns/op	   4.11 MB/s	     61356 pkg-bytes	  474031 B/op	    3689 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      70	  15466570 ns/op	   3.97 MB/s	     61356 pkg-bytes	  493490 B/op	    3690 allocs/op
+BenchmarkPerfSaveDisk/50p-image-24    	      87	  15027511 ns/op	   4.08 MB/s	     61356 pkg-bytes	  471219 B/op	    3689 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 154524814 ns/op	 230.04 MB/s	  35546299 pkg-bytes	89102793 B/op	    8118 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 157688900 ns/op	 225.42 MB/s	  35546299 pkg-bytes	88949202 B/op	    8117 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 156234129 ns/op	 227.52 MB/s	  35546299 pkg-bytes	89090164 B/op	    8118 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 160259429 ns/op	 221.80 MB/s	  35546299 pkg-bytes	89109277 B/op	    8120 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 155176600 ns/op	 229.07 MB/s	  35546299 pkg-bytes	88936432 B/op	    8115 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 156270100 ns/op	 227.47 MB/s	  35546299 pkg-bytes	88917328 B/op	    8113 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 163443543 ns/op	 217.48 MB/s	  35546299 pkg-bytes	89231094 B/op	    8118 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 154837014 ns/op	 229.57 MB/s	  35546299 pkg-bytes	88782749 B/op	    8114 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       7	 144975057 ns/op	 245.19 MB/s	  35546299 pkg-bytes	88955584 B/op	    8118 allocs/op
+BenchmarkPerfSaveDisk/100p-media-24   	       8	 153660825 ns/op	 231.33 MB/s	  35546299 pkg-bytes	88785657 B/op	    8118 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     158	   8115286 ns/op	   1.78 MB/s	   1949800 peak-heap-B	     14464 pkg-bytes	  883947 B/op	    7374 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     146	   8385308 ns/op	   1.72 MB/s	    919200 peak-heap-B	     14464 pkg-bytes	  877247 B/op	    7374 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     133	   8116093 ns/op	   1.78 MB/s	   2027216 peak-heap-B	     14464 pkg-bytes	  902625 B/op	    7375 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     129	   8528561 ns/op	   1.70 MB/s	    877096 peak-heap-B	     14464 pkg-bytes	  877415 B/op	    7375 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     136	   8484015 ns/op	   1.70 MB/s	   1997488 peak-heap-B	     14464 pkg-bytes	  902035 B/op	    7375 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     133	   8080550 ns/op	   1.79 MB/s	   1952256 peak-heap-B	     14464 pkg-bytes	  910696 B/op	    7375 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     144	   8590756 ns/op	   1.68 MB/s	   1944512 peak-heap-B	     14464 pkg-bytes	  892492 B/op	    7374 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     139	   8889139 ns/op	   1.63 MB/s	    876624 peak-heap-B	     14464 pkg-bytes	  876635 B/op	    7374 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     127	   8168999 ns/op	   1.77 MB/s	   1018384 peak-heap-B	     14464 pkg-bytes	  878101 B/op	    7374 allocs/op
+BenchmarkPerfPeakHeap/10p-text-24     	     133	   8739729 ns/op	   1.65 MB/s	   1952064 peak-heap-B	     14464 pkg-bytes	  893856 B/op	    7375 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      31	  41701119 ns/op	   1.47 MB/s	   9880880 peak-heap-B	     61356 pkg-bytes	 8964203 B/op	   74671 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      27	  44141230 ns/op	   1.39 MB/s	   9831112 peak-heap-B	     61356 pkg-bytes	 8829306 B/op	   74670 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      36	  39013772 ns/op	   1.57 MB/s	   9905536 peak-heap-B	     61356 pkg-bytes	 8879597 B/op	   74671 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      36	  37375961 ns/op	   1.64 MB/s	   9853152 peak-heap-B	     61356 pkg-bytes	 8934467 B/op	   74671 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      27	  41935796 ns/op	   1.46 MB/s	  10916840 peak-heap-B	     61356 pkg-bytes	 8995270 B/op	   74672 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      26	  41031092 ns/op	   1.50 MB/s	   9879920 peak-heap-B	     61356 pkg-bytes	 8953776 B/op	   74671 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      31	  35258700 ns/op	   1.74 MB/s	   9881896 peak-heap-B	     61356 pkg-bytes	 8991661 B/op	   74671 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      26	  41853200 ns/op	   1.47 MB/s	   9941280 peak-heap-B	     61356 pkg-bytes	 8912466 B/op	   74671 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      31	  36841068 ns/op	   1.67 MB/s	   9832144 peak-heap-B	     61356 pkg-bytes	 8823989 B/op	   74670 allocs/op
+BenchmarkPerfPeakHeap/50p-image-24    	      31	  39326300 ns/op	   1.56 MB/s	   9841256 peak-heap-B	     61356 pkg-bytes	 8854338 B/op	   74670 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 196433467 ns/op	 180.96 MB/s	  61043400 peak-heap-B	  35546299 pkg-bytes	117859068 B/op	  242587 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 199369700 ns/op	 178.29 MB/s	  59223952 peak-heap-B	  35546299 pkg-bytes	117485332 B/op	  242578 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 190644267 ns/op	 186.45 MB/s	  62566896 peak-heap-B	  35546299 pkg-bytes	117388049 B/op	  242588 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 181451567 ns/op	 195.90 MB/s	  60292200 peak-heap-B	  35546299 pkg-bytes	117395238 B/op	  242587 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 196219267 ns/op	 181.16 MB/s	  59304368 peak-heap-B	  35546299 pkg-bytes	117216030 B/op	  242586 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 200924067 ns/op	 176.91 MB/s	  62204936 peak-heap-B	  35546299 pkg-bytes	117552390 B/op	  242587 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 191507000 ns/op	 185.61 MB/s	  61929080 peak-heap-B	  35546299 pkg-bytes	117537441 B/op	  242586 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 205498067 ns/op	 172.98 MB/s	  61039240 peak-heap-B	  35546299 pkg-bytes	117724172 B/op	  242587 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 196685867 ns/op	 180.73 MB/s	  59453768 peak-heap-B	  35546299 pkg-bytes	117395412 B/op	  242588 allocs/op
+BenchmarkPerfPeakHeap/100p-media-24   	       6	 205749017 ns/op	 172.77 MB/s	  57479584 peak-heap-B	  35546299 pkg-bytes	117343126 B/op	  242579 allocs/op
+PASS
+ok  	github.com/F31/go-pptx	308.131s
