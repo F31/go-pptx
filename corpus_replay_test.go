@@ -31,8 +31,13 @@ import (
 	"testing"
 )
 
-// corpusSamples 列举参与 replay 的公开样本 ID（与 testdata/corpus/ 子目录对齐）。
-var corpusSamples = []string{"s001-text", "s002-table", "s003-image"}
+// corpusSamples 列举参与 replay 的样本 ID（与 testdata/corpus/ 子目录对齐）。
+//
+// 公开样本（s00*）CI 默认跑；私有样本（ext-*）仅当 source pptx 可访问时
+// 才跑——通过绝对路径 + os.IsNotExist 在 loadCorpusSourcePath 处自动 Skip，
+// 无需新增 manifest 字段。任何样本缺 actions.json / compat-smoke.json 也
+// 自动 Skip（无契约性输入则无可断言内容）。后续 dev 补齐文件即可自动启用。
+var corpusSamples = []string{"s001-text", "s002-table", "s003-image", "ext-0024"}
 
 // corpusManifest 仅解码 replay 所需的 pptx 路径字段，其他字段忽略。
 type corpusManifest struct {
@@ -194,7 +199,15 @@ func replayCorpusSample(t *testing.T, id string) {
 	}
 }
 
-// loadCorpusSourcePath 从 manifest.json 解码 pptx 相对路径并拼接绝对路径。
+// loadCorpusSourcePath 从 manifest.json 解码 pptx 路径并 stat。
+//
+// 自动识别 local-only 私有样本：当 manifest.files.pptx.path 是绝对路径
+// （Windows 的 C:\… 或 Unix 的 /…）且本地不存在（如 ext-0024 的
+// /mnt/e/work/2026/服务器/拓扑方案.pptx 在 Windows 沙箱缺失；filepath.Join
+// 在 Windows 上把 Unix 绝对路径当相对拼接，所以判定必须在 Join **之前**
+// 对原始 path 做），t.Skipf 而非 t.Fatalf——CI 不因私有样本缺席而红，
+// 本地 dev 挂载源文件后自动启用。相对路径缺失（公开样本源 pptx 误删）
+// 仍 Fatalf，不掩盖 dev 错误。
 func loadCorpusSourcePath(t *testing.T, root string) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join(root, "manifest.json"))
@@ -205,21 +218,37 @@ func loadCorpusSourcePath(t *testing.T, root string) string {
 	if err := json.Unmarshal(b, &m); err != nil {
 		t.Fatalf("parse manifest: %v", err)
 	}
-	pptxPath := filepath.Join(root, m.Files.Pptx.Path)
 	if m.Files.Pptx.Path == "" {
 		t.Fatalf("manifest.json missing files.pptx.path")
 	}
+	pptxPath := filepath.Join(root, m.Files.Pptx.Path)
 	if _, err := os.Stat(pptxPath); err != nil {
+		if os.IsNotExist(err) && isLocalOnlyPath(m.Files.Pptx.Path) {
+			t.Skipf("local-only sample: source pptx not available locally: %s", pptxPath)
+		}
 		t.Fatalf("stat source pptx %s: %v", pptxPath, err)
 	}
 	return pptxPath
 }
 
-// loadCorpusActions 解析 <id>.actions.json。
+// isLocalOnlyPath 判定 manifest.files.pptx.path 是否指向私有绝对路径
+// （CI 环境通常无法访问）。覆盖：
+//   - Windows 绝对路径：C:\...、D:\... 等（filepath.IsAbs 识别）
+//   - Unix 绝对路径：/mnt/...、/home/... 等（filepath.IsAbs 在 Linux 识别；
+//     在 Windows 上 filepath.IsAbs("/mnt/...") 返回 false，需额外判前缀）
+func isLocalOnlyPath(p string) bool {
+	return filepath.IsAbs(p) || strings.HasPrefix(p, "/")
+}
+
+// loadCorpusActions 解析 <id>.actions.json。文件不存在时 t.Skipf
+// （无契约性输入则无可 replay 内容，例如 ext-0024 暂未归档 actions）。
 func loadCorpusActions(t *testing.T, path string) []corpusAction {
 	t.Helper()
 	b, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			t.Skipf("actions.json not available: %s", path)
+		}
 		t.Fatalf("read actions %s: %v", path, err)
 	}
 	var a []corpusAction
@@ -229,11 +258,15 @@ func loadCorpusActions(t *testing.T, path string) []corpusAction {
 	return a
 }
 
-// loadCorpusCompat 解析 compat-smoke.json。
+// loadCorpusCompat 解析 compat-smoke.json。文件不存在时 t.Skipf
+// （与 actions.json 一致——无金样则无断言目标）。
 func loadCorpusCompat(t *testing.T, path string) corpusCompat {
 	t.Helper()
 	b, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			t.Skipf("compat-smoke.json not available: %s", path)
+		}
 		t.Fatalf("read compat-smoke %s: %v", path, err)
 	}
 	var c corpusCompat
