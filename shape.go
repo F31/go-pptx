@@ -91,6 +91,9 @@ func (k ShapeKind) String() string {
 // GEOM-01（§8）：Bounds/WorldQuad/WorldAABB 对全部形状可用——实现
 // 均共享 shapeNode 基元，按元素实际结构解析 xfrm；无 a:xfrm 的形状
 // 返回 ErrNotFound。
+//
+// Stable: 核心对象模型统一接口，v1.0 后承诺向后兼容。八个具体类型
+// 的导出现状与接口兼容性冻结，新增形状类型视为增量加入。
 type Shape interface {
 	// ID 返回形状标识（p:cNvPr@id）；无 cNvPr 时返回 0。
 	ID() ShapeID

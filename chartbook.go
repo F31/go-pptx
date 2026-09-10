@@ -31,11 +31,19 @@ const nsSpreadsheetML = "http://schemas.openxmlformats.org/spreadsheetml/2006/ma
 // Build 返回完整 xlsx 包字节，必须与 book 中的数据保持一致（客户端
 // "编辑数据" 将打开该工作簿）。替换实现由调用方保证一致性；返回错误
 // 时 AddChart/SetData 整体失败，不产生部分写入。
+//
+// Experimental: 这是适配层接口，1.0 内可能新增方法或重命名；首选 API
+// 路径（受限默认实现）请使用 DefaultWorkbookBuilder。1.0 后将依据
+// 真实集成经验收敛为稳定签名——届时本类型冻结，新需求走扩展接口。
 type ChartWorkbookBuilder interface {
 	Build(book ChartDataBook) ([]byte, error)
 }
 
 // ChartDataBook 是传递给工作簿适配器的数据快照。
+//
+// Experimental: 1.0 内可能新增字段（多 sheet / 公式 / 数据透视等）。
+// 当前形态适配 DefaultWorkbookBuilder 的最小 xlsx 输出。ChartSeries 数组
+// 内的顺序与 Categories 对应关系视为 v1.0 契约的一部分。
 type ChartDataBook struct {
 	// SheetName 是数据工作表名（默认 "Sheet1"）；空串按默认处理。
 	SheetName string
@@ -50,6 +58,9 @@ type ChartDataBook struct {
 // 生成内容：[Content_Types].xml、_rels/.rels、xl/workbook.xml、
 // xl/_rels/workbook.xml.rels、xl/worksheets/sheet1.xml（inlineStr 文本
 // 单元格 + 数值单元格），无宏、无公式、无第三方素材。
+//
+// Experimental: 受限最小实现，1.0 内可能扩展（公式、命名范围、自定义
+// sheet 名）。SheetName 当前硬性约束为 "Sheet1"，与图表 c:f 引用固定。
 type DefaultWorkbookBuilder struct{}
 
 // Build 生成与 book 一致的最小 xlsx 包字节（确定性输出）。

@@ -22,6 +22,9 @@ import (
 //   - 每次成功的公共修改隐式提交一次事务并递增 revision（§19.1）；
 //   - Save(path) 默认拒绝与源文件同一文件实体的原位保存（源文件仍被
 //     惰性读取）；输出先写同目录临时文件再原子替换（SAVE-02）。
+//
+// Stable: 核心对象模型入口；v1.0 后承诺向后兼容。仅文档级新增方法或
+// 弃用项，不变更已导出方法的语义与签名。
 type Presentation struct {
 	pk   *opc.Package
 	main opc.PartName

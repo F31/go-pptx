@@ -7,6 +7,9 @@ import "github.com/F31/go-pptx/internal/opc"
 // 句柄不持有资源；有效性由所属 Presentation 的关闭状态与页面在
 // sldIdLst 中的存在性决定：文档已关闭返回 ErrClosed，页面已被删除
 // 返回 ErrStaleHandle。删除后不允许继续写入游离对象。
+//
+// Stable: 核心对象模型，v1.0 后承诺向后兼容。AddShape/AddTextBox/
+// RemoveShape/MoveShape 等公共方法的签名与副作用语义视为已锁定。
 type Slide struct {
 	p    *Presentation
 	id   SlideID

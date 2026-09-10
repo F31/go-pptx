@@ -128,4 +128,27 @@
 // 定位可回溯，不猜测内部变化）。报告 schemaVersion
 // "go-pptx.diff/1.0"；`pptx diff` CLI 入口（只读）。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
+//
+// # API 稳定性承诺（ADR-014 / ADR-015）
+//
+// 包内导出符号按三级分级（以 godoc 段落标签 "Stable:" / "Experimental:"
+// / "Deprecated:" 标注，未标注的为默认 API 级）：
+//
+//   - Stable（冻结）：对象模型入口（Presentation / Slide / Shape 接口）、
+//     错误码、诊断报告、基础值类型（EMU / Point / Rect / Quad）。
+//     v1.0 后承诺向后兼容，仅文档级新增，不变更已导出方法的语义。
+//
+//   - API（默认级，未标签）：输入规格（*Spec / *Options）与只读报告
+//     （*Info / *Report）。v1.0 时定型之前可调整字段；定型后冻结。
+//
+//   - Experimental（实验性）：适配层接口（ChartWorkbookBuilder /
+//     DefaultWorkbookBuilder）与自定义属性变体（CustomPropertyKind /
+//     CustomPropertyValue）。v1.0 内可能新增方法或重命名，收敛后升
+//     Stable；遇不兼容变更将发布 1.x 公告而非小版本静默修改。
+//
+//   - Deprecated（已废弃）：使用 Go 1.19+ 标准 godoc 标签 // Deprecated:
+//     注明弃用版本与替代 API；至少保留两个小版本后再删除。
+//
+// 分级标准与升降档流程详见 docs/adr/ADR-014-root-internal-package-strategy.md
+// 与 docs/adr/ADR-015-api-stability-tiers.md。
 package pptx
