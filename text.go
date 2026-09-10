@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/F31/go-pptx/internal/opc"
@@ -15,6 +16,14 @@ import (
 // 每次操作以"原始字节 → 当前 revision 索引"重定位句柄内记录的稳定
 // 元素路径（从根元素逐层按 [ns,local,序号] 下降）。路径上的祖先或
 // 目标被删除时返回 ErrStaleHandle；文档关闭返回 ErrClosed。
+//
+// textNode 可选携带所属形状的 cNvPr@id（shapeHint；V2.6 §M8 收尾）：
+// 解析 path 后向上找最近 p:sp 的 cNvPr@id，与 shapeHint 比对——
+// 不等即 ErrStaleHandle。这把 shape 增删的失效检测从"path 解析到相邻
+// 兄弟 shape 的同形 txBody"提升为"按 shape 身份识别"。shapeHint=0
+// 走纯路径判定（向后兼容；老句柄/测试零值句柄/notes 等无 cNvPr 的
+// 文本模型）。段落/Run 在所属 shape 内的增删仍是已知妥协——句柄只能
+// 告诉"句柄仍属于原 shape"，不能告诉"句柄仍是原段落"。
 //
 // 读侧语义（§7.1）：段落属性（a:pPr）与结束字符属性（a:endParaRPr）
 // 在模型中保留，不扁平化成 []string；Text() 仅拼接普通 Run 的 a:t
@@ -33,10 +42,16 @@ type textNode struct {
 	p    *Presentation
 	part opc.PartName
 	path []nodeStep
+	// shapeHint 是所属形状的 cNvPr@id（V2.6 §M8 textNode 句柄失效语义
+	// 修复点）。locate 解析 path 后向上找最近 p:sp 的 cNvPr@id 与之比对；
+	// 不等即 ErrStaleHandle。零值表示"无 hint"，退回纯路径判定（向
+	// 后兼容）。
+	shapeHint ShapeID
 }
 
 // locate 解析句柄路径，返回当前 revision 索引与目标元素。NotFound
-// 语义统一映射为 ErrStaleHandle（Part 或路径目标已不存在）。
+// 语义统一映射为 ErrStaleHandle（Part 或路径目标已不存在）。shapeHint
+// 不为 0 时还需通过所属形状 cNvPr@id 校验。
 func (h *textNode) locate() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error) {
 	if h.p == nil || h.p.closed {
 		return nil, nil, Annotate(ErrClosed, "textNode")
@@ -52,7 +67,70 @@ func (h *textNode) locate() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error)
 	if n == nil {
 		return nil, nil, Annotate(ErrStaleHandle, "textNode")
 	}
+	if h.shapeHint != 0 {
+		if got := shapeIDFromAncestors(doc, n); got != h.shapeHint {
+			return nil, nil, Annotate(ErrStaleHandle, "textNode")
+		}
+	}
 	return doc, n, nil
+}
+
+// shapeIDFromAncestors 从节点向上遍历，找到最近 p:sp/p:cxnSp/p:graphicFrame/
+// p:grpSp 等"承载 cNvPr@id"的祖先，返回其 cNvPr@id；找不到返回 0。
+//
+// 语义：textNode 句柄的目标节点是 txBody/a:p/a:r 等深度嵌套元素，路径
+// 上必然经过所属形状的 sp 元素。shapeHint 校验即查这个 sp 的 cNvPr@id。
+func shapeIDFromAncestors(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) ShapeID {
+	if doc == nil || n == nil {
+		return 0
+	}
+	// 形状元素的命名空间与 local 名。p:sp、p:cxnSp、p:graphicFrame、
+	// p:grpSp 都通过 p:cNvPr（cNvPr/cNvSpPr/cNvGrpSpPr）携带 id。
+	shapeNS := "http://schemas.openxmlformats.org/presentationml/2006/main"
+	shapeLocals := map[string]bool{
+		"sp": true, "cxnSp": true, "graphicFrame": true, "grpSp": true,
+	}
+	cur := n
+	for {
+		if cur == nil {
+			return 0
+		}
+		if cur.Namespace == shapeNS && shapeLocals[cur.Local()] {
+			// 在形状元素内找 p:cNvPr（cNvPr 在 p:nvSpPr/p:nvCxnSpPr/
+			// p:nvGraphicFramePr/p:nvGrpSpPr 包裹下，按"前缀 nv + 后缀 Pr"
+			// 识别）。
+			for _, cid := range cur.Children {
+				c := doc.Node(cid)
+				if c == nil {
+					continue
+				}
+				if c.Namespace != shapeNS {
+					continue
+				}
+				loc := c.Local()
+				if !strings.HasPrefix(loc, "nv") || !strings.HasSuffix(loc, "Pr") {
+					continue
+				}
+				for _, gcid := range c.Children {
+					gc := doc.Node(gcid)
+					if gc != nil && gc.Namespace == shapeNS && gc.Local() == "cNvPr" {
+						for _, aid := range gc.Attrs {
+							if aid.Local() == "id" {
+								if id, err := strconv.ParseInt(aid.Value, 10, 64); err == nil {
+									return ShapeID(id)
+								}
+							}
+						}
+					}
+				}
+			}
+			return 0
+		}
+		if cur.Parent == xmlstore.NoNode {
+			return 0
+		}
+		cur = doc.Node(cur.Parent)
+	}
 }
 
 // resolvePath 按路径步骤从根元素下降；任一步无匹配返回 nil。
@@ -175,8 +253,10 @@ func (t *TextFrame) Paragraphs() ([]*Paragraph, error) {
 	n := countKind(doc, body, nsDrawingML, "p")
 	out := make([]*Paragraph, 0, n)
 	for i := 0; i < n; i++ {
+		// 嵌入复制 t.textNode 而非重建，让 Paragraph/TextRun 自动继承
+		// shapeHint（V2.6 §M8 textNode 句柄失效语义修复点）。
 		out = append(out, &Paragraph{
-			textNode: textNode{p: t.p, part: t.part, path: t.path},
+			textNode: t.textNode,
 			idx:      i,
 		})
 	}

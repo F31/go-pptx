@@ -754,7 +754,10 @@ func (a *AutoShape) TextFrame() (*TextFrame, error) {
 			Message: "shape has no p:txBody", Err: ErrNotFound,
 		}
 	}
-	return &TextFrame{textNode: textNode{p: a.p, part: a.part, path: recordPath(doc, tx.ID)}}, nil
+	// shapeHint 来自 AutoShape 的 cNvPr@id（V2.6 §M8 textNode 句柄失
+	// 效语义修复点）：让 TextFrame 内的 Paragraph/TextRun 在所属 shape
+	// 被增删后能返回 ErrStaleHandle 而非错配到相邻 shape 的同形 txBody。
+	return &TextFrame{textNode: textNode{p: a.p, part: a.part, path: recordPath(doc, tx.ID), shapeHint: a.idHint}}, nil
 }
 
 // SetAltText 设置替代文本；同时清除装饰性标记（§8.1）。空串清除 @descr。

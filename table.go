@@ -298,6 +298,9 @@ type Cell struct {
 	// Row0/Col0 是创建句柄时的逻辑坐标（网格变化后不自动更新）。
 	row int
 	col int
+	// shapeHint 是所属表格形状的 cNvPr@id（V2.6 §M8 textNode 句柄失效
+	// 语义修复点）。Cell.TextFrame 返回的 TextFrame 继承此 hint。
+	shapeHint ShapeID
 }
 
 // locate 定位单元格节点。
@@ -369,7 +372,7 @@ func (c *Cell) TextFrame() (*TextFrame, error) {
 			Message: "cell has no a:txBody", Err: ErrNotFound,
 		}
 	}
-	return &TextFrame{textNode: textNode{p: c.p, part: c.part, path: recordPath(doc, tx.ID)}}, nil
+	return &TextFrame{textNode: textNode{p: c.p, part: c.part, path: recordPath(doc, tx.ID), shapeHint: c.shapeHint}}, nil
 }
 
 // ---------- TableShape 行列与单元格 ----------
@@ -426,7 +429,7 @@ func (t *TableShape) Cell(row, col int) (*Cell, error) {
 			Message: fmt.Sprintf("cell (%d,%d) has no a:tc", row, col), Err: ErrMalformedPackage,
 		}
 	}
-	return &Cell{p: t.p, part: t.part, path: recordPath(doc, s.tc.ID), row: row, col: col}, nil
+	return &Cell{p: t.p, part: t.part, path: recordPath(doc, s.tc.ID), row: row, col: col, shapeHint: t.idHint}, nil
 }
 
 // ---------- 行高与列宽 ----------
