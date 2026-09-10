@@ -134,15 +134,26 @@ type Shape interface {
 // shapeNode 是形状句柄的公共载体：不持有资源，每次操作沿稳定元素
 // 路径（nodeStep）在当前 revision 索引上重定位。路径目标被删除返回
 // ErrStaleHandle；文档关闭返回 ErrClosed。
+//
+// 句柄失效语义（STALE-GUARD）：仅靠 [ns,local,序号] 路径下降的解析
+// 策略在兄弟元素被增删/移动时**会落到相邻兄弟**而非原元素（locate
+// 不报错、ID()/Name() 可能错位）。为此 shapeNode 在构造时记录原
+// 元素的 p:cNvPr@id（idHint），locate 解析后若 idHint≠0 必须校验
+// 解析节点 cNvPr@id 是否一致，不一致返回 ErrStaleHandle——
+// 这是项目级句柄失效判定的统一实现（M8 STALE-GUARD 修复）。
+// 注：path-based 解析在文本节点（paragraph/run）上同样脆弱，但
+// 文本节点的"内容指纹"会随正常编辑变化，没有等价稳定标识符；
+// 文本场景继续要求"编辑后重新取句柄"（README §句柄失效语义）。
 type shapeNode struct {
-	p    *Presentation
-	part opc.PartName
-	path []nodeStep
+	p      *Presentation
+	part   opc.PartName
+	path   []nodeStep
+	idHint ShapeID
 }
 
 // locate 解析句柄路径，返回当前索引与形状元素。
 func (s *shapeNode) locate() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error) {
-	if s.p == nil || s.p.closed {
+	if s == nil || s.p == nil || s.p.closed {
 		return nil, nil, Annotate(ErrClosed, "shape")
 	}
 	doc, err := s.p.docOf(s.part)
@@ -152,11 +163,50 @@ func (s *shapeNode) locate() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error
 		}
 		return nil, nil, err
 	}
+	if s.idHint != 0 {
+		return s.locateByIDHint(doc)
+	}
+	// 回退：纯路径解析（无 idHint 的零值句柄/老句柄）。
 	n := resolvePath(doc, s.path)
 	if n == nil {
 		return nil, nil, Annotate(ErrStaleHandle, "shape")
 	}
 	return doc, n, nil
+}
+
+// locateByIDHint 在父容器（spTree 或 grpSp）子元素中按 cNvPr@id
+// 查找。父路径 = path 除最后一步；解析失败或父容器无匹配 idHint
+// 的 cNvPr 子元素均返回 ErrStaleHandle。
+func (s *shapeNode) locateByIDHint(doc *xmlstore.XMLDocument) (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error) {
+	if len(s.path) < 2 {
+		return nil, nil, Annotate(ErrStaleHandle, "shape")
+	}
+	parent := resolvePath(doc, s.path[:len(s.path)-1])
+	if parent == nil {
+		return nil, nil, Annotate(ErrStaleHandle, "shape")
+	}
+	for _, cid := range parent.Children {
+		c := doc.Node(cid)
+		if c == nil {
+			continue
+		}
+		cn := elementCNvPr(doc, c)
+		if cn == nil {
+			continue
+		}
+		v, ok := cn.Attr("", "id")
+		if !ok {
+			continue
+		}
+		parsed, perr := parseUint32(v)
+		if perr != nil {
+			continue
+		}
+		if ShapeID(parsed) == s.idHint {
+			return doc, c, nil
+		}
+	}
+	return nil, nil, Annotate(ErrStaleHandle, "shape")
 }
 
 // nvPrContainer 返回形状元素非可视属性的容器子元素名
@@ -189,6 +239,38 @@ func elementCNvPr(doc *xmlstore.XMLDocument, el *xmlstore.NodeRecord) *xmlstore.
 		return nil
 	}
 	return childOfKind(doc, c, nsPresentationML, "cNvPr", 0)
+}
+
+// shapeNodeIDFromIDStr 是 STALE-GUARD 的辅助：从 cNvPr@id 字符串字面
+// 量解析为 ShapeID；解析失败返回 0（idHint=0 即"无 hint"，退回纯路径
+// 判定，与 elementCNvPr 失败时一致）。
+func shapeNodeIDFromIDStr(s string) ShapeID {
+	if s == "" {
+		return 0
+	}
+	id, err := parseUint32(s)
+	if err != nil {
+		return 0
+	}
+	return ShapeID(id)
+}
+
+// shapeNodeIDFromRecord 是 STALE-GUARD 的辅助：从已索引元素读 cNvPr@id
+// 并解析为 ShapeID；不可读返回 0。
+func shapeNodeIDFromRecord(doc *xmlstore.XMLDocument, id xmlstore.NodeID) ShapeID {
+	n := doc.Node(id)
+	if n == nil {
+		return 0
+	}
+	c := elementCNvPr(doc, n)
+	if c == nil {
+		return 0
+	}
+	v, ok := c.Attr("", "id")
+	if !ok {
+		return 0
+	}
+	return shapeNodeIDFromIDStr(v)
 }
 
 // shapePhKey 读取形状元素的占位符键；非占位符返回 ok=false。
@@ -530,35 +612,44 @@ func (s *Slide) Placeholders() ([]*Placeholder, error) {
 // p:pic 在 blipFill 子树内探测 a:audioFile/p:videoFile 区分视频/音频/
 // 图片三类；其它元素按容器类别。视频与音频独立分类便于读取侧区分
 // （AUDIO-01 / VIDEO-01 E 档；M6 后续切分若需更细行为，再细化）。
+//
+// 句柄构造时同时提取 cNvPr@id 写入 idHint（STALE-GUARD 修复点）：
+// locate 解析路径后会校验 cNvPr@id 一致，不一致即 ErrStaleHandle。
+// 无 cNvPr 或不可读 id 时 idHint=0（退回纯路径判定）。
 func classifyShape(p *Presentation, part opc.PartName, doc *xmlstore.XMLDocument, el *xmlstore.NodeRecord) Shape {
 	path := recordPath(doc, el.ID)
+	var hint ShapeID
+	if nid, ok := shapeCNvPrID(doc, el); ok {
+		hint = ShapeID(nid)
+	}
+	node := shapeNode{p: p, part: part, path: path, idHint: hint}
 	switch el.Local() {
 	case "pic":
 		switch picMediaKind(doc, el) {
 		case "video":
-			return &VideoShape{shapeNode: shapeNode{p: p, part: part, path: path}}
+			return &VideoShape{shapeNode: node}
 		case "audio":
-			return &AudioShape{shapeNode: shapeNode{p: p, part: part, path: path}, role: findRoleForAudio(el, doc)}
+			return &AudioShape{shapeNode: node, role: findRoleForAudio(el, doc)}
 		}
-		return &PictureShape{shapeNode: shapeNode{p: p, part: part, path: path}}
+		return &PictureShape{shapeNode: node}
 	case "sp":
-		return &AutoShape{shapeNode: shapeNode{p: p, part: part, path: path}}
+		return &AutoShape{shapeNode: node}
 	case "grpSp":
-		return &GroupShape{shapeNode: shapeNode{p: p, part: part, path: path}}
+		return &GroupShape{shapeNode: node}
 	case "cxnSp":
-		return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeConnector}
+		return &OpaqueShape{shapeNode: node, kind: ShapeConnector}
 	case "graphicFrame":
 		// 图形框内含 a:tbl → 表格句柄（TABLE-01）；引用 chart Part →
 		// 图表句柄（CHART-01）；其余按不透明容器。
 		if tableOfGraphic(doc, el) != nil {
-			return &TableShape{shapeNode: shapeNode{p: p, part: part, path: path}}
+			return &TableShape{shapeNode: node}
 		}
 		if chartOfGraphic(doc, el) != nil {
-			return &ChartShape{shapeNode: shapeNode{p: p, part: part, path: path}}
+			return &ChartShape{shapeNode: node}
 		}
-		return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeGraphicFrame}
+		return &OpaqueShape{shapeNode: node, kind: ShapeGraphicFrame}
 	}
-	return &OpaqueShape{shapeNode: shapeNode{p: p, part: part, path: path}, kind: ShapeOpaque}
+	return &OpaqueShape{shapeNode: node, kind: ShapeOpaque}
 }
 
 // picMediaKind 返回 pic 内 blipFill 子树的媒体类别（"video"/"audio"/""）。

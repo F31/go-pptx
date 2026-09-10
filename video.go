@@ -427,7 +427,7 @@ func (s *Slide) lastVideoHandle(hasPoster bool) (*VideoShape, error) {
 		return nil, Annotate(ErrNotFound, "lastVideoHandle")
 	}
 	vs := &VideoShape{
-		shapeNode: shapeNode{p: p, part: s.part, path: recordPath(doc, videoID)},
+		shapeNode: shapeNode{p: p, part: s.part, path: recordPath(doc, videoID), idHint: shapeNodeIDFromRecord(doc, videoID)},
 		role:      findRoleForVideo(doc, doc.Node(videoID)),
 		profile:   lastProfileByMediaVideo(p, s.part),
 	}

@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -373,4 +374,135 @@ func TestCreate_ClosedGuard(t *testing.T) {
 	if err := s.MoveShape(1, 0); err == nil {
 		t.Error("MoveShape after Close must fail")
 	}
+}
+
+// ---------- STALE-GUARD 测试（M8 STALE-GUARD 修复）----------
+//
+// 句柄构造时记下 cNvPr@id（idHint），locate 解析路径后校验 cNvPr@id
+// 一致——不一致返回 ErrStaleHandle，杜绝"原元素消失后 path 解析到相邻
+// 兄弟"导致 ID/Name 错位的问题。
+
+// staleGuard_NameAfterRemove：删除同一页前部形状后，**旧**句柄的
+// 任何属性读取必须返回 ErrStaleHandle（之前的行为是静默返回相邻兄弟
+// 的 ID/Name——SHAPE-CREATE 暴露的 bug）。
+func TestStaleGuard_NameAfterRemove(t *testing.T) {
+	p, s := createSlide(t)
+	defer p.Close()
+	// 显式添加三个文本框，确保至少三个顶层 sp 元素。
+	a, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "A"})
+	b, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "B"})
+	c, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "C"})
+	aID, bID, cID := a.ID(), b.ID(), c.ID()
+	if err := s.RemoveShape(aID); err != nil {
+		t.Fatalf("RemoveShape: %v", err)
+	}
+	// a 现在仍持有原 path（sp[0]），但该位置已被 b 占据——
+	// 修复前 a.Name() == "B"、a.ID() == bID；修复后必须返回
+	// ErrStaleHandle，Name/ID 走错误分支返回空值/0。
+	if got := a.Name(); got != "" {
+		t.Errorf("stale a.Name() = %q, want \"\" (must be ErrStaleHandle)", got)
+	}
+	if got := a.ID(); got != 0 {
+		t.Errorf("stale a.ID() = %d, want 0 (must be ErrStaleHandle)", got)
+	}
+	if _, err := a.Bounds(); !errors.Is(err, ErrStaleHandle) {
+		t.Errorf("stale a.Bounds err = %v, want ErrStaleHandle", err)
+	}
+	// b/c 的 path 仍指向原 sp[1]/sp[2] 位置（无前移发生）→ 仍有效。
+	if b.ID() != bID || b.Name() != "B" {
+		t.Errorf("b handle broken: id=%d name=%q", b.ID(), b.Name())
+	}
+	if c.ID() != cID || c.Name() != "C" {
+		t.Errorf("c handle broken: id=%d name=%q", c.ID(), c.Name())
+	}
+}
+
+// staleGuard_NameAfterMove：把一个形状 MoveShape 到末尾后，形状本
+// 身（cNvPr@id）仍在文档中，句柄**仍应有效**——只是位置变化。这是
+// STALE-GUARD 的关键不变量：句柄身份 = cNvPr@id，不是 path。
+// 行为变化（位置 vs 句柄是否有效）的解读：编辑后想拿"新位置"应重
+// 新取 s.Shapes()。
+func TestStaleGuard_NameAfterMove(t *testing.T) {
+	p, s := createSlide(t)
+	defer p.Close()
+	a, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "A"})
+	b, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "B"})
+	preOrder := func() string {
+		shapes, _ := s.Shapes()
+		names := make([]string, len(shapes))
+		for i, sh := range shapes {
+			names[i] = sh.Name()
+		}
+		return strings.Join(names, ",")
+	}
+	if got := preOrder(); got != "A,B" {
+		t.Fatalf("pre order = %q, want A,B", got)
+	}
+	if err := s.MoveShape(a.ID(), 1); err != nil {
+		t.Fatalf("MoveShape: %v", err)
+	}
+	// z-order 已变：B,A。
+	if got := preOrder(); got != "B,A" {
+		t.Errorf("post-move order = %q, want B,A", got)
+	}
+	// 关键不变量：a 句柄仍有效（cNvPr@id 未变）。
+	if a.Name() != "A" {
+		t.Errorf("a.Name() = %q after MoveShape, want A (handle should remain valid)", a.Name())
+	}
+	if _, err := a.Bounds(); err != nil {
+		t.Errorf("a.Bounds err = %v after MoveShape, want nil (handle should remain valid)", err)
+	}
+	if b.Name() != "B" {
+		t.Errorf("b.Name() = %q after sibling move, want B", b.Name())
+	}
+}
+
+// staleGuard_RefreshedHandleOK：编辑后用 Shapes() 重新取句柄，操作
+// 一切正常。这是推荐用法，验证 fix 不破坏正常路径。
+func TestStaleGuard_RefreshedHandleOK(t *testing.T) {
+	p, s := createSlide(t)
+	defer p.Close()
+	a, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "A"})
+	if err := s.RemoveShape(a.ID()); err != nil {
+		t.Fatalf("RemoveShape: %v", err)
+	}
+	// 重新枚举——句柄新鲜，Name 正确返回。
+	shapes, _ := s.Shapes()
+	if len(shapes) != 0 {
+		t.Errorf("shapes after remove = %d, want 0", len(shapes))
+	}
+}
+
+// staleGuard_NewlyCreatedHandleStillValid：构造后立即操作（无中间
+// 编辑）的句柄必须仍能正常解析。
+func TestStaleGuard_NewlyCreatedHandleStillValid(t *testing.T) {
+	p, s := createSlide(t)
+	defer p.Close()
+	a, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "Alpha"})
+	if a.Name() != "Alpha" {
+		t.Errorf("a.Name() = %q, want Alpha", a.Name())
+	}
+	if _, err := a.Bounds(); err != nil {
+		t.Errorf("fresh a.Bounds err = %v, want nil", err)
+	}
+}
+
+// staleGuard_SaveReloadPreservesGuards：Save+Open 后，旧句柄（来自
+// 序列化前的内存）自然失效（c.p 指针已变/文档对象不同）——验证守护
+// 不会让"无意义"句柄绕过判定。
+func TestStaleGuard_SaveReloadPreservesGuards(t *testing.T) {
+	p, s := createSlide(t)
+	a, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "A"})
+	// Save+Open 后旧 a 不在新 doc 里——p 已关闭，句柄应已失效。
+	out := t.TempDir() + "/sg.pptx"
+	if _, err := p.Save(context.Background(), out); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := a.Bounds(); !errors.Is(err, ErrClosed) {
+		t.Errorf("a.Bounds after Close err = %v, want ErrClosed", err)
+	}
+	_ = s
 }

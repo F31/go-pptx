@@ -13,6 +13,7 @@
 - 代码风格：错误用 error 不 panic；文档/状态文件用中文；commit message 关联 WP 编号；相关 md 置于 docs/。
 - 目录：根包 pptx；internal/{opc,xmlstore,edit,style,textmap,geom,validate}；render/、cmd/pptx/、testdata/corpus/ 后续。
 - 状态跟踪：docs/go-pptx-实施状态跟踪.md（负责人每 PR/里程碑后更新）；记忆日志按日追加。
+- **句柄身份约定（STALE-GUARD，M8 落地）**：`shapeNode` 句柄身份 = cNvPr@id；path 仅作"在哪个 spTree/grpSp 下查找"的父容器提示。locate 先按 path[:-1] 解析出 spTree/grpSp（跨兄弟操作稳定），再在该父容器子元素中按 cNvPr@id 线性查找——找不到返回 ErrStaleHandle。MoveShape 后句柄仍有效（cNvPr@id 未变），只有 RemoveShape 让 cNvPr@id 消失时句柄才失效。文本节点（textNode）暂无等价稳定标识符，仍按 path 解析——这是"编辑后重新取句柄"建议保留的唯一场景。
 
 ## 事故记录（重要）
 - 2026-09-08：git merge 触发内部 stash 失败后 `.git` 目录整体消失（工作区完好）。教训：① 本机 git 大操作（merge/rebase）前先 `cp -r .git` 备份；② merge 前务必保证 working tree clean，避免 autostash 路径。

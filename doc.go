@@ -111,8 +111,13 @@
 // 形状创建与管理（SHAPE-CREATE，设计 §20.2 缺口补齐）——
 // Slide.AddTextBox / AddAutoShape / RemoveShape / MoveShape +
 // TextFrame.AddParagraph；走 Part 级 stagePatch + 单事务 commit，
-// 不引入第二套编辑机制（ADR 013 续）。句柄失效语义：编辑后请重新
-// 取 Slide.Shapes() 获取新句柄。
+// 不引入第二套编辑机制（ADR 013 续）。
+// 句柄失效语义（STALE-GUARD，M8 修复）——shapeNode 以 cNvPr@id 为主
+// 身份、path 仅作"在哪个 spTree/grpSp 下查找"的父容器提示；locate
+// 先解析出父容器（跨兄弟操作稳定），再在子元素中按 cNvPr@id 线性
+// 查找。**关键不变量**：句柄身份 = cNvPr@id，MoveShape 后句柄仍
+// 可用，只有 RemoveShape 让 cNvPr@id 消失时句柄才失效。文本节点
+// 仍按 path 解析（无等价稳定标识符）。
 // 语义 diff 与审计（DIFF-01，M8 首项，方案 §18.3 / §24）——ir.Diff
 // 以 IR 为输入视图比较两份文档：页面对齐用加权 LCS（SlideID 强匹配 /
 // 形状 ID Jaccard 相似度，乱序残留二次配对），页内形状按 ShapeID 配对

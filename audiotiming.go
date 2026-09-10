@@ -381,7 +381,7 @@ func (s *Slide) handleByShapeID(id ShapeID) (*AudioShape, error) {
 		if vid == strconv.FormatInt(int64(id), 10) {
 			ap := s.lastProfileByShapeID(id)
 			return &AudioShape{
-				shapeNode: shapeNode{p: s.p, part: s.part, path: recordPath(doc, c.ID)},
+				shapeNode: shapeNode{p: s.p, part: s.part, path: recordPath(doc, c.ID), idHint: ShapeID(id)},
 				profile:   ap,
 				role:      ap.Role,
 			}, nil

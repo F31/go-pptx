@@ -128,7 +128,7 @@ func (s *Slide) spHandleByID(id int64) *AutoShape {
 			continue
 		}
 		if nid, ok := shapeCNvPrID(doc, c); ok && nid == id {
-			return &AutoShape{shapeNode: shapeNode{p: s.p, part: s.part, path: recordPath(doc, c.ID)}}
+			return &AutoShape{shapeNode: shapeNode{p: s.p, part: s.part, path: recordPath(doc, c.ID), idHint: ShapeID(nid)}}
 		}
 	}
 	return &AutoShape{shapeNode: shapeNode{p: s.p, part: s.part}}

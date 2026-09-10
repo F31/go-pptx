@@ -366,7 +366,7 @@ func (s *Slide) lastChartHandle() *ChartShape {
 			c := doc.Node(tree.Children[i])
 			if c.Namespace == nsPresentationML && c.Local() == "graphicFrame" &&
 				chartOfGraphic(doc, c) != nil {
-				return &ChartShape{shapeNode: shapeNode{p: p, part: s.part, path: recordPath(doc, c.ID)}}
+				return &ChartShape{shapeNode: shapeNode{p: p, part: s.part, path: recordPath(doc, c.ID), idHint: shapeNodeIDFromRecord(doc, c.ID)}}
 			}
 		}
 	}

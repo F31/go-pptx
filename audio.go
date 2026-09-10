@@ -286,7 +286,7 @@ func (s *Slide) lastAudioHandle() (*AudioShape, error) {
 		_ = idv
 		_ = namev
 		return &AudioShape{
-			shapeNode: shapeNode{p: p, part: s.part, path: recordPath(doc, c.ID)},
+			shapeNode: shapeNode{p: p, part: s.part, path: recordPath(doc, c.ID), idHint: shapeNodeIDFromIDStr(idv)},
 			role:      findRoleForAudio(c, doc),
 			profile:   lastProfileByMedia(p),
 		}, nil

@@ -326,7 +326,7 @@ func (s *Slide) lastPicHandle() *PictureShape {
 		for i := len(tree.Children) - 1; i >= 0; i-- {
 			c := doc.Node(tree.Children[i])
 			if c.Namespace == nsPresentationML && c.Local() == "pic" {
-				return &PictureShape{shapeNode: shapeNode{p: s.p, part: s.part, path: recordPath(doc, c.ID)}}
+				return &PictureShape{shapeNode: shapeNode{p: s.p, part: s.part, path: recordPath(doc, c.ID), idHint: shapeNodeIDFromRecord(doc, c.ID)}}
 			}
 		}
 	}
