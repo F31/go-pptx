@@ -103,6 +103,10 @@ func (s *CapabilityStatus) UnmarshalJSON(b []byte) error {
 // "p:transition 仅 fade"）；Limits 列出已知限制（"5 分钟以内"、
 // "未识别过渡返回 ErrUnsupportedEdit" 等）。字段全部允许空字符串/空
 // 切片；序列化时 nil 切片写为 []。
+//
+// Stable: 字段集与 json 标签在 v1.0 后锁死——capability manifest 作为
+// 机器可读 JSON 的事实标准，外部消费方按 json tag 反序列化。仅允许追加
+// 新字段（保持向后兼容），不允许重命名/移除/修改 json 标签。
 type CapabilityDimension struct {
 	Status    CapabilityStatus `json:"status"`
 	Notes     string           `json:"notes,omitempty"`
@@ -140,6 +144,11 @@ type CapabilityManifestSource struct {
 // 输出采用扁平结构以兼容主流 JSON 序列化器；Dimensions 用键索引而非
 // 数组，保持维度顺序稳定。Source 与 SDKVersion 均可为空字符串（未设
 // 链接器变量 / 未提供输入文件）。
+//
+// Stable: 顶层 JSON 结构（含 SchemaVersion / SDKVersion / GeneratedAt /
+// Source / Dimensions / Features / Diagnostics）在 v1.0 后锁死。Capabilities
+// schemaVersion 不兼容变更升大版本（详见 CapabilityManifestSchemaVersion）。
+// 仅允许追加新顶层字段；不允许重命名/移除已有字段或修改 json 标签。
 type CapabilityManifest struct {
 	SchemaVersion string                         `json:"schemaVersion"`
 	SDKVersion    string                         `json:"sdkVersion,omitempty"`

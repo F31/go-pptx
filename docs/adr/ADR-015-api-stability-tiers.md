@@ -54,10 +54,10 @@ v1.0 标签的发布日 T-2 周起：
 
 | 标签 | 数量 | 候选列表 |
 |---|---|---|
-| Stable | 3 + 28 = **31** | 核心对象模型入口 3 个 + T-2 周首批加 Stable 段落 28 个（错误码 17 个集合性段落 + OperationError 1 + 诊断契约 4 + 几何值对象 4 + 枚举 2；总计 17+1+4+4+2 = 28 个独立类型） |
+| Stable | 3 + 28 + 6 = **37 个独立类型 / 21 个 Stable 段落** | 核心对象模型入口 3 个 + T-2 周首批加 Stable 段落 28 个（错误码 17 集合段 + OperationError 1 + 诊断契约 4 + 几何值对象 4 + 枚举 2）+ T-1 周收敛 6 个（Capability Output 契约 4 + 句柄 ID 类型 2） |
 | Experimental | 5 | `ChartWorkbookBuilder`、`ChartDataBook`、`DefaultWorkbookBuilder`、`CustomPropertyKind`、`CustomPropertyValue` |
 | Deprecated | 0 | — |
-| API（默认） | 122 | 其余全部导出符号，含全部 `*Spec` / `*Option` 输入规格、`*Info` / `*Report` 只读报告 |
+| API（默认） | 116 | 其余全部导出符号，含全部 `*Spec` / `*Option` 输入规格、`*Info` / `*Report` 只读报告 |
 
 > **注**：本 ADR 不引入"冻结"以外的承诺标签——以减少语义摩擦。`// Deprecated:` 是 Go 1.19+ 标准注释惯用法，本 ADR 不重新约定。
 
