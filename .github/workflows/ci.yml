@@ -48,3 +48,21 @@ jobs:
           cache: true
       - name: Test with race detector
         run: go test -race ./...
+
+  corpus-replay:
+    name: corpus-replay
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+      - name: Build (corpus tag)
+        run: go build -tags=corpus ./...
+      - name: Vet (corpus tag)
+        run: go vet -tags=corpus ./...
+      - name: Test (corpus tag)
+        run: go test -tags=corpus ./...
