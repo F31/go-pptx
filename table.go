@@ -319,6 +319,14 @@ func (c *Cell) locate() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error) {
 	if n == nil {
 		return nil, nil, Annotate(ErrStaleHandle, "Cell")
 	}
+	// shapeHint 校验：Cell 句柄身份 = 所属表格形状（p:graphicFrame）的
+	// cNvPr@id。表格形状被删除后，原 Cell 句柄解析到的 a:tc 可能错配到
+	// 其他表格的单元格——与 textNode.shapeHint 同语义（STALE-GUARD）。
+	if c.shapeHint != 0 {
+		if got := shapeIDFromAncestors(doc, n); got != c.shapeHint {
+			return nil, nil, Annotate(ErrStaleHandle, "Cell")
+		}
+	}
 	return doc, n, nil
 }
 
