@@ -245,11 +245,10 @@ func TestTimingIR_JSONSerialization(t *testing.T) {
 }
 
 func TestTimingIR_ConditionalEstimates(t *testing.T) {
-	// 注：本测试避免 cTn 同时含 stCondLst 与紧随其后空 childTnLst 的组合——
-	// 该极限形态下 Go encoding/xml 与 parser 状态机在 cond 自闭合结束时
-	// 存在 stdlib depth 同步偏差（见 timingir.go 顶部已知约束）。其余
-	// path 组合（含非空 childTnLst）可正常解析；本测试用 childTnLst 内
-	// 含一个最小 par 节点规避。
+	// 验证多个 stCondLst/cond 的顺序与延迟解析——这是 cTn 同时含
+	// stCondLst 与 childTnLst 的最小完整形态，确保 cond→par→childTnLst
+	// 子树完整投影为 Begin[]。边缘 case（自闭合 cond + 空 childTnLst）
+	// 由 TestTimingIR_SelfClosingCondEmptyChildTnLst 专项验证。
 	raw := `<p:timing><p:tnLst><p:par><p:cTn id="900000" dur="indefinite" nodeType="tmRoot"><p:stCondLst><p:cond evt="begin" delay="1500"/><p:cond evt="next" delay="250"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="10" dur="indefinite"/></p:par></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`
 	pt := decodeTiming(t, raw)
 	if len(pt.Root.Begin) != 2 {

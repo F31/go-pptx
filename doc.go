@@ -84,8 +84,9 @@
 // SaveReport 同事实来源）；CapabilityFeature 对应 §24 一行工作包 + §2.3
 // 一行特性（矩阵↔工作包追溯不断）；schemaVersion="go-pptx.capability/1.0"
 // （独立于 SDK 版本）；已落地但有已知限制的工作包
-// （TOOL-02/TIMIR-01/TPL-01/DIFF-01）标 Partial 并在 Limits 登记；
-// `pptx capability` CLI 入口（§23.2，CAP-01）。
+// （TOOL-02/TPL-01/DIFF-01）标 Partial 并在 Limits 登记；TIMIR-01 已
+// 升级 Supported（xmlstore 重写解析器消除 std 自闭合 cond + 空
+// childTnLst 边缘 case）；`pptx capability` CLI 入口（§23.2，CAP-01）。
 // WASM 浏览器端检查工具（TOOL-02，M7 第二项）——`wasm/check` 包导出
 // 纯函数 Inspect/Capability/Validate（统一返回带 ok/error envelope 的
 // JSON 字符串，便于 wasm/js 边界消费）；`cmd/pptx_check` WASM 主入口
