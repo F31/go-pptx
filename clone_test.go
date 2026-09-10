@@ -467,3 +467,196 @@ func TestSlideClone_ExternalRelPreserved(t *testing.T) {
 		t.Errorf("external rel not preserved verbatim:\n%s", raw)
 	}
 }
+
+// ---------- CLONE-02 跨文档受限复制（V2.6 §11 + AT-13 跨包口径） ----------
+
+// cloneCrossDeck 构造用于跨文档复制的源/目标 deck；两者 slideLayout1 字节
+// 由 minimalTemplateParts() 确定性一致——天然满足 matchReusePart 的复用条件。
+func cloneCrossDeck(t *testing.T) (srcP, dstP *Presentation, srcSlide *Slide) {
+	t.Helper()
+	srcP = cloneDeckWithRels(t, "")
+	dstP = cloneDeckWithRels(t, "")
+	srcSlide = SlidesOf(t, srcP)[0]
+	return srcP, dstP, srcSlide
+}
+
+func TestCopySlideFrom_BasicLayoutReuse(t *testing.T) {
+	// 两 deck 的 slideLayout1 字节一致 → 复用命中 → 跨文档复制成功。
+	srcP, dstP, srcSlide := cloneCrossDeck(t)
+	defer srcP.Close()
+	defer dstP.Close()
+
+	origDstCount := len(SlidesOf(t, dstP))
+	newSlide, err := dstP.CopySlideFrom(srcSlide, nil)
+	if err != nil {
+		t.Fatalf("CopySlideFrom: %v", err)
+	}
+	if newSlide == nil {
+		t.Fatal("nil cloned slide")
+	}
+	if newSlide.ID() == srcSlide.ID() {
+		t.Errorf("cloned slide ID collides with source: %d", newSlide.ID())
+	}
+	if len(SlidesOf(t, dstP)) != origDstCount+1 {
+		t.Errorf("page count: %d (want %d)", len(SlidesOf(t, dstP)), origDstCount+1)
+	}
+	// 跨文档复制后源文档不应受影响。
+	if len(SlidesOf(t, srcP)) != 1 {
+		t.Errorf("source page count changed: %d", len(SlidesOf(t, srcP)))
+	}
+}
+
+func TestCopySlideFrom_ReuseLayoutMismatch(t *testing.T) {
+	// 改写目标 deck 的 slideLayout1 字节，使其与源不一致 → matchReusePart
+	// 失败 → 跨文档复制整体拒绝 ErrUnsupportedEdit，且目标暂存区零残留。
+	srcP, dstP, srcSlide := cloneCrossDeck(t)
+	defer srcP.Close()
+	defer dstP.Close()
+
+	// 篡改目标 slideLayout1：补一个额外空注释改变字节。
+	parts := readAllParts(t, dstP)
+	parts["/ppt/slideLayouts/slideLayout1.xml"] = append(
+		parts["/ppt/slideLayouts/slideLayout1.xml"],
+		[]byte("<!--tampered-->")...)
+	writeAllParts(t, dstP, parts)
+	if _, err := dstP.CopySlideFrom(srcSlide, nil); !errors.Is(err, ErrUnsupportedEdit) {
+		t.Fatalf("CopySlideFrom: %v (want ErrUnsupportedEdit)", err)
+	}
+	// 拒绝路径零残留：目标暂存区不应留下任何 patch。
+	if saved := dumpPending(dstP); len(saved) > 0 {
+		t.Errorf("pending left after rejected copy: %s", saved)
+	}
+}
+
+func TestCopySlideFrom_SameDocDispatchedToClone(t *testing.T) {
+	// src.p == dst → 走同文档 Clone 路径（更完整：媒体可共享）。
+	p, s := cloneDeckWithAudio(t)
+	defer p.Close()
+	ns, err := p.CopySlideFrom(s, nil)
+	if err != nil {
+		t.Fatalf("CopySlideFrom same doc: %v", err)
+	}
+	if ns.ID() == s.ID() {
+		t.Errorf("cloned slide collides with source ID: %d", ns.ID())
+	}
+	if len(SlidesOf(t, p)) != 2 {
+		t.Errorf("page count: %d (want 2)", len(SlidesOf(t, p)))
+	}
+}
+
+func TestCopySlideFrom_SaveRoundTrip(t *testing.T) {
+	// 跨文档复制 + Save → OpenReader 重开 → 结构完好。
+	srcP, dstP, srcSlide := cloneCrossDeck(t)
+	defer srcP.Close()
+	defer dstP.Close()
+
+	ns, err := dstP.CopySlideFrom(srcSlide, nil)
+	if err != nil {
+		t.Fatalf("CopySlideFrom: %v", err)
+	}
+	nsID := ns.ID()
+	var buf bytes.Buffer
+	if _, err := dstP.Write(context.Background(), &buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	out := buf.Bytes()
+	reopened, err := OpenReader(bytes.NewReader(out), int64(len(out)))
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer reopened.Close()
+	slides := SlidesOf(t, reopened)
+	if len(slides) != 2 {
+		t.Fatalf("reopened page count: %d (want 2)", len(slides))
+	}
+	// 跨文档复制产生的新页面应在重开后仍可达。
+	var found *Slide
+	for _, sl := range slides {
+		if sl.ID() == nsID {
+			found = sl
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("cloned slide ID %d not present after reopen", nsID)
+	}
+	relsPartName := relsPart(found.part)
+	hasRels := reopened.hasPartCurrent(relsPartName)
+	if !hasRels {
+		t.Fatalf("slide rels %s missing after reopen (slide=%s)", relsPartName, found.part)
+	}
+	// relsOf 接收被引用方 PartName（slide），内部自动算 relsPart 并解析。
+	rels, ok, err := reopened.relsOf(found.part)
+	if err != nil || !ok || len(rels) == 0 {
+		rawRels, _ := reopened.partBytes(relsPartName)
+		t.Fatalf("slide rels parse after reopen: err=%v ok=%v rels=%d raw=%q",
+			err, ok, len(rels), string(rawRels))
+	}
+	hit := false
+	for _, rel := range rels {
+		if rel.Type == opc.RelSlideLayout && rel.Mode == opc.TargetInternal {
+			hit = true
+			if !reopened.hasPartCurrent(rel.TargetPart) {
+				t.Errorf("layout rel target %s missing after reopen", rel.TargetPart)
+			}
+		}
+	}
+	if !hit {
+		t.Errorf("no slideLayout rel after reopen:\n%+v", rels)
+	}
+}
+
+// readAllParts 把当前 p 视图的全部 Part 字节读出为 map（根目录读路径 +
+// 会话 added 优先），便于跨文档 mismatch 测试篡改某个 Part 后再写回。
+func readAllParts(t *testing.T, p *Presentation) map[opc.PartName][]byte {
+	t.Helper()
+	out := map[opc.PartName][]byte{}
+	for _, name := range p.pk.PartNames() {
+		b, err := p.partBytes(name)
+		if err != nil {
+			t.Fatalf("partBytes(%s): %v", name, err)
+		}
+		out[name] = b
+	}
+	return out
+}
+
+// writeAllParts 把 map 中全部 Part 字节覆盖到当前已提交视图（partBytes
+// 只看 overrides，因此走 stagePatch + commit 让改动立刻可见，便于测试
+// 篡改某个 Part 后再让 CopySlideFrom 看到不同字节）。
+func writeAllParts(t *testing.T, p *Presentation, parts map[opc.PartName][]byte) {
+	t.Helper()
+	for name, b := range parts {
+		if !p.hasPartCurrent(name) {
+			t.Fatalf("part %s missing in destination view", name)
+		}
+		if err := p.stagePatch(name, b); err != nil {
+			t.Fatalf("stagePatch(%s): %v", name, err)
+		}
+	}
+	p.commit()
+}
+
+// dumpPending 把暂存区展开为可读字符串（仅在断言非空时调用）。
+func dumpPending(p *Presentation) string {
+	if p.pending == nil {
+		return ""
+	}
+	var buf bytes.Buffer
+	for n := range p.pending.Patched {
+		buf.WriteString("patched:")
+		buf.WriteString(string(n))
+		buf.WriteByte('\n')
+	}
+	for n := range p.pending.Added {
+		buf.WriteString("added:")
+		buf.WriteString(string(n))
+		buf.WriteByte('\n')
+	}
+	for n := range p.pending.Deleted {
+		buf.WriteString("deleted:")
+		buf.WriteString(string(n))
+		buf.WriteByte('\n')
+	}
+	return buf.String()
+}

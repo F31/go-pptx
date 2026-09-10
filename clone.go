@@ -66,7 +66,7 @@ func (s *Slide) Clone(policy *ClonePolicy) (*Slide, error) {
 	if policy != nil {
 		pol = *policy
 	}
-	plan, err := s.p.buildClonePlan(s, pol)
+	plan, err := s.p.buildClonePlan(s.p, s, pol)
 	if err != nil {
 		return nil, Annotate(err, op)
 	}
@@ -74,6 +74,53 @@ func (s *Slide) Clone(policy *ClonePolicy) (*Slide, error) {
 		return nil, Annotate(err, op)
 	}
 	return &Slide{p: s.p, id: plan.newID, part: plan.dst, rev: s.p.rev}, nil
+}
+
+// CopySlideFrom 把属于另一文档的页面 src 复制到当前文档（CLONE-02，
+// 跨文档受限复制）。源页全部内容（形状、文本、表格、图表、音频、备注、
+// 计时树、切换）复制为追加到当前文档 sldIdLst 末尾的新页面，返回新页
+// 面句柄。policy 为 nil 时使用默认策略。
+//
+// 与同文档 Clone 的语义差异：
+//   - 媒体（图片/音频/视频）总是独立复制（跨包无法共享源字节），
+//     policy.IndependentMedia 字段被忽略；
+//   - 版式/母版按**内容字节完全一致**匹配复用：目标文档已有相同
+//     slideLayout / notesMaster 则复用，否则整体拒绝 ErrUnsupportedEdit
+//     （AT-13 口径：不克隆版式/母版链，不生成残缺目标页）。
+//
+// 受限范围（超出整体拒绝 ErrUnsupportedEdit，零残留）：源页关系流中的
+// 未知内部关系类型（OLE、SmartArt 等）、版式/母版内容不匹配、notesSlide
+// 回引非源页、嵌入工作簿携带自身关系流等结构异常。
+func (dst *Presentation) CopySlideFrom(src *Slide, policy *ClonePolicy) (*Slide, error) {
+	const op = "Presentation.CopySlideFrom"
+	if dst == nil {
+		return nil, &OperationError{Op: op, Message: "nil destination presentation", Err: ErrInvalidArgument}
+	}
+	if src == nil {
+		return nil, &OperationError{Op: op, Message: "nil source slide", Err: ErrInvalidArgument}
+	}
+	if err := src.alive(); err != nil {
+		return nil, Annotate(err, op)
+	}
+	if dst.closed {
+		return nil, Annotate(ErrClosed, op)
+	}
+	if src.p == dst {
+		// 同文档：直接走 Clone，语义更完整（媒体可共享）。
+		return src.Clone(policy)
+	}
+	pol := ClonePolicy{}
+	if policy != nil {
+		pol = *policy
+	}
+	plan, err := dst.buildClonePlan(src.p, src, pol)
+	if err != nil {
+		return nil, Annotate(err, op)
+	}
+	if err := dst.applyClonePlan(plan); err != nil {
+		return nil, Annotate(err, op)
+	}
+	return &Slide{p: dst, id: plan.newID, part: plan.dst, rev: dst.rev}, nil
 }
 
 // ---------- 计划（纯读取，无任何暂存副作用） ----------
@@ -93,10 +140,17 @@ type cloneRelsPlan struct {
 }
 
 // clonePlan 是一次页面复制的完整计划（验证与暂存两阶段共享）。
+//
+// srcDoc 是源文档（读视图），plan 的构造 receiver 是目标文档（写视图）；
+// 同文档复制时二者为同一 *Presentation。crossDoc 由 srcDoc != 目标文档
+// 判定，驱动跨文档专有语义（版式/母版内容匹配、媒体强制独立）。
 type clonePlan struct {
 	src, dst opc.PartName
 	newID    SlideID
 	mainRID  string
+
+	srcDoc   *Presentation
+	crossDoc bool
 
 	independentMedia bool
 
@@ -119,9 +173,9 @@ type clonePlan struct {
 
 // buildClonePlan 遍历依赖闭包并构造复制计划。本阶段只读：任何拒绝都
 // 发生在暂存之前，保证零残留。
-func (p *Presentation) buildClonePlan(s *Slide, policy ClonePolicy) (*clonePlan, error) {
+func (dst *Presentation) buildClonePlan(srcDoc *Presentation, s *Slide, policy ClonePolicy) (*clonePlan, error) {
 	const op = "clone.plan"
-	doc, err := p.presentationDoc()
+	doc, err := dst.presentationDoc()
 	if err != nil {
 		return nil, err
 	}
@@ -133,32 +187,34 @@ func (p *Presentation) buildClonePlan(s *Slide, policy ClonePolicy) (*clonePlan,
 	if err != nil {
 		return nil, err
 	}
-	mainRels, err := relsXML(p, p.main)
+	mainRels, err := relsXML(dst, dst.main)
 	if err != nil {
 		return nil, err
 	}
 
 	plan := &clonePlan{
 		src: s.part, dst: "", newID: newID, mainRID: nextRID(mainRels),
+		srcDoc:           srcDoc,
+		crossDoc:         srcDoc != dst,
 		independentMedia: policy.IndependentMedia,
 		remap:            map[opc.PartName]opc.PartName{},
 		rels:             map[opc.PartName]*cloneRelsPlan{},
 		allocSeq:         map[string]int{},
 		allocUsed:        map[opc.PartName]bool{},
-		profileTaken:     p.allAudioTrackKeys(),
-		profileTakenV:    p.allVideoTrackKeys(),
+		profileTaken:     dst.allAudioTrackKeys(),
+		profileTakenV:    dst.allVideoTrackKeys(),
 	}
-	// 源页 Part 必须在当前读视图存在。
-	if !p.hasPartCurrent(plan.src) {
+	// 源页 Part 必须在源文档读视图存在。
+	if !srcDoc.hasPartCurrent(plan.src) {
 		return nil, &OperationError{Op: op, Part: string(plan.src),
 			Message: "source slide part does not exist", Err: ErrNotFound}
 	}
 	// 克隆源页容器（分配目标名 + 遍历其关系闭包）。
-	if err := p.cloneWalkContainer(plan.src, "slide", plan); err != nil {
+	if err := dst.cloneWalkContainer(srcDoc, plan.src, "slide", plan); err != nil {
 		return nil, err
 	}
 	// 库创建音轨的 Profile 克隆（派生 TrackKey、指向目标页）。
-	for _, prof := range p.audioProfilesOfSlide(plan.src) {
+	for _, prof := range srcDoc.audioProfilesOfSlide(plan.src) {
 		np := prof
 		np.TrackKey = uniqueTrackKey(prof.TrackKey+"-c", plan.profileTaken)
 		np.SlidePart = plan.dst
@@ -168,7 +224,7 @@ func (p *Presentation) buildClonePlan(s *Slide, policy ClonePolicy) (*clonePlan,
 		plan.profileAdds = append(plan.profileAdds, np)
 	}
 	// 库创建视频的 Profile 克隆（派生 TrackKey、指向目标页；独立媒体时同步重映射）。
-	for _, vp := range p.videoProfilesOfSlide(plan.src) {
+	for _, vp := range srcDoc.videoProfilesOfSlide(plan.src) {
 		np := vp
 		np.TrackKey = uniqueTrackKey(vp.TrackKey+"-c", plan.profileTakenV)
 		np.SlidePart = plan.dst
@@ -187,17 +243,20 @@ func (p *Presentation) buildClonePlan(s *Slide, policy ClonePolicy) (*clonePlan,
 
 // cloneWalkContainer 克隆一个容器 Part（slide/notes/chart）：分配目标名、
 // 分类其关系流、递归依赖闭包。remap 在入口登记，天然防循环（visited）。
-func (p *Presentation) cloneWalkContainer(src opc.PartName, kind string, plan *clonePlan) error {
+//
+// dst 是目标文档（receiver，负责名字分配与暂存），srcDoc 是源文档（负责
+// 读取 Part 字节/关系/内容类型）。同文档复制时二者相同。
+func (dst *Presentation) cloneWalkContainer(srcDoc *Presentation, src opc.PartName, kind string, plan *clonePlan) error {
 	const op = "clone.walk"
-	dst := p.allocCloneName(src, plan)
-	plan.remap[src] = dst
-	plan.cloned = append(plan.cloned, clonePartPlan{src: src, dst: dst, ct: p.contentTypeOf(src), kind: kind})
+	dstPart := dst.allocCloneName(src, plan)
+	plan.remap[src] = dstPart
+	plan.cloned = append(plan.cloned, clonePartPlan{src: src, dst: dstPart, ct: srcDoc.contentTypeOf(src), kind: kind})
 	// 源页自身记录目标名（供 notes 回引与 Profile 重写）。
 	if kind == "slide" {
-		plan.dst = dst
+		plan.dst = dstPart
 	}
 
-	rels, ok, err := p.relsOf(src)
+	rels, ok, err := srcDoc.relsOf(src)
 	if err != nil {
 		return &OperationError{Op: op, Part: string(src),
 			Message: "cannot read relationships", Err: err}
@@ -211,14 +270,28 @@ func (p *Presentation) cloneWalkContainer(src opc.PartName, kind string, plan *c
 			continue // 外部关系逐字节保留
 		}
 		target := rel.TargetPart
-		if !p.hasPartCurrent(target) {
+		if !srcDoc.hasPartCurrent(target) {
 			return &OperationError{Op: op, Part: string(src),
 				Message: fmt.Sprintf("relationship %q target %s does not exist", rel.ID, target),
 				Err:     ErrNotFound}
 		}
 		switch classifyCloneRel(rel.Type, kind) {
 		case "reuse":
-			// 版式/母版：同文档复用，不进 remap。
+			// 版式/母版：同文档直接复用（不进 remap）；跨文档按内容
+			// 字节匹配复用，匹配不到整体拒绝（不克隆版式/母版链）。
+			if plan.crossDoc {
+				match, found, err := dst.matchReusePart(srcDoc, target, rel.Type)
+				if err != nil {
+					return err
+				}
+				if !found {
+					return &OperationError{Op: op, Part: string(src),
+						Message: fmt.Sprintf("reuse relationship %q target %s has no byte-identical counterpart in destination document",
+							rel.Type, target),
+						Err: ErrUnsupportedEdit}
+				}
+				plan.remap[target] = match
+			}
 		case "backref":
 			// notesSlide 对 slide 的回引：必须指向克隆源页，经 remap 重写。
 			if target != plan.src {
@@ -227,33 +300,34 @@ func (p *Presentation) cloneWalkContainer(src opc.PartName, kind string, plan *c
 					Err:     ErrUnsupportedEdit}
 			}
 		case "media":
-			if plan.independentMedia {
+			if plan.independentMedia || plan.crossDoc {
+				// 独立复制（跨文档强制：跨包无法共享源字节）。
 				if _, done := plan.remap[target]; !done {
-					dstM := p.allocCloneName(target, plan)
+					dstM := dst.allocCloneName(target, plan)
 					plan.remap[target] = dstM
 					plan.cloned = append(plan.cloned, clonePartPlan{
-						src: target, dst: dstM, ct: p.contentTypeOf(target), kind: "media"})
+						src: target, dst: dstM, ct: srcDoc.contentTypeOf(target), kind: "media"})
 				}
 			}
 		case "notes", "chart":
 			if _, done := plan.remap[target]; !done {
-				if err := p.cloneWalkContainer(target, classifyCloneRel(rel.Type, kind), plan); err != nil {
+				if err := dst.cloneWalkContainer(srcDoc, target, classifyCloneRel(rel.Type, kind), plan); err != nil {
 					return err
 				}
 			}
 		case "workbook":
 			// chart 的嵌入工作簿：独立复制；不得携带自身关系流
 			//（无法安全重映射时宁可拒绝）。
-			if wbRels, ok2, _ := p.relsOf(target); ok2 && len(wbRels) > 0 {
+			if wbRels, ok2, _ := srcDoc.relsOf(target); ok2 && len(wbRels) > 0 {
 				return &OperationError{Op: op, Part: string(target),
 					Message: "embedded workbook carries its own relationships; cannot remap safely",
 					Err:     ErrUnsupportedEdit}
 			}
 			if _, done := plan.remap[target]; !done {
-				dstW := p.allocCloneName(target, plan)
+				dstW := dst.allocCloneName(target, plan)
 				plan.remap[target] = dstW
 				plan.cloned = append(plan.cloned, clonePartPlan{
-					src: target, dst: dstW, ct: p.contentTypeOf(target), kind: "workbook"})
+					src: target, dst: dstW, ct: srcDoc.contentTypeOf(target), kind: "workbook"})
 			}
 		default: // "unknown"
 			return &OperationError{Op: op, Part: string(src),
@@ -263,12 +337,49 @@ func (p *Presentation) cloneWalkContainer(src opc.PartName, kind string, plan *c
 		}
 	}
 	// 生成重写 Target 后的关系流字节（无命中则逐字节保留原文）。
-	relsBytes, err := p.patchedCloneRels(src, plan.remap)
+	relsBytes, err := dst.patchedCloneRels(srcDoc, src, plan.remap)
 	if err != nil {
 		return err
 	}
 	plan.rels[src] = &cloneRelsPlan{exists: true, bytes: relsBytes}
 	return nil
+}
+
+// matchReusePart 跨文档复用匹配：在目标文档中查找与源 Part 内容字节完全
+// 一致的同类型 Part（slideLayout / notesMaster）。命中返回目标 PartName 与
+// true；未命中返回 false（调用方拒绝 ErrUnsupportedEdit）。
+func (dst *Presentation) matchReusePart(srcDoc *Presentation, srcPart opc.PartName, relType string) (opc.PartName, bool, error) {
+	const op = "clone.match_reuse"
+	srcBytes, err := srcDoc.partBytes(srcPart)
+	if err != nil {
+		return "", false, &OperationError{Op: op, Part: string(srcPart),
+			Message: "cannot read reuse part", Err: err}
+	}
+	var candidates []opc.PartName
+	switch relType {
+	case opc.RelSlideLayout:
+		for _, master := range dst.pk.RelatedParts(dst.main, opc.RelSlideMaster) {
+			candidates = append(candidates, dst.pk.RelatedParts(master, opc.RelSlideLayout)...)
+		}
+	case relNotesMaster:
+		candidates = dst.pk.RelatedParts(dst.main, relNotesMaster)
+	default:
+		return "", false, nil
+	}
+	for _, cand := range candidates {
+		if !dst.hasPartCurrent(cand) {
+			continue
+		}
+		b, err := dst.partBytes(cand)
+		if err != nil {
+			return "", false, &OperationError{Op: op, Part: string(cand),
+				Message: "cannot read candidate reuse part", Err: err}
+		}
+		if bytes.Equal(b, srcBytes) {
+			return cand, true, nil
+		}
+	}
+	return "", false, nil
 }
 
 // classifyCloneRel 按容器种类分类关系类型。返回值：
@@ -313,13 +424,13 @@ const (
 // patchedCloneRels 返回容器 src 的关系流字节：命中 remap 的内部关系
 // 仅重写 Target 属性（Id/Type/TargetMode 与转义原文保留），其余逐字节
 // 保留。无命中返回原文。
-func (p *Presentation) patchedCloneRels(src opc.PartName, remap map[opc.PartName]opc.PartName) ([]byte, error) {
+func (dst *Presentation) patchedCloneRels(srcDoc *Presentation, src opc.PartName, remap map[opc.PartName]opc.PartName) ([]byte, error) {
 	const op = "clone.rels"
-	raw, err := relsXML(p, src)
+	raw, err := relsXML(srcDoc, src)
 	if err != nil {
 		return nil, err
 	}
-	rels, ok, err := p.relsOf(src)
+	rels, ok, err := srcDoc.relsOf(src)
 	if err != nil || !ok {
 		return nil, &OperationError{Op: op, Part: string(src),
 			Message: "relationships disappeared during planning", Err: ErrNotFound}
@@ -468,7 +579,9 @@ func (p *Presentation) applyClonePlan(plan *clonePlan) error {
 	}()
 
 	// 1) 目标页 Part（源字节级复制）与其关系流。
-	slideBytes, err := p.partBytes(plan.src)
+	// 跨文档复制时源 Part 只在 srcDoc 里可读，plan.src 由 srcDoc 持有。
+	srcDoc := plan.srcDoc
+	slideBytes, err := srcDoc.partBytes(plan.src)
 	if err != nil {
 		return &OperationError{Op: op, Part: string(plan.src), Message: "cannot read source slide", Err: err}
 	}
@@ -482,7 +595,7 @@ func (p *Presentation) applyClonePlan(plan *clonePlan) error {
 	}
 	// 2) 附属 Part（notes/chart/workbook/media）与其关系流。
 	for _, cp := range plan.cloned {
-		b, err := p.partBytes(cp.src)
+		b, err := srcDoc.partBytes(cp.src)
 		if err != nil {
 			return &OperationError{Op: op, Part: string(cp.src), Message: "cannot read cloned part", Err: err}
 		}

@@ -24,7 +24,8 @@
 // 矩阵引用链与 themeMatrixEntry；配音（M4）——媒体探测、音频嵌入、
 // 受限播放树与计时计划；图表（CHART-01，M5 首项）——受限三类
 // （柱/折/饼）创建、ChartWorkbookBuilder 工作簿适配、缓存读取与
-// 受限 SetData（缓存与工作簿一致重建）；页面复制（CLONE-01）——
+// 受限 SetData（缓存与工作簿一致重建）；页面复制（CLONE-01：同文档受限；
+// CLONE-02：跨文档受限，版式/母版按字节匹配复用，否则整体拒绝）——
 // 同文档受限克隆（依赖闭包 + Part 映射 + 关系重写，图表数据隔离，
 // 未知关系整体拒绝）；CLI 与 IR（TOOL-01）——只读中间表示
 // ir.FromPresentation（schemaVersion="go-pptx.ir/1.0"，不嵌入媒体）

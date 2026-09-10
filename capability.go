@@ -437,6 +437,17 @@ func populateCapabilityFeatures(m *CapabilityManifest) {
 			Status: StatusSupported,
 		},
 		{
+			Key: "clone.cross_document", Name: "跨文档受限页面复制",
+			Stage: "M8", TargetTier: "E", WorkPackage: "CLONE-02",
+			Status: StatusPartial,
+			Notes:  "源页全部内容复制为追加到目标文档 sldIdLst 末尾的新页面，返回新句柄；媒体总是独立复制（跨包无法共享字节）。",
+			Limits: []string{
+				"版式/母版按内容字节完全一致匹配复用；目标不存在匹配版式则整体拒绝（ErrUnsupportedEdit），不克隆版式/母版链，避免产出残缺目标页。",
+				"源页关系流出现 OLE/SmartArt 等未知内部关系类型、notesSlide 回引非源页、嵌入工作簿携带自身关系流等结构异常时整体拒绝，零残留。",
+				"未提供版式/母版级别的跨文档深度克隆（仅复用，不复制版式树）；该子集等待后续工作包立项。",
+			},
+		},
+		{
 			Key: "tool.cli_ir", Name: "CLI 与 IR 导出",
 			Stage: "M5+M6", TargetTier: "E", WorkPackage: "TOOL-01",
 			Status: StatusSupported,
