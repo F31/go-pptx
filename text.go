@@ -237,8 +237,16 @@ func kindIndex(doc *xmlstore.XMLDocument, child *xmlstore.NodeRecord) int {
 
 // ---------- TextFrame ----------
 
-// TextFrame 是文本框正文（p:txBody）的受控句柄。方法均以一次隐式事务
-// 提交；读取基于当前 revision 索引。
+// Stable: TextFrame 是文本操作三层入口（TextFrame → Paragraph → TextRun）
+// 之一，类比 Presentation/Slide/Shape 同级别。0 公开字段（私有字段仅用于
+// 句柄身份定位，不属于 API）；句柄失效语义由 textNode 嵌入 + shapeHint
+// 锁定（V2.6 §M8 STALE-GUARD 修复点）。v1.x 内承诺：
+//
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Text/Runs/Paragraphs/SetText/SetFont 等）
+//   - 仅允许在不破坏既有方法前提下**追加**新方法（如 AddParagraph 已在
+//     create.go 补充；未来可加 InsertParagraph/RemoveParagraph 等）
+//   - 句柄身份语义不变：cNvPr@id + path 双层校验
 type TextFrame struct {
 	textNode
 }
@@ -351,8 +359,15 @@ func buildPlainParagraph(prefix, text string) string {
 
 // ---------- Paragraph ----------
 
-// Paragraph 是段落（a:p）的受控句柄，保留段落属性（a:pPr）与结束字符
-// 属性（a:endParaRPr）：本模型不把它们扁平化。
+// Stable: Paragraph 是段落（a:p）的受控句柄，类比 Presentation/Slide/Shape
+// 同级别。0 公开字段（私有 idx 仅用于段落序号定位，不属于 API）；句柄失效
+// 语义由 textNode 嵌入 + shapeHint 锁定（V2.6 §M8 STALE-GUARD 修复点）。
+// v1.x 内承诺：
+//
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Text/Runs/AddRun/Props 等）
+//   - 仅允许在不破坏既有方法前提下**追加**新方法
+//   - 句柄身份语义不变：cNvPr@id + 段落序号双层校验
 type Paragraph struct {
 	textNode
 	idx int // 在所属 txBody 的 a:p 兄弟中的序号
@@ -479,7 +494,18 @@ func runPrefix(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord) string {
 
 // ---------- TextRun ----------
 
-// TextRun 是普通 Run（a:r）的受控句柄。
+// Stable: TextRun 是普通 Run（a:r）的受控句柄，类比 Presentation/Slide/
+// Shape 同级别。0 公开字段（私有 paraIdx/runIdx 仅用于段落/Run 序号定位，
+// 不属于 API）；句柄失效语义由 textNode 嵌入 + shapeHint 锁定（V2.6 §M8
+// STALE-GUARD 修复点）。v1.x 内承诺：
+//
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Text/SetText/ExplicitFont/SetFont/
+//     ResetFontProperty/AdvancedProps 等）
+//   - 仅允许在不破坏既有方法前提下**追加**新方法
+//   - 句柄身份语义不变：cNvPr@id + 段落序号 + Run 序号三层校验
+//   - Run 字段集为空（无 a:rPr 字段直接暴露）；字体通过 ExplicitFont /
+//     SetFont 间接操作；段落级属性通过 Paragraph.Props 暴露
 type TextRun struct {
 	textNode
 	paraIdx int
