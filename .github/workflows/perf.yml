@@ -1,0 +1,46 @@
+name: PERF baseline
+
+# PERF-01 夜间全量性能基线（设计方案 §15.3 / 实施计划 §9.3、§9.4-5）。
+#
+# 与 ci.yml 的 `perf-smoke` 分工：
+#   - perf-smoke（每次 push/PR）：确定性守门——基准可跑 + 报告可解析 + 语料尺寸下界，
+#     不含任何耗时阈值断言（共享 runner 抖动大，时序门禁必然 flaky）。
+#   - 本工作流（每日定时 / 手动）：在固定 runner（ubuntu-latest + 固定 Go）跑
+#     COUNT=10 全量基线，归档报告与原始日志，形成**可比的时间序列**用于看趋势。
+#
+# 为何不做自动回归阈值门禁：GitHub 托管 runner 的硬件/邻居负载不可控，单次读数
+# 波动可达数十个百分点，阈值门禁只会制造噪音红灯。回归判断以「同 runner 家族的
+# 历史报告趋势」为准，由人工/后续工具比对；开发机上的 docs/PERF-01-benchmark-report.md
+# 是另一套参照，两者硬件不同，**不可互相比较**。
+
+on:
+  schedule:
+    # 每日 03:17 UTC（避开整点调度高峰）。
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: nightly-baseline
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+      - name: Run PERF-01 baseline (COUNT=10)
+        run: COUNT=10 RAW=perf-out/raw-bench.log OUT=perf-out/report.md sh scripts/perf/run.sh
+      - name: Publish report to job summary
+        run: cat perf-out/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload baseline artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-baseline-${{ github.run_id }}
+          path: perf-out/
+          retention-days: 90

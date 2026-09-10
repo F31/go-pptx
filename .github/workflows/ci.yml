@@ -66,3 +66,28 @@ jobs:
         run: go vet -tags=corpus ./...
       - name: Test (corpus tag)
         run: go test -tags=corpus ./...
+
+  perf-smoke:
+    name: perf-smoke
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+      # PERF-01 确定性守门：基准套件跑一遍 + 报告生成器可解析 + 语料尺寸下界。
+      # 不做 ns/op 阈值断言——共享 runner 抖动大，时序门禁必然 flaky（理由见
+      # docs/PERF-01-性能基线.md §9）。夜间全量基线见 .github/workflows/perf.yml。
+      - name: PERF-01 smoke guard
+        run: RAW=perf-smoke.log sh scripts/perf/smoke.sh
+      - name: Upload smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-smoke-log
+          path: perf-smoke.log
+          if-no-files-found: ignore
+          retention-days: 14

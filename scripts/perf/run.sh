@@ -8,6 +8,7 @@
 #   COUNT      采样次数，用于 p50/p95（默认 10）
 #   BENCH      基准筛选正则（默认 BenchmarkPerf）
 #   BENCHTIME  benchtime 覆盖（默认空，由框架自动定标）
+#   TIMEOUT    go test -timeout（默认 30m；COUNT 大或 runner 慢时上调）
 #   RAW        原始日志路径（默认 scripts/perf/raw-bench.log）
 #   OUT        报告输出路径（默认 docs/PERF-01-benchmark-report.md）
 #
@@ -19,6 +20,7 @@ set -eu
 COUNT="${COUNT:-10}"
 BENCH="${BENCH:-BenchmarkPerf}"
 BENCHTIME="${BENCHTIME:-}"
+TIMEOUT="${TIMEOUT:-30m}"
 RAW="${RAW:-scripts/perf/raw-bench.log}"
 OUT="${OUT:-docs/PERF-01-benchmark-report.md}"
 
@@ -31,14 +33,15 @@ STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 	printf '# go-version: %s\n' "$(go version)"
 	printf '# count: %s\n' "$COUNT"
 	printf '# benchtime: %s\n' "${BENCHTIME:-default}"
+	printf '# timeout: %s\n' "$TIMEOUT"
 	printf '# bench: %s\n' "$BENCH"
 } > "$RAW"
 
 set +e
 if [ -n "$BENCHTIME" ]; then
-	go test -run '^$' -bench "$BENCH" -benchmem -count "$COUNT" -benchtime="$BENCHTIME" . >> "$RAW" 2>&1
+	go test -run '^$' -bench "$BENCH" -benchmem -count "$COUNT" -benchtime="$BENCHTIME" -timeout "$TIMEOUT" . >> "$RAW" 2>&1
 else
-	go test -run '^$' -bench "$BENCH" -benchmem -count "$COUNT" . >> "$RAW" 2>&1
+	go test -run '^$' -bench "$BENCH" -benchmem -count "$COUNT" -timeout "$TIMEOUT" . >> "$RAW" 2>&1
 fi
 STATUS=$?
 set -e

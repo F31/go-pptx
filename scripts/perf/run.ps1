@@ -7,6 +7,7 @@
 #   COUNT      sample count for p50/p95 (default 10)
 #   BENCH      benchmark filter regex (default BenchmarkPerf)
 #   BENCHTIME  benchtime override (default empty = auto calibrate)
+#   TIMEOUT    go test -timeout (default 30m; raise for large COUNT / slow runners)
 #   RAW        raw log path (default scripts/perf/raw-bench.log)
 #   OUT        report path (default docs/PERF-01-benchmark-report.md)
 $ErrorActionPreference = 'Stop'
@@ -14,6 +15,7 @@ $ErrorActionPreference = 'Stop'
 $Count = if ($env:COUNT) { $env:COUNT } else { '10' }
 $Bench = if ($env:BENCH) { $env:BENCH } else { 'BenchmarkPerf' }
 $Benchtime = if ($env:BENCHTIME) { $env:BENCHTIME } else { '' }
+$Timeout = if ($env:TIMEOUT) { $env:TIMEOUT } else { '30m' }
 $Raw = if ($env:RAW) { $env:RAW } else { 'scripts/perf/raw-bench.log' }
 $Out = if ($env:OUT) { $env:OUT } else { 'docs/PERF-01-benchmark-report.md' }
 
@@ -33,11 +35,12 @@ $header = @(
     "# go-version: $goVer",
     "# count: $Count",
     "# benchtime: $benchtimeLabel",
+    "# timeout: $Timeout",
     "# bench: $Bench"
 )
 Set-Content -Path $Raw -Value $header -Encoding UTF8
 
-$testArgs = @('-run', '^$', '-bench', $Bench, '-benchmem', '-count', $Count)
+$testArgs = @('-run', '^$', '-bench', $Bench, '-benchmem', '-count', $Count, '-timeout', $Timeout)
 if ($Benchtime) { $testArgs += @('-benchtime', $Benchtime) }
 $testArgs += '.'
 

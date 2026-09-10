@@ -92,13 +92,15 @@ pwsh -File scripts/perf/run.ps1
 | `COUNT` | `10` | 采样次数，决定 p50/p95 的样本量 |
 | `BENCH` | `BenchmarkPerf` | 基准筛选正则 |
 | `BENCHTIME` | 空 | `-benchtime` 覆盖；留空由框架自动定标 |
+| `TIMEOUT` | `30m` | `go test -timeout`；`COUNT` 大或 runner 慢时上调（勿依赖 Go 默认 10m） |
 | `RAW` | `scripts/perf/raw-bench.log` | 原始日志（环境头 + `go test` 输出，证据留档） |
 | `OUT` | `docs/PERF-01-benchmark-report.md` | 聚合报告输出 |
 
-快速冒烟（不用于基线，仅验证套件可跑）：
+快速冒烟（不用于基线，仅验证交付物完好）：
 
 ```sh
-COUNT=1 BENCHTIME=1x scripts/perf/run.sh
+scripts/perf/smoke.sh          # 确定性守门，见 §9
+COUNT=1 BENCHTIME=1x scripts/perf/run.sh   # 端到端跑一遍并出报告
 ```
 
 ## 6. 已知限制
@@ -122,9 +124,44 @@ COUNT=1 BENCHTIME=1x scripts/perf/run.sh
 |---|---|
 | `perf_bench_test.go` | 基准套件（三档语料 + 四类操作 + 峰值内存） |
 | `scripts/perf/summarize/` | 报告生成器（解析 `go test -bench` 原始日志 → markdown） |
-| `scripts/perf/run.sh` / `run.ps1` | 驱动脚本 |
+| `scripts/perf/run.sh` / `run.ps1` | 全量基线驱动脚本 |
+| `scripts/perf/smoke.sh` | 确定性冒烟守门（CI 每次 push/PR 调用，见 §9） |
 | `scripts/perf/raw-bench.log` | 最近一次原始日志（证据） |
 | `docs/PERF-01-benchmark-report.md` | 最近一次聚合报告（自动生成） |
+| `.github/workflows/ci.yml` → `perf-smoke` | 变更时确定性守门 |
+| `.github/workflows/perf.yml` → `baseline` | 每日定时全量基线（归档 + Job Summary） |
 
 维护约定：改动保存链路 / 解析链路 / 文本编辑链路后，重跑 `scripts/perf/run.sh` 并以
 同一平台的历史报告为参照判断是否回归。
+
+## 9. CI 守门与夜间基线
+
+性能门禁分两层，避免「用不可靠的读数卡住合并」：
+
+### 9.1 `perf-smoke`（`.github/workflows/ci.yml`，每次 push / PR，**阻断**）
+
+调用 `scripts/perf/smoke.sh`，只验**确定性**事实，**不含任何 ns/op 或内存阈值断言**：
+
+1. 基准套件可编译，且 6 组基准 × 3 档语料全部实际执行（防基准被误删/改名/静默跳过）；
+2. `scripts/perf/summarize` 能解析当前工具链的 `go test -bench` 输出——**防未来 Go 版本
+   变更 bench 行格式导致报告生成器静默失效**（解析失败即非零退出）；
+3. 三档语料的 `pkg-bytes` 高于预期下界（8 KiB / 32 KiB / 20 MiB）。其中 `100p-media`
+   的下界专门守住「大媒体被媒体内容哈希去重合并」这类使语料名不副实的静默回归
+   （见 §2；该问题在 PERF-01 首版真实发生过，语料从 34 MiB 塌到 885 KiB）。
+
+阈值取**下界 + 宽裕余量**而非等值：PNG 编码输出可能随 Go 版本微变，等值断言会误报；
+下界足以捕获量级坍塌。
+
+调用代价约数秒（`-benchtime=1x`），可接受放在每次 push/PR。
+
+### 9.2 `baseline`（`.github/workflows/perf.yml`，每日定时 / 手动，**不阻断**）
+
+在固定 runner（`ubuntu-latest` + 固定 Go 版本）跑 `COUNT=10` 全量基线，把报告与原始日志
+作为 artifact 归档（保留 90 天），并把报告写入 Job Summary 便于直接阅读。
+
+**为何不做自动回归阈值门禁**：GitHub 托管 runner 的硬件型号与邻居负载不可控，单次读数波动
+可达数十个百分点；阈值门禁只会制造噪音红灯，反过来训练团队忽略红灯。回归判断以**同一
+runner 家族的历史报告趋势**为准。
+
+**两套读数不可互相比较**：开发机上的 `docs/PERF-01-benchmark-report.md`（如 Intel Core
+Ultra 9 275HX）与 CI runner 是不同硬件，任何跨机器比较都须先固定平台与 Go 版本（§6、§7）。

@@ -17,6 +17,10 @@ Thumbs.db
 *.pptx.tmp
 *.tmp.pptx
 
+# PERF-01 本地/CI 运行产物（证据文件走 scripts/perf/raw-bench.log 与 docs/ 报告）
+perf-smoke.log
+perf-out/
+
 # WASM 站点（脚本构建时再生成；CI 与本地一致）
 /wasm/site/pptx_check.wasm
 /wasm/site/wasm_exec.js
