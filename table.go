@@ -53,10 +53,17 @@ func tableOfGraphic(doc *xmlstore.XMLDocument, frame *xmlstore.NodeRecord) *xmls
 
 // ---------- TableShape ----------
 
-// TableShape 是页面表格（p:graphicFrame + a:tbl）的受控句柄。
+// Stable: TableShape 是页面表格（p:graphicFrame + a:tbl）的读侧句柄，
+// 类比 TextFrame/Paragraph/TextRun 同级别核心入口型。0 公开字段
+// （shapeNode 嵌入）；句柄失效语义由 shapeNode + STALE-GUARD 锁定。
+// v1.x 内承诺：
 //
-// 形状层元信息（ID/Name/AltText/几何）经 shapeNode 与 GEOM-01 一致；
-// 表格层提供行列尺寸、富文本 Cell、合并与行高列宽。
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Kind / AddRow / RemoveRow / Cell 等）
+//   - 仅允许追加新方法
+//   - 句柄身份语义不变
+//   - 实现 Shape 接口
+//   - 形状层元信息（ID/Name/AltText/几何）经 shapeNode 与 GEOM-01 一致
 type TableShape struct {
 	shapeNode
 }

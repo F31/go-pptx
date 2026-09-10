@@ -150,7 +150,17 @@ type ChartData struct {
 	Axes       *ChartAxisOptions
 }
 
-// ChartShape 是页面图表（p:graphicFrame 引用 chart Part）的受控句柄。
+// Stable: ChartShape 是页面图表（p:graphicFrame 引用 chart Part）的读侧
+// 句柄，类比 TextFrame/Paragraph/TextRun 同级别核心入口型。0 公开字段
+// （shapeNode 嵌入）；句柄失效语义由 shapeNode + STALE-GUARD 锁定。
+// v1.x 内承诺：
+//
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Kind / SetAltText / SetDecorative /
+//     ChartData 等）
+//   - 仅允许追加新方法
+//   - 句柄身份语义不变
+//   - 实现 Shape 接口
 type ChartShape struct {
 	shapeNode
 }

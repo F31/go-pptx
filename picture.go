@@ -157,11 +157,16 @@ func intString64(v int64) string { return strconv.FormatInt(v, 10) }
 
 // ---------- PictureShape ----------
 
-// PictureShape 是页面图片（p:pic）的受控句柄。
+// Stable: PictureShape 是页面图片（p:pic）的读侧句柄，类比 TextFrame/
+// Paragraph/TextRun 同级别核心入口型。0 公开字段（shapeNode 嵌入）；
+// 句柄失效语义由 shapeNode + STALE-GUARD 锁定。v1.x 内承诺：
 //
-// 句柄不持有资源；每次操作以"原始字节 → 当前 revision 索引"沿稳定
-// 元素路径（nodeStep）重定位。路径目标被删除返回 ErrStaleHandle；
-// 文档关闭返回 ErrClosed（与 Slide/Text 句柄语义一致，§5）。
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Kind / SetAltText / SetDecorative /
+//     SetPictureFit / ReplacePicture / PictureFit / PictureSource 等）
+//   - 仅允许追加新方法
+//   - 句柄身份语义不变
+//   - 实现 Shape 接口
 type PictureShape struct {
 	shapeNode
 }

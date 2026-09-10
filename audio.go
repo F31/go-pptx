@@ -69,7 +69,18 @@ type AudioSpec struct {
 	Duration Optional[time.Duration]
 }
 
-// AudioShape 是页面音频形状的受控句柄（实现 Shape 接口）。
+// Stable: AudioShape 是页面音频形状的读侧句柄（实现 Shape 接口），
+// 类比 TextFrame/Paragraph/TextRun 同级别核心入口型。0 公开字段
+// （shapeNode + 私有 role/profile 仅用于构造期角色与媒体配置记录）——
+// role/profile 不暴露给用户，访问走 Role() / Profile() 方法。句柄失效
+// 语义由 shapeNode + STALE-GUARD 锁定。v1.x 内承诺：
+//
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Kind / Role / AudioSource / Profile /
+//     SetPlayback 等）
+//   - 仅允许追加新方法
+//   - 句柄身份语义不变
+//   - 实现 Shape 接口
 type AudioShape struct {
 	shapeNode
 	role    AudioRole

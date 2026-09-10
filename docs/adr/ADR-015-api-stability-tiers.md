@@ -54,12 +54,12 @@ v1.0 标签的发布日 T-2 周起：
 
 | 标签 | 数量 | 候选列表 |
 |---|---|---|
-| Stable | 3 + 28 + 6 + 3 = **40 个独立类型 / 24 个 Stable 段落** | 核心对象模型入口 3 个 + T-2 周首批加 Stable 段落 28 个（错误码 17 集合段 + OperationError 1 + 诊断契约 4 + 几何值对象 4 + 枚举 2）+ T-1 周收敛 6 个（Capability Output 契约 4 + 句柄 ID 类型 2）+ T+0 文本入口 3 个（`TextFrame` / `Paragraph` / `TextRun`） |
+| Stable | 3 + 28 + 6 + 3 + 9 = **49 个独立类型 / 33 个 Stable 段落** | 核心对象模型入口 3 个 + T-2 周首批加 Stable 段落 28 个（错误码 17 集合段 + OperationError 1 + 诊断契约 4 + 几何值对象 4 + 枚举 2）+ T-1 周收敛 6 个（Capability Output 契约 4 + 句柄 ID 类型 2）+ T+0 文本入口 3 个（`TextFrame` / `Paragraph` / `TextRun`）+ T+0 末窗口 9 个（`ShapeKind` 枚举 + 7 Shape 句柄族 `GroupShape`/`AutoShape`/`OpaqueShape`/`PictureShape`/`TableShape`/`ChartShape`/`AudioShape`/`VideoShape` + `TextShape` 别名跟随 `AutoShape`） |
 | Experimental | 5 | `ChartWorkbookBuilder`、`ChartDataBook`、`DefaultWorkbookBuilder`、`CustomPropertyKind`、`CustomPropertyValue` |
 | Deprecated | 0 | — |
-| API（默认） | 113 | 其余全部导出符号，含全部 `*Spec` / `*Option` 输入规格、`*Info` / `*Report` 只读报告（T+0 文本三类型从 API 上移 Stable，-3） |
+| API（默认） | 104 | 其余全部导出符号，含全部 `*Spec` / `*Option` 输入规格、`*Info` / `*Report` 只读报告（T+0 末窗口 9 个从 API 上移 Stable） |
 
-> **§C 精化（2026-09-10 T+0 窗口）**：§C.1 / §C.3 / §C.5 / §C.7 / §C.9 / §C.11 / §C.13 / §C.14 / §C.17 各子类从"约 X 个"估值改为 grep 精化定值；§C 总 141 类型 = 12 Stable（§C.1: 2 + §C.2: 2 + §C.6: 4 + §C.10: 1 + 文本入口 3（实归 §A）+ `MultiCellTextPolicy`）+ 129 API。同时修正文档错误（`MergePolicy` 不存在、`FillKind` 误归、`*Spec`/`*Report` 跨类重复）。详见 [`docs/v1.0-freeze-list.md` §"v1.0 评审执行进度"](../../v1.0-freeze-list.md) "2026-09-10 — T+0 §C 精化窗口" + "2026-09-10 — T+0 文本入口 Stable 化" 段。
+> **§C 精化（2026-09-10 T+0 窗口）**：§C.1 / §C.3 / §C.5 / §C.7 / §C.9 / §C.11 / §C.13 / §C.14 / §C.17 各子类从"约 X 个"估值改为 grep 精化定值；§C 总 132 类型 = 21 Stable（§C.1: 10 + §C.2: 2 + §C.6: 4 + §C.10: 1 + `MultiCellTextPolicy`）+ 111 API。同时修正文档错误（`MergePolicy` 不存在、`FillKind` 误归、`*Spec`/`*Report` 跨类重复）。详见 [`docs/v1.0-freeze-list.md` §"v1.0 评审执行进度"](../../v1.0-freeze-list.md) "2026-09-10 — T+0 §C 精化窗口" + "2026-09-10 — T+0 文本入口 Stable 化" + "2026-09-10 — T+0 末窗口 形状抽象类 Stable 化" 段。
 
 > **注**：本 ADR 不引入"冻结"以外的承诺标签——以减少语义摩擦。`// Deprecated:` 是 Go 1.19+ 标准注释惯用法，本 ADR 不重新约定。
 

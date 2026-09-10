@@ -26,7 +26,17 @@ import (
 // SetDecorative(true) 清除 descr 并写 decorative="1"——显式装饰性声明
 // 与空替代文本在辅助技术读取语义上不同，不用空 descr 代替装饰声明。
 
-// ShapeKind 描述 spTree 顶层形状的类别。
+// Stable: ShapeKind 描述 spTree 顶层形状的类别，类比 ReplaceMode/MultiCellTextPolicy
+// 枚举稳定性契约。形状分类的 iota 枚举，用户代码强依赖 switch/case 完备性——
+// 删除/重命名已有常量会破坏用户 switch 完备性。v1.x 内承诺：
+//
+//   - 仅允许**追加**新常量到 iota 末尾（不修改已有常量值）
+//   - 不重命名/移除已有常量
+//   - 已有常量字符串值（如 ShapeTable / ShapeChart / ShapeAudio / ShapeVideo
+//     对应的 OOXML a:tbl / chart Part / a:audioFile / p:videoFile 探测路径）
+//     在 1.x 内不变
+//
+// 文档级枚举稳定性是 API 兼容性的硬约束——与 OOXML 探测路径一一对应。
 type ShapeKind int
 
 const (
@@ -675,14 +685,16 @@ func picMediaKind(doc *xmlstore.XMLDocument, pic *xmlstore.NodeRecord) string {
 
 // ---------- GroupShape ----------
 
-// GroupShape 是页面组合（p:grpSp）的受控句柄。
+// Stable: GroupShape 是组合（p:grpSp）的读侧句柄，类比 TextFrame/Paragraph/
+// TextRun 同级别核心入口型。0 公开字段（shapeNode 嵌入 + 私有字段仅用于
+// 句柄身份与节点定位）；句柄失效语义由 shapeNode + STALE-GUARD 锁定
+// （V2.6 §M8 修复点）。v1.x 内承诺：
 //
-// 组合含自己的几何框（grpSpPr/a:xfrm：off/ext 为父坐标框，chOff/chExt
-// 为子坐标映射源）与子形状（组直接子元素，顺序即组内 z-order）。子形状
-// 坐标经组映射 G（非等比缩放+平移）到组父坐标后再组合组级翻转旋转
-// （Mgroup=T(C)·R·F·T(-C)·G，§8），嵌套组按父矩阵左乘。组句柄的
-// Bounds 返回组框（off/ext）；WorldQuad/WorldAABB 返回组框经自身翻转
-// 旋转与祖先组链后的世界边界。
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Kind / Children 等）
+//   - 仅允许在不破坏既有方法前提下**追加**新方法
+//   - 句柄身份语义不变：cNvPr@id + path 双层校验
+//   - 实现 Shape 接口；用户访问 Shape 接口时不区分具体类型
 type GroupShape struct {
 	shapeNode
 }
@@ -716,8 +728,19 @@ func (g *GroupShape) Children() ([]Shape, error) {
 
 // ---------- AutoShape ----------
 
-// AutoShape 是页面 p:sp 形状（文本框或自选图形/占位符）的受控句柄。
-// 携带 p:txBody 时经 TextFrame 读写正文；§8.1 替代文本可读写。
+// Stable: AutoShape 是 p:sp 形状（文本框或自选图形/占位符）的读侧句柄，
+// 类比 TextFrame/Paragraph/TextRun 同级别核心入口型。0 公开字段
+// （shapeNode 嵌入 + 私有字段仅用于句柄身份）；句柄失效语义由 shapeNode +
+// STALE-GUARD 锁定。v1.x 内承诺：
+//
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Kind / TextFrame / SetAltText /
+//     SetDecorative 等）
+//   - 仅允许追加新方法
+//   - 句柄身份语义不变
+//   - 实现 Shape 接口
+//   - TextShape 是 AutoShape 的类型别名——TextShape 不引入第二套句柄，
+//     承诺同等 Stable 语义
 type AutoShape struct {
 	shapeNode
 }
@@ -788,8 +811,16 @@ func (a *AutoShape) Placeholder() (typ string, idx uint32, ok bool) {
 
 // ---------- OpaqueShape ----------
 
-// OpaqueShape 是暂不支持内容编辑的形状容器（组合/连接符/图形框/
-// 未知扩展）的只读句柄：仅提供通用元信息，不臆测内部结构。
+// Stable: OpaqueShape 是暂不支持内容编辑的形状容器（组合/连接符/图形框/
+// 未知扩展）的只读句柄，类比 TextFrame/Paragraph/TextRun 同级别核心入口型。
+// 0 公开字段（shapeNode + 私有 kind）；句柄失效语义由 shapeNode + STALE-
+// GUARD 锁定。v1.x 内承诺：
+//
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Kind / Bounds / AltText 等只读方法）
+//   - 仅允许追加新方法（只读扩展——不引入编辑能力）
+//   - 句柄身份语义不变
+//   - 实现 Shape 接口
 type OpaqueShape struct {
 	shapeNode
 	kind ShapeKind

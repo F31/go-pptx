@@ -83,7 +83,19 @@ type VideoSpec struct {
 	PosterAlt    string
 }
 
-// VideoShape 是页面视频形状的受控句柄（实现 Shape 接口）。
+// Stable: VideoShape 是页面视频形状的读侧句柄（实现 Shape 接口），
+// 类比 TextFrame/Paragraph/TextRun 同级别核心入口型。0 公开字段
+// （shapeNode + 私有 role/profile/posterPath 仅用于构造期记录与海报帧
+// 路径定位）—— role/profile/posterPath 不暴露给用户，访问走 Role() /
+// Profile() / PosterSource() 方法。句柄失效语义由 shapeNode + STALE-
+// GUARD 锁定。v1.x 内承诺：
+//
+//   - 类型签名不变；不新增/重命名/移除公开方法
+//   - 现有方法签名与返回类型不变（Kind / Role / VideoSource / Profile /
+//     ReplacePoster / PosterSource 等）
+//   - 仅允许追加新方法
+//   - 句柄身份语义不变
+//   - 实现 Shape 接口
 type VideoShape struct {
 	shapeNode
 	role    VideoRole

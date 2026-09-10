@@ -14,10 +14,13 @@ import (
 // stagePatch + commit），不引入第二套写路径；移除与移动参照 MoveSlide 的
 // "提取字节 + 双补丁升序提交"模式。
 
-// TextShape 是文本框句柄。设计 §20.2 规定 AddTextBox 返回 *TextShape；
-// 实现上文本框与自选图形同为 p:sp（以 cNvSpPr@txBox="1" 区分），故
-// TextShape 是 AutoShape 的类型别名——不引入第二套句柄实现，TextFrame/
-// AltText 等全部能力直接可用。
+// Stable: TextShape 是文本框句柄，是 AutoShape 的类型别名——不引入第二
+// 套句柄实现（设计 §20.2）。TextShape 与 AutoShape 共享全部 Stable 语义
+// （类型签名不变；不新增/重命名/移除公开方法；现有方法签名与返回类型不变；
+// 仅允许追加新方法；句柄身份语义不变）。TextFrame/AltText 等全部能力直接
+// 可用。AddTextBox 返回 *TextShape 与 AddAutoShape 返回 *AutoShape 行为
+// 完全一致——前者按 cNvSpPr@txBox="1" 标记，后者按其他 OOXML 自选图形
+// 标记，但二者底层共用 p:sp 元素（STALE-GUARD 句柄身份语义统一）。
 type TextShape = AutoShape
 
 // TextBoxSpec 描述新建文本框（§20.2）。坐标与尺寸为 EMU（914400/inch）。
