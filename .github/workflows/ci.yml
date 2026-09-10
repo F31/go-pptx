@@ -78,6 +78,13 @@ jobs:
       - name: Test with race detector
         run: go test -race ./...
 
+  # CORPUS-01 公开样本金样自动 replay 守门（QA-01）。
+  # - 默认 `go test ./...` 不跑 corpus 测试（见 build tag `corpus`）；
+  # - 本 job 显式启用 build tag，让 CI 跑通 testdata/corpus/s00* 三份
+  #   公开样本与 ext-0024（私有样本在本机无源时自动 SKIP，不阻断）。
+  # - 前置 validate 步骤确保 manifest.json/actions.json 约定一致；测试
+  #   才有可能跑通，反之亦然——manifest 损坏是数据层错，先于测试报错更直观。
+  # - 详细日志 + 失败归档便于排查（公开样本用例的 skip/pass 计数有诊断价值）。
   corpus-replay:
     name: corpus-replay
     runs-on: ubuntu-latest
@@ -89,12 +96,22 @@ jobs:
         with:
           go-version: '1.27.x'
           cache: true
+      - name: Validate corpus manifests (scripts/gen_corpus validate)
+        run: scripts/gen_corpus/run.sh validate testdata/corpus
       - name: Build (corpus tag)
         run: go build -tags=corpus ./...
       - name: Vet (corpus tag)
         run: go vet -tags=corpus ./...
-      - name: Test (corpus tag)
-        run: go test -tags=corpus ./...
+      - name: Test (corpus tag, verbose)
+        run: go test -tags=corpus -v ./... | tee corpus-replay.log
+      - name: Upload corpus replay log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-replay-log
+          path: corpus-replay.log
+          if-no-files-found: ignore
+          retention-days: 14
 
   perf-smoke:
     name: perf-smoke

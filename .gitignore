@@ -21,6 +21,9 @@ Thumbs.db
 perf-smoke.log
 perf-out/
 
+# CORPUS-01 replay 本地日志（CI artifact 走 GitHub Actions upload-artifact）
+corpus-replay.log
+
 # WASM 站点（脚本构建时再生成；CI 与本地一致）
 /wasm/site/pptx_check.wasm
 /wasm/site/wasm_exec.js

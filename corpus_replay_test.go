@@ -208,6 +208,12 @@ func replayCorpusSample(t *testing.T, id string) {
 // 对原始 path 做），t.Skipf 而非 t.Fatalf——CI 不因私有样本缺席而红，
 // 本地 dev 挂载源文件后自动启用。相对路径缺失（公开样本源 pptx 误删）
 // 仍 Fatalf，不掩盖 dev 错误。
+//
+// 跨平台绝对路径候选：当 manifest 指向绝对路径（典型 WSL /mnt/<drive>/…）
+// 而本机走 Windows 原生 API 时，原路径不可达但 Win32 路径可能可达——
+// corpusAbsPathCandidates 把 WSL/Git Bash/Windows 三种形态互相转换后依次
+// stat，第一个命中即返回。相对路径（公开样本）直接 filepath.Join(root,…)，
+// 失败时区分"本地误删" vs "私有样本本地无源"分别 Fatalf/Skipf。
 func loadCorpusSourcePath(t *testing.T, root string) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join(root, "manifest.json"))
@@ -221,19 +227,78 @@ func loadCorpusSourcePath(t *testing.T, root string) string {
 	if m.Files.Pptx.Path == "" {
 		t.Fatalf("manifest.json missing files.pptx.path")
 	}
-	pptxPath := filepath.Join(root, m.Files.Pptx.Path)
-	if _, err := os.Stat(pptxPath); err != nil {
-		// 源 PPTX 不在位时统一跳过（与 loadCorpusActions/loadCorpusCompat 一致）。
-		// 公开样本的 .pptx/.odp 由 opencode PR 提交，私有样本（manifest 指向
-		// /mnt/... 或 Windows 绝对路径）本就只在本机可访问——两种情况在 CI
-		// 都是"无可 replay 资源"，跳过而非失败。当数据到位后 os.Stat 成功，
-		// 测试会自动转为真跑。
-		if os.IsNotExist(err) {
-			t.Skipf("source pptx not available: %s (data 尚未入库或为本地私有路径)", pptxPath)
+	if !isCorpusAbs(m.Files.Pptx.Path) {
+		// 公开样本：相对路径直接拼到 root；缺失即 dev 错误，不 Skip。
+		pptxPath := filepath.Join(root, m.Files.Pptx.Path)
+		if _, err := os.Stat(pptxPath); err != nil {
+			if os.IsNotExist(err) {
+				t.Fatalf("public sample source missing though manifest present: %s (delete manifest or restore file)", pptxPath)
+			}
+			t.Fatalf("stat source pptx %s: %v", pptxPath, err)
 		}
-		t.Fatalf("stat source pptx %s: %v", pptxPath, err)
+		return pptxPath
 	}
-	return pptxPath
+	// 私有样本：绝对路径可能在 WSL / Git Bash / Windows 之间需要互转。
+	// 先试原路径，再试候选，第一个命中即可。
+	if _, err := os.Stat(m.Files.Pptx.Path); err == nil {
+		return m.Files.Pptx.Path
+	}
+	for _, cand := range corpusAbsPathCandidates(m.Files.Pptx.Path) {
+		if _, err := os.Stat(cand); err == nil {
+			return cand
+		}
+	}
+	t.Skipf("source pptx not available: %s (data 尚未入库或为本地私有路径；候选：%s)",
+		m.Files.Pptx.Path, strings.Join(corpusAbsPathCandidates(m.Files.Pptx.Path), ", "))
+	return ""
+}
+
+// isCorpusAbs 同时识别 Win32 绝对（C:\... / \\…）与 POSIX 绝对（/...）。
+// filepath.IsAbs 在 Windows 上只认前者；manifest.path 写的是 /mnt/e/… 或
+// /work/… 形态时必须手动判断，否则会被当作相对路径拼到 root 后面。
+func isCorpusAbs(p string) bool {
+	if filepath.IsAbs(p) {
+		return true
+	}
+	return strings.HasPrefix(p, "/")
+}
+
+// corpusAbsPathCandidates 把一个绝对路径转成 WSL / Git Bash / Windows 三种
+// 形态候选，便于跨平台脚本（Git Bash 调用 windows python.exe / Windows
+// Go 进程访问 WSL 挂载的 ext4 / 反之）共享同一份 manifest。例如
+// "/mnt/e/work/2026/服务器/拓扑方案.pptx" →
+//   - 原路径
+//   - "/e/work/2026/服务器/拓扑方案.pptx"（Git Bash 把 E: 盘映射为 /e/）
+//   - "E:\work\2026\服务器\拓扑方案.pptx"（Win32）
+//
+// 反向也同理。
+func corpusAbsPathCandidates(p string) []string {
+	out := []string{p}
+	switch {
+	case strings.HasPrefix(p, "/mnt/") && len(p) > 6:
+		// /mnt/<drive>/... → /<drive>/...（Git Bash）+ <Drive>:\...（Win32）
+		drive := string(p[5])
+		rest := p[6:]
+		out = append(out, "/"+drive+rest)
+		if isAlphaByte(drive) {
+			out = append(out, strings.ToUpper(drive)+":"+filepath.FromSlash(rest))
+		}
+	case len(p) >= 3 && p[0] == '/' && p[2] == '/' && isAlphaByte(string(p[1])):
+		// Git Bash /<drive>/... → /mnt/<drive>/...（WSL）+ <Drive>:\...（Win32）
+		drive := string(p[1])
+		rest := p[2:]
+		out = append(out, "/mnt/"+strings.ToLower(drive)+rest)
+		out = append(out, strings.ToUpper(drive)+":"+filepath.FromSlash(rest))
+	}
+	return out
+}
+
+func isAlphaByte(s string) bool {
+	if len(s) != 1 {
+		return false
+	}
+	c := s[0]
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 // loadCorpusActions 解析 <id>.actions.json。文件不存在时 t.Skipf
