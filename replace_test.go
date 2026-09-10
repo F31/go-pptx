@@ -82,6 +82,40 @@ func TestReplaceTextCrossRunFirstCharacter(t *testing.T) {
 	}
 }
 
+func TestReplaceTextSuffixInLaterRunDoesNotCorruptPrefix(t *testing.T) {
+	// 真实 WPS 样本 ext-0024 的标题形态：英文/中文被拆成多个 Run，
+	// 命中只落在最后一个中文 Run 内。曾因 locateBlockSpan 只用
+	// gei > lo 判定首 Run，把命中错误锚到 run0，输出 NUL 字节。
+	_, s, _, para := tfPara(t, `<a:bodyPr/><a:p>`+
+		`<a:r><a:rPr lang="en-US"/><a:t>89144 SW</a:t></a:r>`+
+		`<a:r><a:rPr lang="zh-CN"/><a:t>板</a:t></a:r>`+
+		`<a:r><a:rPr lang="en-US"/><a:t>-HPC</a:t></a:r>`+
+		`<a:r><a:rPr lang="zh-CN"/><a:t>双上行双</a:t></a:r>`+
+		`<a:r><a:rPr lang="en-US"/><a:t>fabric</a:t></a:r>`+
+		`<a:r><a:rPr lang="zh-CN"/><a:t>模式拓扑方案</a:t></a:r>`+
+		`</a:p>`)
+	r, err := para.ReplaceText("拓扑方案", "拓扑验证")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Matches != 1 || r.Replaced != 1 || r.Skipped != 0 {
+		t.Errorf("result = %+v", r)
+	}
+	if got := paraText(t, para); got != "89144 SW板-HPC双上行双fabric模式拓扑验证" {
+		t.Errorf("text = %q", got)
+	}
+	xml := slideXML(t, s)
+	if strings.ContainsRune(xml, '\x00') {
+		t.Fatalf("xml contains NUL bytes: %q", xml)
+	}
+	if !strings.Contains(xml, `<a:t>89144 SW</a:t>`) {
+		t.Errorf("prefix run corrupted: %s", xml)
+	}
+	if !strings.Contains(xml, `<a:t>模式拓扑验证</a:t>`) {
+		t.Errorf("target run not patched in-place: %s", xml)
+	}
+}
+
 func TestReplaceTextEqualLengthPerRune(t *testing.T) {
 	// run0 "ab"（b=1），run1 "cd"（i=1）：跨 Run 等长替换 "bc" → "XY"。
 	_, s, _, para := tfPara(t, `<a:bodyPr/><a:p>`+

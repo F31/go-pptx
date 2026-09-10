@@ -595,7 +595,7 @@ func locateBlockSpan(blk *segBlock, gsi, gei int, occ *matchOcc) bool {
 	for i := range blk.runs {
 		n := utf8.RuneCountInString(blk.runs[i].text)
 		lo, hi := pos, pos+n
-		if occ.ri < 0 && gei > lo {
+		if occ.ri < 0 && gsi < hi && gei > lo {
 			occ.ri = i
 			occ.rsi = maxInt(gsi-lo, 0)
 		}
