@@ -25,7 +25,6 @@ const (
 	xlsxRelTypeOfficeDoc     = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
 	xlsxContentTypeWorkbookM = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
 	xlsxContentTypeWorksheet = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"
-	xlsxContentTypeDefault   = "application/xml"
 )
 
 // BuildChartWorkbookXML 组装 xlsx 包（内存 ZIP，条目固定顺序）。
