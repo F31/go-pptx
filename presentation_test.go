@@ -173,6 +173,25 @@ func TestErrClosedSemantics(t *testing.T) {
 	if err := os.Rename(src, filepath.Join(dir, "b.pptx")); err != nil {
 		t.Errorf("file still locked after Close: %v", err)
 	}
+	// Validate 在 closed 文档上必须返回非空错误诊断（presentation.go:256 起的
+	// CLOSED 旁路分支），此前 Validate 覆盖率 66.7% —— 此处补齐。
+	if rep := p.Validate(ctx); !rep.HasErrors() {
+		t.Errorf("Validate on closed doc should report CLOSED, got empty report")
+	} else {
+		var sawClosed bool
+		for _, d := range rep.Diagnostics {
+			if d.Code == "CLOSED" {
+				sawClosed = true
+				if d.Severity != SeverityError {
+					t.Errorf("CLOSED severity = %v, want Error", d.Severity)
+				}
+				break
+			}
+		}
+		if !sawClosed {
+			t.Errorf("Validate diags = %+v, want CLOSED", rep.Diagnostics)
+		}
+	}
 }
 
 func TestSaveRejectsSourcePath(t *testing.T) {

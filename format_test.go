@@ -72,6 +72,22 @@ const formatSlideBody = `<p:sld xmlns:a="` + nsDrawingML + `" xmlns:r="` + nsOff
 	`<a:ln w="12700">` +
 	`<a:solidFill><a:prstClr val="black"><a:lumMod val="50000"/><a:futureTransform val="0"/></a:prstClr></a:solidFill>` +
 	`</a:ln></p:spPr></p:sp>` +
+	// id=7 含 a:scrgbClr 颜色（千分比 0..100000）
+	// r=100000 → 255=FF；g=50000 → 127=7F；b=00000 → 0=00
+	`<p:sp><p:nvSpPr><p:cNvPr id="7" name="Shape 6"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
+	`<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm>` +
+	`<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+	`<a:ln w="12700">` +
+	`<a:solidFill><a:scrgbClr r="100000" g="50000" b="00000"/></a:solidFill>` +
+	`</a:ln></p:spPr></p:sp>` +
+	// id=8 含 a:hslClr 颜色（hue 1/60000 度；sat/lum 千分比 0..100000）
+	// hue=0 sat=100000 lum=50000 → RGB FF0000
+	`<p:sp><p:nvSpPr><p:cNvPr id="8" name="Shape 7"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
+	`<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm>` +
+	`<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+	`<a:ln w="12700">` +
+	`<a:solidFill><a:hslClr hue="0" sat="100000" lum="50000"/></a:solidFill>` +
+	`</a:ln></p:spPr></p:sp>` +
 	`</p:spTree></p:cSld>` +
 	`<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>` +
 	`</p:sld>`
@@ -287,6 +303,65 @@ func TestShapeLineMissing(t *testing.T) {
 	}
 	if line.Specified {
 		t.Error("shape id=3 has no line; expected Specified=false")
+	}
+}
+
+// ---------- 特殊色空间（HslClr / ScrgbClr）端到端 ----------
+//
+// formatSlideBody 的 id=7 shape 的线条颜色用 a:scrgbClr（千分比 0..100000）：
+//
+//	r=100000 → 255=FF；g=50000 → 127=7F；b=00000 → 0=00
+//
+// 这是 format.go scrgbChannels (320 行起) 走到的实测路径——此前该函数
+// 覆盖率为 0%（无人触发），roots 覆盖率贴线之一。
+func TestShapeLineScrgbClr(t *testing.T) {
+	p := formatDeck(t)
+	shapes := mustSlideShapes(t, mustSlides(t, p)[0])
+	line, diags, err := findShapeByID(t, shapes, 7).Line()
+	if err != nil {
+		t.Fatalf("Line: %v", err)
+	}
+	if !line.Specified {
+		t.Fatal("shape id=7 should have a line (scrgbClr)")
+	}
+	if line.Color.RGB != "FF7F00" {
+		t.Errorf("scrgbClr RGB = %s, want FF7F00 (r=100%% g=50%% b=0%%)",
+			line.Color.RGB)
+	}
+	if !line.Color.Resolved {
+		t.Error("scrgbClr color Resolved = false, want true")
+	}
+	if len(diags) != 0 {
+		t.Errorf("unexpected diagnostics: %v", diags)
+	}
+}
+
+// formatSlideBody 的 id=8 shape 的线条颜色用 a:hslClr：
+//
+//	hue=0 (1/60000 度 = 0°) sat=100000 (100%) lum=50000 (50%)
+//	  → hslToRGB(0, 100000, 50000) → 纯红 (FF, 00, 00)
+//
+// 这是 format.go hslChannels (341 行起) 走到的实测路径——此前该函数
+// 覆盖率为 0%。
+func TestShapeLineHSLClr(t *testing.T) {
+	p := formatDeck(t)
+	shapes := mustSlideShapes(t, mustSlides(t, p)[0])
+	line, diags, err := findShapeByID(t, shapes, 8).Line()
+	if err != nil {
+		t.Fatalf("Line: %v", err)
+	}
+	if !line.Specified {
+		t.Fatal("shape id=8 should have a line (hslClr)")
+	}
+	if line.Color.RGB != "FF0000" {
+		t.Errorf("hslClr RGB = %s, want FF0000 (hue=0° sat=100%% lum=50%%)",
+			line.Color.RGB)
+	}
+	if !line.Color.Resolved {
+		t.Error("hslClr color Resolved = false, want true")
+	}
+	if len(diags) != 0 {
+		t.Errorf("unexpected diagnostics: %v", diags)
 	}
 }
 

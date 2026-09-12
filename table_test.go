@@ -137,6 +137,34 @@ func TestTableShapeClassificationAndSize(t *testing.T) {
 	}
 }
 
+// Cell.Row/Column 是公开 trivial getter（table.go:341-342），返回创建句柄
+// 时的 c.row/c.col；此前覆盖率 0% 仅因无任何测试调用——本测试用 2x2 表
+// 补齐 (0,0)/(0,1)/(1,0)/(1,1) 四个坐标的检索回路。
+func TestCellRowAndColumnGetters(t *testing.T) {
+	rows := tableRow("370840", tableCell("", "A1")+tableCell("", "B1")) +
+		tableRow("370840", tableCell("", "A2")+tableCell("", "B2"))
+	p := tableDeck(t, tableFrame("4", "", []string{"304800", "304800"}, rows), "")
+	defer p.Close()
+	s, _ := p.Slide(0)
+	shapes, err := s.Shapes()
+	if err != nil {
+		t.Fatalf("Shapes: %v", err)
+	}
+	tb := shapes[0].(*TableShape)
+	for _, tc := range []struct{ r, c int }{{0, 0}, {0, 1}, {1, 0}, {1, 1}} {
+		cell, err := tb.Cell(tc.r, tc.c)
+		if err != nil {
+			t.Fatalf("Cell(%d,%d): %v", tc.r, tc.c, err)
+		}
+		if got := cell.Row(); got != tc.r {
+			t.Errorf("Cell(%d,%d).Row() = %d, want %d", tc.r, tc.c, got, tc.r)
+		}
+		if got := cell.Column(); got != tc.c {
+			t.Errorf("Cell(%d,%d).Column() = %d, want %d", tc.r, tc.c, got, tc.c)
+		}
+	}
+}
+
 func TestTableCellTextReadWrite(t *testing.T) {
 	rows := tableRow("", tableCell("", "标题")+tableCell("", ""))
 	p := tableDeck(t, tableFrame("4", "", []string{"304800", "304800"}, rows), "")
