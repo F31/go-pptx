@@ -331,6 +331,36 @@ func assertSet(t *testing.T, what string, want, got []string) {
 const freezeHint = "This is a v1.0 freeze guard: updating the golden list is only allowed " +
 	"after an ADR-015 review; otherwise fix the code, not this file."
 
+// TestNoBuildConstraintsInRootPackage 保证根包公共 API 表面不随 GOOS/构建标签漂移。
+//
+// 若允许根包出现平台条件文件（如 `shape_windows.go`），则本文件的 AST 快照测的是
+// **各平台 API 的并集**——在 Linux CI 上会拿"Windows 的表面"去比对真实 Linux 表面，
+// 守门形同虚设。v1.0 承诺单一跨平台 API，故直接禁止（分平台逻辑请放 internal 包）。
+func TestNoBuildConstraintsInRootPackage(t *testing.T) {
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, ".", func(fi os.FileInfo) bool {
+		return !strings.HasSuffix(fi.Name(), "_test.go")
+	}, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse root package: %v", err)
+	}
+	pkg, ok := pkgs["pptx"]
+	if !ok {
+		t.Fatalf(`root package "pptx" not found (found: %v)`, pkgNames(pkgs))
+	}
+	for name, f := range pkg.Files {
+		for _, cg := range f.Comments {
+			for _, c := range cg.List {
+				if strings.HasPrefix(c.Text, "//go:build") || strings.HasPrefix(c.Text, "// +build") {
+					t.Errorf("%s carries build constraint %q; the root package must expose one "+
+						"identical API on every platform — move platform-specific code to an internal package",
+						name, c.Text)
+				}
+			}
+		}
+	}
+}
+
 // TestAPIFrozenCounts 锁死 v1.0 冻结清单的五个计数不变量。
 func TestAPIFrozenCounts(t *testing.T) {
 	s := loadAPISurface(t)
