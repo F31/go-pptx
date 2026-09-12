@@ -38,6 +38,13 @@ func TestSinglePartPatchApply(t *testing.T) {
 	}
 }
 
+func TestSinglePartPatchPart(t *testing.T) {
+	plan := NewSinglePartPatch(testPart, []byte("payload"))
+	if got := plan.Part(); got != testPart {
+		t.Fatalf("Part() = %v, want %v", got, testPart)
+	}
+}
+
 func TestSinglePartPatchApplyStageError(t *testing.T) {
 	want := errors.New("stage failed")
 	store := &fakeSinglePatchStore{err: want}
