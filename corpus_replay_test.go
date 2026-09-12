@@ -110,57 +110,23 @@ func replayCorpusSample(t *testing.T, id string) {
 		}
 	}
 
-	var (
-		matches     int
-		replaced    int
-		shapesSeen  int
-		shapesTried int
-	)
-	slides, err := p.Slides()
+	// 编辑路径与 B1 金样比对共用 corpusApplyReplaceText（见 corpus_b1_test.go），
+	// 避免两处 replay 逻辑漂移。
+	replay, err := corpusApplyReplaceText(t, p, actions)
 	if err != nil {
-		t.Fatalf("Slides: %v", err)
-	}
-	for _, s := range slides {
-		shapes, err := s.Shapes()
-		if err != nil {
-			t.Fatalf("Shapes: %v", err)
-		}
-		for _, sh := range shapes {
-			shapesSeen++
-			as, ok := sh.(*AutoShape)
-			if !ok {
-				continue
-			}
-			tf, err := as.TextFrame()
-			if err != nil {
-				// 非文本 shape 不计入 shapesTried（与 gold_replace.go 计数语义一致）
-				continue
-			}
-			shapesTried++
-			for _, act := range actions {
-				if act.Action != "ReplaceText" {
-					t.Fatalf("unsupported action %q (only ReplaceText is wired in CORPUS-01)", act.Action)
-				}
-				res, err := tf.ReplaceText(act.Old, act.New)
-				if err != nil {
-					t.Fatalf("ReplaceText shape id=%d name=%q: %v", sh.ID(), sh.Name(), err)
-				}
-				matches += res.Matches
-				replaced += res.Replaced
-			}
-		}
+		t.Fatalf("ReplaceText: %v", err)
 	}
 
-	if got, want := matches, compat.GoldAction.Result.Matches; got != want {
+	if got, want := replay.Matches, compat.GoldAction.Result.Matches; got != want {
 		t.Errorf("matches=%d want %d", got, want)
 	}
-	if got, want := replaced, compat.GoldAction.Result.Replaced; got != want {
+	if got, want := replay.Replaced, compat.GoldAction.Result.Replaced; got != want {
 		t.Errorf("replaced=%d want %d", got, want)
 	}
-	if got, want := shapesSeen, compat.GoldAction.Result.ShapesSeen; got != want {
+	if got, want := replay.ShapesSeen, compat.GoldAction.Result.ShapesSeen; got != want {
 		t.Errorf("shapes_seen=%d want %d", got, want)
 	}
-	if got, want := shapesTried, compat.GoldAction.Result.ShapesTried; got != want {
+	if got, want := replay.ShapesTried, compat.GoldAction.Result.ShapesTried; got != want {
 		t.Errorf("shapes_tried=%d want %d", got, want)
 	}
 
