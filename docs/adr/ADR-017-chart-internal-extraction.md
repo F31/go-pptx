@@ -28,109 +28,111 @@ ADR-016 已于 2026-09-11 完成第一轮收敛（`internal/document` / `interna
 
 ## 决策
 
-新增 `internal/chart` 包，承载 chart 全部纯实现（解析、序列化、canonical 校验、输入校验），根包 chart 系列只留下：公共类型、公共方法、`*Slide.AddChart` 入口、`*Presentation` 私有助手。
+新增 `internal/chart` 包，分**三批渐进抽取**：
 
-### 1. 抽取范围（搬到 `internal/chart`）
+- **第一批（零依赖子集）**：仅搬真正不引用任何根包类型或根包常量的函数；本批可立即实施。
+- **第二批（值对象 move）**：先把 `ChartData` / `ChartSpec` / `ChartSeries` / `ChartDataLabel` / `ChartErrorBars` / `ChartTrendline` / `ChartAxisOptions` / `ChartType` 等值对象**搬到 `internal/chart`** 作为根包类型别名（type alias）暴露——保持公共 API 签名不变，但底层类型定义在 internal 包；本批触及公共 API 文件边界，需用户二次审批。
+- **第三批（解析/序列化/canonical）**：第二批落地后，parse / build / canonical / validate 系列整体搬迁。
 
-**解析类（10 个函数）**——只接 `*xmlstore.XMLDocument` + `*xmlstore.NodeRecord` + 值对象：
+根包 chart 系列只留下：公共类型别名、enum stringer、`*Slide.AddChart` 入口、`*Presentation` 私有助手、第三方 workbook builder 接口。
+
+### 1. 第一批抽取范围（搬到 `internal/chart`，本周可实施）
+
+**真零依赖根包的函数清单（依赖审计 2026-09-12 落地）**：
+
+| 原位置 | 函数 | 依赖项 | 可搬性 |
+|---|---|---|---|
+| chart.go | `buildChartFrameFragment(id, x, y, cx, cy int64, rid string) string` | `chartGraphicURI` / `nsChartML`（需随函数搬） | ✅ |
+| chartbook.go | `chartNumber(v float64) string` | 无 | ✅ |
+| chartbook.go | `chartWorkbookColumn(n int) string` | 无 | ✅ |
+| chart.go | `strIn(s string, list ...string) bool` | 无（通用 helper，建议留在根包；非必须搬） | ⚠ 可选 |
+
+**常量随搬**：`chartGraphicURI` / `chartSheetName` / `chartCatAxID` / `chartValAxID` —— 这些纯字符串常量搬到 `internal/chart` 后由根包再以 `chartinternal.X` 引用。
+
+**合计**：3 个函数 + 4 个常量 = 第一批落地范围。
+
+### 2. 第二批抽取范围（值对象 move，需用户二次审批）
+
+| 原位置 | 值对象 | 搬到 `internal/chart` 后如何暴露 |
+|---|---|---|
+| chart.go | `ChartType` (int + 3 consts) | `type ChartType = chartinternal.ChartType` |
+| chart.go | `ChartSpec` / `ChartData` / `ChartSeries` | 同上 |
+| chart.go | `ChartDataLabel` / `ChartErrorBars` / `ChartTrendline` / `ChartAxisOptions` | 同上 |
+| chart.go | 枚举 `ChartErrorType` / `ChartTrendType` / `ChartErrorType.String` 等 | `type ChartErrorType = chartinternal.ChartErrorType` |
+
+类型别名（type alias）保证调用方零修改（`ChartData{...}` 字面量、字段名 `Type`/`Categories`/`Series` 等零变化）。**binary-compat 严格守门**：导出符号集合 102 API / 158 总 type 不变。
+
+### 3. 第三批抽取范围（第二批落地后）
 
 | 原位置 | 函数 |
 |---|---|
-| chart.go | `parseChartSpace` / `parseChartDLbls` / `parseChartTrendline` / `parseChartErrBars` / `parseChartAxes` |
-| chart.go | `chartSerName` / `chartSerCategories` / `chartSerValues` / `chartCachePoints` |
-| chart.go | `nodeText` |
-
-**序列化/构建类（11 个函数）**——只接值对象，输出 string：
-
-| 原位置 | 函数 |
-|---|---|
-| chart.go | `buildChartSpaceXML` / `buildChartFrameFragment` |
-| chartfrag.go | `buildChartDataLabelFragment` / `buildErrBarsFragment` / `buildTrendlineFragment` / `buildCatOrDateAxFragment` / `buildValAxFragment` |
-| chartbook.go | `buildChartWorkbookXML` / `buildChartSheetXML` / `chartWorkbookColumn` / `chartNumber` |
-
-**Canonical 校验（6 个函数）**——纯枚举元组比对：
-
-| 原位置 | 函数 |
-|---|---|
-| chart.go | `chartIsCanonical` / `canonicalAxExtensions` / `canonicalSer` / `canonicalTrendline` / `canonicalErrBars` / `canonicalTitleSubtree` / `canonicalRichText` |
-
-**输入校验（5 个函数）**——纯值对象断言：
-
-| 原位置 | 函数 |
-|---|---|
-| chart.go | `validateChartData` |
-| chartfrag.go | `validateChartDataLabel` / `validateChartErrorBars` / `validateChartTrendline` / `validateChartAxisOptions` |
-
-**类型映射（3 个函数）**：
-
-| 原位置 | 函数 |
-|---|---|
+| chart.go | `parseChartSpace` / `parseChartDLbls` / `parseChartTrendline` / `parseChartErrBars` / `parseChartAxes` / `chartSerName` / `chartSerCategories` / `chartSerValues` / `chartCachePoints` / `nodeText` |
+| chart.go | `buildChartSpaceXML` / `buildChartFrameFragment`（与第一批合并） |
+| chartfrag.go | `buildChartDataLabelFragment` / `buildErrBarsFragment` / `buildTrendlineFragment` / `buildCatOrDateAxFragment` / `buildValAxFragment` / `validateChartDataLabel` / `validateChartErrorBars` / `validateChartTrendline` / `validateChartAxisOptions` |
+| chart.go | `validateChartData` / `chartIsCanonical` / `canonicalAxExtensions` / `canonicalSer` / `canonicalTrendline` / `canonicalErrBars` / `canonicalTitleSubtree` / `canonicalRichText` |
 | chart.go | `chartTypeFromPlot` / `chartTrendTypeFromName` / `chartErrorTypeFromName` |
+| chartbook.go | `buildChartWorkbookXML` / `buildChartSheetXML` |
 
-**辅助（1 个函数）**：
+合计 30 函数。依赖项全部为 internal/chart 类型（值对象已搬），零反向依赖根包。
 
-| 原位置 | 函数 |
-|---|---|
-| chart.go | `strIn` |
+### 4. 保留在根包
 
-合计 **36 个函数**，全部不反向依赖根包。
-
-### 2. 保留在根包
-
-- **公共类型**（9 + 1）：
-  - `ChartType` / `ChartSpec` / `ChartSeries` / `ChartData`
-  - `ChartShape`（含方法 `Kind` / `SetAltText` / `SetDecorative` / `Data` / `SetData` + `chartPartOf` / `alive` / `lastChartHandle`）
-  - `ChartDataLabel` / `ChartErrorBars` / `ChartTrendline` / `ChartAxisOptions`（含其 `String()` Stringer）
-  - `ChartWorkbookBuilder` 接口 / `DefaultWorkbookBuilder`（公共类型，与调用方契约）
-  - 枚举 stringer：`ChartErrorType.String` / `ChartTrendType.String` / `ChartType.String` / `ChartType.plotElement`
-
+- **公共类型别名**（v1.0 冻结符号的 binary-compat 表面）：`ChartType` / `ChartSpec` / `ChartSeries` / `ChartData` / `ChartShape` / `ChartDataLabel` / `ChartErrorBars` / `ChartTrendline` / `ChartAxisOptions` / `ChartErrorType` / `ChartTrendType` / `ChartWorkbookBuilder` 接口 / `DefaultWorkbookBuilder`（公共类型别名）
+- **enum stringer**：`ChartErrorType.String` / `ChartTrendType.String` / `ChartType.String` / `ChartType.plotElement`（以 alias 形式暴露）
 - **`*Slide.AddChart`** —— 公共 API
+- **`*Presentation` 私有助手**（4 个）：`chartWorkbookPartOf` / `chartWorkbookBytes` / `SetChartWorkbookBuilder` / `chartOfGraphic`
 
-- **`*Presentation` 私有助手**（4 个）：
-  - `chartWorkbookPartOf` / `chartWorkbookBytes` / `SetChartWorkbookBuilder`
-  - `chartOfGraphic`（接受 `*xmlstore.XMLDocument`，可改为接受 internal/chart 暴露的接口或包内 helper）
-
-### 3. 包边界与依赖方向
+### 5. 包边界与依赖方向
 
 ```
 internal/chart  → internal/xmlstore
                  → (无 internal/opc 依赖；opc.PartName 由调用方传值)
-root pptx       → internal/chart
+root pptx       → internal/chart (type alias 形式引用所有值对象)
                  → internal/editplan
                  → internal/document
                  → ...（其余现有 7 个 internal 子包）
 ```
 
-`internal/chart` **绝不反向 import 根包**。`ChartData` 等值对象是根包类型，由根包调用 `internal/chart.Build(*xmlstore.XMLDocument, root *xmlstore.NodeRecord, cd ChartData) (string, error)` 等签名传值；如出现"internal 需要根包类型"死循环，则需要把 `ChartData` / `ChartSpec` 等值对象提到 **公共第三方小包**（极不推荐，超出本 ADR 范围）。
+`internal/chart` **绝不反向 import 根包**。**第一批**：3 个真零依赖函数 + 4 常量。**第二批**：值对象以 `type X = chartinternal.X` 形式别名暴露在根包；底层类型定义在 internal 包；调用方零修改。**第三批**：parse / build / canonical / validate 系列整体搬迁，零反向依赖。
 
-### 4. 实施节奏（最小惊讶原则）
+### 6. 实施节奏（最小惊讶原则）
 
-#### 第一批（week 1）：最小风险起步——canonical 校验 + 输入校验
+#### 第一批（week 1，本轮可立即启动）：3 真零依赖函数 + 4 常量
 
 新文件：
 
-- `internal/chart/canonical.go`（7 函数）+ `internal/chart/validate.go`（5 函数）+ `internal/chart/internal_test.go`（canonical + validate 行为测试迁移）
-- 根包 `chart.go` 改为对 `chartinternal.IsCanonical` / `chartinternal.ValidateXxx` 的薄包装
+- `internal/chart/chart.go`（`BuildChartFrameFragment` / `ChartNumber` / `ChartWorkbookColumn` 三个公开包函数 + 4 常量）
+- `internal/chart/chart_test.go`（3 函数行为测试 + 4 常量正确性测试）
+- 根包 `chart.go` / `chartbook.go` 改为对 `chartinternal.X` 的薄包装
 
 退出标准：
 - `go test ./...` 全绿
 - corpus validate 全绿
 - B1 哈希回归全绿
+- chart.go 行数 -30（仅 3 函数搬走）
 
-#### 第二批（week 2）：解析 + 序列化 + 类型映射
+#### 第二批（week 2，需用户二次审批）：值对象 move
+
+新增 7 个值对象 + 2 个枚举到 `internal/chart`；根包改为 type alias；所有引用方零修改。
+
+退出标准：
+- `go test ./...` 全绿
+- L3 客户端矩阵 8/8 重跑仍 8/8
+- binary-compat 检查通过（grep `^type [A-Z]\|// Stable:\|// Experimental:` 不变）
+- chart.go 行数 -200
+
+#### 第三批（week 3，二批落地后）：解析 + 序列化 + canonical + validate
 
 新文件：
 
-- `internal/chart/codec.go`（`parseChartSpace` / `buildChartSpaceXML` / `buildChartFrameFragment` / ...）
-- `internal/chart/mapping.go`（`chartTypeFromPlot` / `chartTrendTypeFromName` / `chartErrorTypeFromName`）
-- 根包 chart.go / chartfrag.go / chartbook.go 改为薄包装（实际文件可能消失或合并到 chart_public.go）
+- `internal/chart/canonical.go`（7 函数）+ `internal/chart/validate.go`（5 函数）+ `internal/chart/codec.go`（10 解析 + 5 build 函数）+ `internal/chart/mapping.go`（3 类型映射）
+- 根包 chart 系列文件归并到一个 `chart.go`（< 300 行）+ chart_adapter.go（thin wrapper）
 
-退出标准：同第一批 + `chart_test.go` 测试零失败 + L3 客户端矩阵 8/8 重跑仍 8/8
+退出标准：同第二批 + `chart_test.go` 测试零失败 + PERF-01 基线无回退
 
-#### 第三批（week 3，可选）：清理
+#### 第四批（week 4，可选）：清理
 
-- 删除 `canonical.go` / `validate.go` / `codec.go` 中的 `chart` 前缀函数名（如 `canonicalSer` → `internal/chart.IsCanonicalSer`）
-- 把 chart 系列 4 个文件归并到一个 `chart.go`（< 600 行）+ chart_internal.go（adapter）
+- 删除内部 `chart` 前缀函数名（如 `canonicalSer` → `internal/chart.IsCanonicalSer`）
 - 评估是否将 `DefaultWorkbookBuilder` 也抽到 `internal/chart`（仅当 public `ChartWorkbookBuilder` 接口与 DefaultWorkbookBuilder 实现解耦）
 
 ### 5. 验收门槛
