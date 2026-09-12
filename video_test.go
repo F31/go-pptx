@@ -3,6 +3,7 @@ package pptx
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -427,7 +428,98 @@ func TestVideoShapeKind_Registered(t *testing.T) {
 	}
 }
 
+func TestVideoAddVideo_ProbeErrorMapped(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	s := SlidesOf(t, p)[0]
+	// 损坏 MP4（extended size 的 ftyp）→ ErrUnsupportedFormat。
+	bad := []byte{0, 0, 0, 1, 'x', 'x', 'x', 'x', 'f', 't', 'y', 'p', 'i', 's', 'o', 'm'}
+	_, err := s.AddVideo(context.Background(), BytesMedia(bad, "video/mp4"),
+		VideoSpec{TrackKey: "bad", Width: 100, Height: 100})
+	if !errors.Is(err, ErrUnsupportedFormat) {
+		t.Fatalf("err = %v, want ErrUnsupportedFormat", err)
+	}
+	if err := mapVideoProbeError(nil); err != nil {
+		t.Fatalf("mapVideoProbeError(nil) = %v", err)
+	}
+}
+
+func TestVideoShape_ProfileAndAccessors(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	s := SlidesOf(t, p)[0]
+	data := minimalMP4()
+	shape, err := s.AddVideo(context.Background(), BytesMedia(data, "video/mp4"), VideoSpec{
+		TrackKey: "prof",
+		Role:     VideoRoleMain,
+		Width:    100, Height: 100,
+	})
+	if err != nil {
+		t.Fatalf("AddVideo: %v", err)
+	}
+	if shape.Kind() != ShapeVideo {
+		t.Fatalf("Kind = %v", shape.Kind())
+	}
+	if shape.Role() != VideoRoleMain {
+		t.Fatalf("Role = %v", shape.Role())
+	}
+	prof := shape.Profile()
+	if prof.TrackKey != "prof" || prof.MediaPart == "" || prof.ContentSHA256 == "" {
+		t.Fatalf("profile = %+v", prof)
+	}
+	src, err := shape.VideoSource()
+	if err != nil {
+		t.Fatalf("VideoSource: %v", err)
+	}
+	if got := src.DeclaredType(); got != "video/mp4" {
+		t.Fatalf("DeclaredType = %q", got)
+	}
+	if got := videoCTForExt("WEBM"); got != "video/webm" {
+		t.Fatalf("videoCTForExt(WEBM) = %q", got)
+	}
+	if got := videoCTForExt("avi"); got != "application/octet-stream" {
+		t.Fatalf("videoCTForExt(avi) = %q", got)
+	}
+	if shape.HasPoster() {
+		t.Fatalf("HasPoster = true, want false")
+	}
+	if _, err := shape.PosterSource(); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("PosterSource without poster: %v, want ErrNotFound", err)
+	}
+	if got := p.DebugVideoXML(); !strings.Contains(got, "VideoProfile") {
+		t.Fatalf("DebugVideoXML missing profile: %.200s", got)
+	}
+}
+
+func TestVideoShape_ErrorBranches(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	s := SlidesOf(t, p)[0]
+	shape, err := s.AddVideo(context.Background(), BytesMedia(minimalMP4(), "video/mp4"),
+		VideoSpec{TrackKey: "err", Width: 100, Height: 100})
+	if err != nil {
+		t.Fatalf("AddVideo: %v", err)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := shape.VideoSource(); !errors.Is(err, ErrClosed) {
+		t.Fatalf("closed VideoSource: %v, want ErrClosed", err)
+	}
+	if _, err := shape.PosterSource(); !errors.Is(err, ErrClosed) {
+		t.Fatalf("closed PosterSource: %v, want ErrClosed", err)
+	}
+	// 空 profile → ErrNotFound。
+	p2 := audioDeck(t)
+	defer p2.Close()
+	empty := &VideoShape{shapeNode: shapeNode{p: p2}}
+	if _, err := empty.VideoSource(); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("empty profile VideoSource: %v, want ErrNotFound", err)
+	}
+}
+
 func TestSlideAddVideo_PicClassifiedAsVideo(t *testing.T) {
+
 	p := audioDeck(t)
 	defer p.Close()
 	s := SlidesOf(t, p)[0]
