@@ -403,3 +403,131 @@ func tfText(t *testing.T, tf *TextFrame) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// ---------- OpaqueShape 触发三类 p:cxnSp / p:graphicFrame / 未知元素（shape.go:828）----------
+
+// opaqueDeck 构造单页文档，slide1.xml = body（XML 字面量）。
+func opaqueDeck(t *testing.T, body string) *Presentation {
+	t.Helper()
+	parts := minimalTemplateParts()
+	parts["/ppt/slides/slide1.xml"] = []byte(xmlDecl + body)
+	parts["/ppt/slides/_rels/slide1.xml.rels"] = []byte(xmlDecl +
+		`<Relationships xmlns="` + nsPkgRels + `">` +
+		`<Relationship Id="rId1" Type="` + opc.RelSlideLayout + `" Target="../slideLayouts/slideLayout1.xml"/>` +
+		`</Relationships>`)
+	parts["/[Content_Types].xml"] = bytes.Replace(parts["/[Content_Types].xml"],
+		[]byte("</Types>"),
+		[]byte(`<Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>`), 1)
+	parts["/ppt/_rels/presentation.xml.rels"] = []byte(xmlDecl +
+		`<Relationships xmlns="` + nsPkgRels + `">` +
+		`<Relationship Id="rId1" Type="` + opc.RelSlideMaster + `" Target="slideMasters/slideMaster1.xml"/>` +
+		`<Relationship Id="rId2" Type="` + opc.RelSlide + `" Target="slides/slide1.xml"/>` +
+		`</Relationships>`)
+	parts["/ppt/presentation.xml"] = []byte(xmlDecl +
+		`<p:presentation xmlns:r="` + nsOfficeDocument + `" xmlns:p="` + nsPresentationML + `">` +
+		`<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>` +
+		`<p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst>` +
+		`<p:sldSz cx="12192000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/>` +
+		`</p:presentation>`)
+	return openFixture(t, buildPackageZipPanic(parts))
+}
+
+func TestOpaqueShapeKinds(t *testing.T) {
+	// 三个独立子测试触发 OpaqueShape 的三条构造路径（shape.go:651/661/663），
+	// 全部走到 *OpaqueShape.Kind()（shape.go:828）。原 0% 覆盖率补齐。
+	t.Run("cxnSp_yields_ShapeConnector", func(t *testing.T) {
+		body := `<p:sld xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `">` +
+			`<p:cSld><p:spTree>` +
+			`<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
+			`<p:grpSpPr/>` +
+			`<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="2" name="Connector 1"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr>` +
+			`<p:spPr/>` +
+			`</p:cxnSp>` +
+			`</p:spTree></p:cSld>` +
+			`<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>` +
+			`</p:sld>`
+		p := opaqueDeck(t, body)
+		defer p.Close()
+		s, err := p.Slide(0)
+		if err != nil {
+			t.Fatalf("Slide(0): %v", err)
+		}
+		shapes, err := s.Shapes()
+		if err != nil {
+			t.Fatalf("Shapes: %v", err)
+		}
+		if len(shapes) != 1 {
+			t.Fatalf("shapes = %d, want 1", len(shapes))
+		}
+		op, ok := shapes[0].(*OpaqueShape)
+		if !ok {
+			t.Fatalf("shapes[0] type = %T, want *OpaqueShape", shapes[0])
+		}
+		if op.Kind() != ShapeConnector {
+			t.Errorf("Kind = %v, want ShapeConnector", op.Kind())
+		}
+		if op.Name() != "Connector 1" {
+			t.Errorf("Name = %q", op.Name())
+		}
+	})
+	t.Run("graphicFrame_no_table_chart_yields_ShapeGraphicFrame", func(t *testing.T) {
+		// 内含 a:graphic/a:graphicData 但既非 a:tbl 也非 c:chart —— 归 ShapeGraphicFrame。
+		body := `<p:sld xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `">` +
+			`<p:cSld><p:spTree>` +
+			`<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
+			`<p:grpSpPr/>` +
+			`<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="2" name="Frame 1"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>` +
+			`<p:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="1000"/></p:xfrm>` +
+			`<a:graphic><a:graphicData uri="urn:unknown"/></a:graphic>` +
+			`</p:graphicFrame>` +
+			`</p:spTree></p:cSld>` +
+			`<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>` +
+			`</p:sld>`
+		p := opaqueDeck(t, body)
+		defer p.Close()
+		s, err := p.Slide(0)
+		if err != nil {
+			t.Fatalf("Slide(0): %v", err)
+		}
+		shapes, err := s.Shapes()
+		if err != nil {
+			t.Fatalf("Shapes: %v", err)
+		}
+		op, ok := shapes[0].(*OpaqueShape)
+		if !ok {
+			t.Fatalf("shapes[0] type = %T, want *OpaqueShape", shapes[0])
+		}
+		if op.Kind() != ShapeGraphicFrame {
+			t.Errorf("Kind = %v, want ShapeGraphicFrame", op.Kind())
+		}
+	})
+	t.Run("unknown_local_yields_ShapeOpaque", func(t *testing.T) {
+		// <p:note/> 不在 spTree 元素识别白名单（sp/pic/grpSp/cxnSp/graphicFrame）
+		// 之内 → 兜底 ShapeOpaque。
+		body := `<p:sld xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `">` +
+			`<p:cSld><p:spTree>` +
+			`<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
+			`<p:grpSpPr/>` +
+			`<p:note><p:cNvPr id="2" name="Note 1"/><p:cNvNotePr/></p:note>` +
+			`</p:spTree></p:cSld>` +
+			`<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>` +
+			`</p:sld>`
+		p := opaqueDeck(t, body)
+		defer p.Close()
+		s, err := p.Slide(0)
+		if err != nil {
+			t.Fatalf("Slide(0): %v", err)
+		}
+		shapes, err := s.Shapes()
+		if err != nil {
+			t.Fatalf("Shapes: %v", err)
+		}
+		op, ok := shapes[0].(*OpaqueShape)
+		if !ok {
+			t.Fatalf("shapes[0] type = %T, want *OpaqueShape", shapes[0])
+		}
+		if op.Kind() != ShapeOpaque {
+			t.Errorf("Kind = %v, want ShapeOpaque", op.Kind())
+		}
+	})
+}
