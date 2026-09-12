@@ -11,7 +11,37 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 ### Changed
 
-（自 v1.0.1 发布起的进一步变更将登记于此）
+（暂无——本节内容已合并入 [1.0.2]）
+
+## [1.0.2] - 2026-09-12
+
+**v1.0.1 后的第二个 patch release**——公共 API 零变化（binary-compat with v1.0.0 / v1.0.1），主要工作是 chart 实现搬迁到 `internal/chart`（[ADR-017](docs/adr/ADR-017-chart-internal-extraction.md) 三批）、Save 流式复制落地与量化（[ADR-018](docs/adr/ADR-018-save-streaming-copy.md) Tier 1）+ 反向劣化修复、B1 金样比对真正接入 CI、冻结清单不变量自动化守门、`internal/opc` 达到 COV-04 全闭合。
+
+关键不变量：`// Stable:` 段落 34（不变）/ Stable 符号 50（不变）/ `// Experimental:` 段 5（不变）/ 公共 type 总数 158（不变）/ 错误哨兵语义锁死（不变）/ 黄金语料 B1 哈希 PASS（不变）。本版新增 `api_surface_test.go`（7 个 AST 断言）把以上不变量以自动化方式锁死，未来公共 API 任何意外漂移都会在 `go test` 失败。
+
+### Changed
+
+- **ADR-017 chart 抽 internal 三批完成**（commits 46c2f2d / ce3f66c / a3abfca / bc533d3）：① 第一批搬 3 个真零依赖函数 + 4 常量；② 第二批 11 个值对象通过 type alias 方式 move（含 `font.go` 的 `Optional[T] = chartinternal.Optional[T]`，类型身份与源码级均不变）；③ 第三批 parse/build/canonical/validate/fragment/workbook 实现全搬迁 + 删除 31 个已无生产调用方的根包 facade。根包 `chart.go` 1319 → 481 行，`internal/chart` 覆盖率 **91.4%**。公开 API 零变化。
+- **ADR-018 Save 流式复制（Tier 1）落地 + 反向劣化修复**（commits 9bfe44d / abd9a9f / ee4bb17）：`SavePlan.Write` 的 `CopyOriginal` 从整 Part `readAll` 改为 `Package.OpenPart` + `io.Copy`，峰值内存 O(最大 Part) → O(32 KiB 缓冲)。量化（3×8 MiB 未变媒体，go1.27 windows/amd64，Ultra 9 275HX，`-benchtime=20x`，输出写 `io.Discard`）：B/op 64.2 MB → 206 KB（**−99.7%**）、峰值堆增量 52.6 MiB → 6.08 MiB（**−88.4%**）、耗时 14.65 ms → 8.11 ms（**−44.7%**）；Tier 2（OpenRaw 直通）经可行性验证后**不实施**（重启条件见 ADR-018）。反向劣化：发现并修复 Tier 1 引入的小档 10× 劣化（`io.Copy` 每调用分配 32 KiB → 整轮复用同一缓冲，10p-text 分配 103.9 KB → 76.5 KB）。
+- **PERF-01 报告与 CI 冒烟守门**（commit ee4bb17）：`scripts/perf/summarize` 新增 `SavePlanWriteCopyOriginal` 分组；`scripts/perf/run.{sh,ps1}` 新增 `OPC_BENCH` / `OPC_BENCHTIME`（默认 `20x`）/ `OPC_COUNT`（默认 3）/ `SKIP_OPC`；`scripts/perf/smoke.sh` ①b 守门加 5 个 opc 子基准。
+- **WASM 产物瘦身 + perf 产物收口**（commit 5f105a1）：`scripts/check_wasm.{sh,ps1}` 加 `-trimpath -ldflags="-s -w"`（可用 `SLIM=0` 关闭）——`pptx_check.wasm` 6.069 MB → 5.951 MB（−118 KB / −1.9%）；`scripts/perf/raw-bench.log` 退库转 gitignore，RAW 默认改 `perf-out/raw-bench.log`（`perf-out/` 早已 gitignore）。
+- **执行策略卫生**（commits d1d2854 / 2b0eb10）：原入库的运行产物退库；文档数字与代码实况同步。
+- **`internal/document` 接口编译期契约测试**（commit 1915fc2）：`var _ Foo = (*Bar)(nil)` + 反射方法数兜底。
+
+### Fixed
+
+- **B1 金样比对真正接入 CI**（commit b0144b3）：原 B1 断言只挂在合成 fixture 与私有样本 `ext-0024`（原文件未入库 → CI 恒 Skip）上，"未修改 Part 解压内容哈希一致"这条 V2.6 §15.3 发布硬门槛**此前从未在 CI 真正执行过**。新增 `corpus_b1_test.go`（tag=corpus）建在库内可再分发的公开样本上：`TestCorpusB1UnchangedSave`（空编辑保存各 Part SHA256 恒等）+ `TestCorpusB1AfterTextEdit`（仅 `SaveReport.ChangedParts` 声明的 Part 可变，且变更集合必须等于该集合）+ `TestCorpusB1PresentButSkipWhenNoSample`（源样本缺席优雅 Skip）。抽 `corpusApplyReplaceText` 供 replay 与 B1 共用。
+- **opc 88.9% → 90.4% / COV-04 全闭合**（commit b676bab）：14 个行为优先测试（Write Omit / 未知 action / 无效 PartName / readAll 缺失 Part / relsPartOf invalid / lastIndexByte 无匹配 / ParseContentTypes 缺属性 / 忽略未知子元素 / extensionOf 边缘 / addOverride 无效 / 重复 / removeOverride / mustAttrEscape 回退）。`internal/opc` 升至 **90.4%**，锁住 COV-04 全部 6 包低层格式 5/6 ≥ 90%（`audioprobe` 88.4% 按 [1.x-roadmap B-2](docs/1.x-roadmap.md) 决策不追）。
+- **冻结清单不变量自动化守门**（commits 20b12a4 / b2cac60）：`api_surface_test.go` 用 `go/ast` 解析根包非测试文件，断言 158 type / 34 Stable 段 / 50 Stable 符号 / 127 Stable 方法 / 5 Experimental / 17 哨兵 / 错误字符串字面量锁死 / 根包无 `//go:build` 约束。替代此前不可靠的人工 grep（`grep '^type [A-Z]'` 只数出 149，漏掉分组声明 9 个）；v1.0.0 时就出过一次口径错误（把"段落 grep 数 34"误作"独立 type 数"），事后连改 6 处文档。
+- **opc fuzz 安全导向种子扩充**（commit 1915fc2）：3 条种子（恶意条目名 `../` / `\` / 控制字符 / 200 条目逼近预算 / 64 层深路径）+ `mustSeedZip` helper 集中构造恶意但合法的 ZIP 流。
+
+### Added (documentation-only)
+
+- [`docs/adr/ADR-017-chart-internal-extraction.md`](docs/adr/ADR-017-chart-internal-extraction.md) —— chart 抽 `internal/chart` 的分批路径与踩坑记录（含"严格区分真零依赖 vs 接收根包值对象"、"const 必为编译期常量不可直接引用 var 包常量"、"type alias 不能定义方法"三条经验）。
+- [`docs/adr/ADR-018-save-streaming-copy.md`](docs/adr/ADR-018-save-streaming-copy.md) —— Save 流式复制（含 Tier 2 不实施决策与反向劣化修正章节）。
+- [`docs/PERF-01-benchmark-report.md`](docs/PERF-01-benchmark-report.md)（更新）—— 接入 ADR-018 收益与守门说明。
+- [`docs/release-readiness-2026-09-12.md`](docs/release-readiness-2026-09-12.md) —— 本次发布的就绪度评估报告。
+- [`docs/RELEASE-NOTES-v1.0.2.md`](docs/RELEASE-NOTES-v1.0.2.md) —— 本版本完整 release notes。
 
 ## [1.0.1] - 2026-09-12
 
