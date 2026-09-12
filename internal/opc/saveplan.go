@@ -270,12 +270,17 @@ func (plan *SavePlan) Write(pk *Package, w io.Writer) error {
 				return fmt.Errorf("write entry %s: %w", e.Name, err)
 			}
 		case CopyOriginal:
-			data, err := pk.readAll(e.Name)
-			if err != nil {
-				return fmt.Errorf("copy entry %s: %w", e.Name, err)
-			}
-			if _, err := f.Write(data); err != nil {
-				return fmt.Errorf("write entry %s: %w", e.Name, err)
+			// ADR-018 Tier 1：流式复制，不再把整个 Part 读进内存。
+			//
+			// 未变 Part 通常占输出字节的绝大部分（媒体/母版/其他页），旧实现
+			// 走 readAll 让峰值内存变成 O(最大单个 Part)。这里改为从
+			// Package.OpenPart 的限额读取器直接 io.Copy 到 zip writer：
+			// 峰值内存降为 O(32 KiB 缓冲)，喂给压缩器的解压内容逐字节相同，
+			// 因此输出字节流不变（B1 语义保持）。
+			//
+			// 预算仍在读取侧由 countedReadCloser 强制，超限行为不变。
+			if err := copyPart(pk, f, e.Name); err != nil {
+				return err
 			}
 		default:
 			return fmt.Errorf("%w: unknown action %q for %s", ErrPlanInvalid, e.Action, e.Name)
@@ -283,6 +288,24 @@ func (plan *SavePlan) Write(pk *Package, w io.Writer) error {
 	}
 	if err := zw.Close(); err != nil {
 		return fmt.Errorf("close zip: %w", err)
+	}
+	return nil
+}
+
+// copyPart 把源包的未变 Part 流式复制到输出条目（ADR-018 Tier 1）。
+//
+// 错误前缀沿用 "copy entry %s"（与旧 readAll 路径一致，避免改变错误契约）。
+func copyPart(pk *Package, dst io.Writer, name PartName) error {
+	rc, err := pk.OpenPart(name)
+	if err != nil {
+		return fmt.Errorf("copy entry %s: %w", name, err)
+	}
+	if _, err := io.Copy(dst, rc); err != nil {
+		rc.Close()
+		return fmt.Errorf("copy entry %s: %w", name, err)
+	}
+	if err := rc.Close(); err != nil {
+		return fmt.Errorf("copy entry %s: %w", name, err)
 	}
 	return nil
 }
