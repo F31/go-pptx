@@ -137,3 +137,32 @@ jobs:
           path: perf-smoke.log
           if-no-files-found: ignore
           retention-days: 14
+
+  # V2.6 §26 P1：纯 Go（CGO=0）跨平台编译验证。RELEASE-NOTES-v1.0.0 宣称的
+  # 四档交叉构建在此固化（此前仅本地验收清单覆盖；darwin/arm64 由 macos-latest
+  # 原生 job 覆盖，此处仍显式列出以独立于 runner 代际变化）。
+  cross-build:
+    name: cross-build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: js
+            goarch: wasm
+          - goos: darwin
+            goarch: arm64
+          - goos: wasip1
+            goarch: wasm
+          - goos: linux
+            goarch: arm64
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+      - name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build ./...

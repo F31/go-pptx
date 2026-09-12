@@ -1,6 +1,6 @@
 # Coverage Roadmap
 
-Date: 2026-09-11
+Date: 2026-09-11（snapshot refreshed 2026-09-12）
 
 This document tracks the 1.x coverage-improvement work that was deferred from the v1.0 hard gate. It is not a v1.0 release blocker, but it is the active plan for moving toward the V2.6 90% target.
 
@@ -13,23 +13,27 @@ go test ./... -coverprofile=/tmp/opencode/go-pptx-cover.out
 go tool cover -func=/tmp/opencode/go-pptx-cover.out
 ```
 
-Package snapshot (2026-09-11, COV-02 reached):
+Package snapshot (2026-09-12 re-measured after `6361bdd`, Windows/amd64 dev box):
 
-| Package | Coverage |
-|---|---:|
-| `github.com/F31/go-pptx` | 82.0% |
-| `github.com/F31/go-pptx/cmd/pptx` | 85.6% |
-| `github.com/F31/go-pptx/internal/audioprobe` | 83.0% |
-| `github.com/F31/go-pptx/internal/editplan` | 81.8% |
-| `github.com/F31/go-pptx/internal/opc` | 86.7% |
-| `github.com/F31/go-pptx/internal/textmap` | 82.2% |
-| `github.com/F31/go-pptx/internal/videoprobe` | 92.1% |
-| `github.com/F31/go-pptx/internal/xmlstore` | 90.2% |
-| `github.com/F31/go-pptx/ir` | 86.2% |
-| `github.com/F31/go-pptx/render` | 84.2% |
-| `github.com/F31/go-pptx/scripts/perf/summarize` | 86.4% |
-| `github.com/F31/go-pptx/wasm/check` | 85.9% |
-| full coverprofile total | 83.2% |
+| Package | Coverage (2026-09-11) | Coverage (2026-09-12) |
+|---|---:|---:|
+| `github.com/F31/go-pptx` | 82.0% | **82.7%** |
+| `github.com/F31/go-pptx/cmd/pptx` | 85.6% | **87.2%** |
+| `github.com/F31/go-pptx/internal/audioprobe` | 83.0% | **84.9%** |
+| `github.com/F31/go-pptx/internal/editplan` | 81.8% | 81.8% |
+| `github.com/F31/go-pptx/internal/opc` | 86.7% | 86.6% |
+| `github.com/F31/go-pptx/internal/textmap` | 82.2% | 82.2% |
+| `github.com/F31/go-pptx/internal/videoprobe` | 92.1% | **92.6%** |
+| `github.com/F31/go-pptx/internal/xmlstore` | 90.2% | **90.8%** |
+| `github.com/F31/go-pptx/ir` | 86.2% | **87.0%** |
+| `github.com/F31/go-pptx/render` | 84.2% | 84.2% |
+| `github.com/F31/go-pptx/scripts/perf/summarize` | 86.4% | **89.5%** |
+| `github.com/F31/go-pptx/wasm/check` | 85.9% | **89.5%** |
+
+Notes on the 2026-09-12 refresh:
+
+- Re-measured after `6361bdd`（VideoShape 公开访问器与 probe 错误映射覆盖）on the same dev box; all packages are at or above the 2026-09-11 record, so no milestone regresses.
+- Full-repo total was 83.2% on 2026-09-11; the refreshed per-package values imply a slightly higher total. Keep milestone bookkeeping on the 2026-09-11 numbers unless a new full-profile total is measured for a release note.
 
 Recent movement:
 
