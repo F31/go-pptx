@@ -617,3 +617,38 @@ func TestParseToggleVariants(t *testing.T) {
 		t.Fatalf("not-ok = %v", got)
 	}
 }
+
+// ---------- 纯函数（零覆盖消除，2026-09-13 第 5 轮） ----------
+
+// TestInferCols 验证无 a:tblGrid 时的列数推断：普通 tc 计 1、gridSpan
+// 计跨度、hMerge continuation 计 1、取各行最大值、空表返回 0。
+func TestInferCols(t *testing.T) {
+	doc, err := xmlstore.Index([]byte(
+		`<a:tbl xmlns:a="` + nsDrawingML + `">` +
+			`<a:tr><a:tc/><a:tc gridSpan="2"/></a:tr>` + // 1 + 2 = 3
+			`<a:tr><a:tc/><a:tc/><a:tc/><a:tc hMerge="1"/></a:tr>` + // 3 + 1 = 4
+			`<a:tr><a:notTc/></a:tr>` + // 非 tc 不计
+			`</a:tbl>`))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	root := doc.Root()
+	var trs []*xmlstore.NodeRecord
+	for _, cid := range root.Children {
+		if n := doc.Node(cid); n.Namespace == nsDrawingML && n.Local() == "tr" {
+			trs = append(trs, n)
+		}
+	}
+	if len(trs) != 3 {
+		t.Fatalf("trs = %d, want 3", len(trs))
+	}
+	if got := inferCols(doc, trs); got != 4 {
+		t.Errorf("inferCols = %d, want 4 (row2: 3 normal + 1 hMerge continuation)", got)
+	}
+	if got := inferCols(doc, trs[:1]); got != 3 {
+		t.Errorf("inferCols(row1) = %d, want 3 (1 + gridSpan 2)", got)
+	}
+	if got := inferCols(doc, nil); got != 0 {
+		t.Errorf("inferCols(nil) = %d, want 0", got)
+	}
+}

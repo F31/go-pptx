@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // ---------- 测试夹具 ----------
@@ -550,5 +551,152 @@ func TestAddRunBeforeEndParaRPr(t *testing.T) {
 	}
 	if !strings.Contains(xml, `<a:rPr b="1"/>`) {
 		t.Errorf("style not applied: %s", xml)
+	}
+}
+
+// ---------- 纯函数（零覆盖消除，2026-09-13 第 5 轮） ----------
+
+// TestParseHexRune 覆盖数字/大小写十六进制/非法字符/超 Unicode 上界四类。
+func TestParseHexRune(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want rune
+	}{
+		{"41", 'A'},
+		{"263a", '☺'},
+		{"00e9", 'é'},
+		{"00E9", 'é'}, // 大写 X 后的十六进制数字母大小写均可
+		{"4e2d", '中'}, //
+		{"", 0},       // 空串返回 0（调用方按 code>=0 写入）
+		{"1F600", 0x1F600},
+		{"g1", -1},     // 非十六进制字符
+		{"4z", -1},     //
+		{"110000", -1}, // 超 0x10FFFF
+	} {
+		if got := parseHexRune(tc.in); got != tc.want {
+			t.Errorf("parseHexRune(%q) = %d, want %d", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestParseDecRune 覆盖十进制数字/非法字符/溢出。
+func TestParseDecRune(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want rune
+	}{
+		{"65", 'A'},
+		{"20013", '中'},
+		{"128512", 0x1F600},
+		{"", 0},
+		{"6a", -1},
+		{"1114112", -1}, // 0x110000 溢出
+		{"99999999999", -1},
+	} {
+		if got := parseDecRune(tc.in); got != tc.want {
+			t.Errorf("parseDecRune(%q) = %d, want %d", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestXmlUnescape 表驱动覆盖命名实体 / 数字实体（hex+dec）/ 未知实体
+// / 裸 & 与无实体字符串。
+func TestXmlUnescape(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"plain text", "plain text"},
+		{"a &amp; b", "a & b"},
+		{"&lt;&gt;&quot;&apos;", "<>\"'"},
+		{"中文 &#x4e2d;", "中文 中"},
+		{"&#65;&#x41;", "AA"},
+		{"&nbsp;", "&nbsp;"},     // 未知命名实体原样保留
+		{"&nope;", "&nope;"},     //
+		{"&#xzz;", "&#xzz;"},     // 数字实体非法 → 原样保留
+		{"&#99x;", "&#99x;"},     //
+		{"a & b", "a & b"},       // 裸 &（无分号收尾）原样保留
+		{"a &", "a &"},           //
+		{"x &amp;& y", "x && y"}, // 混合
+	} {
+		if got := xmlUnescape(tc.in); got != tc.want {
+			t.Errorf("xmlUnescape(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestKindIndex 验证同名单元素兄弟中的 0 基序号：根级节点（无父）与
+// 命名空间隔离。
+func TestKindIndex(t *testing.T) {
+	doc, err := xmlstore.Index([]byte(
+		`<root xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `">` +
+			`<a:p/><a:p/><a:p/><p:sp/></root>`))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	root := doc.Root()
+	if got := kindIndex(doc, root); got != 0 {
+		t.Errorf("kindIndex(root) = %d, want 0", got)
+	}
+	for i, cid := range root.Children {
+		n := doc.Node(cid)
+		want := 0
+		if n.Local() == "p" && n.Namespace == nsDrawingML {
+			want = i // 三个 a:p 依序 0/1/2
+		}
+		if got := kindIndex(doc, n); got != want {
+			t.Errorf("kindIndex(child %d %s) = %d, want %d", i, n.Name(), got, want)
+		}
+	}
+}
+
+// TestSizeCentipoints 验证 pt → 百分之一 pt 的四舍五入转换。
+func TestSizeCentipoints(t *testing.T) {
+	for _, tc := range []struct {
+		in   FontSize
+		want string
+	}{
+		{Pts(12), "1200"},
+		{Pts(0), "0"},
+		{Pts(10.55), "1055"},
+		{Pts(10.555), "1056"},   // 四舍五入
+		{Pts(10.554), "1055"},   //
+		{Pts(100.125), "10013"}, // 10012.5 + 0.5 → 10013
+	} {
+		if got := sizeCentipoints(tc.in); got != tc.want {
+			t.Errorf("sizeCentipoints(%v) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestRPrChildRank 覆盖 rPr 子元素 schema 序号全分组 + 非法命名空间与
+// 未知 local 名。
+func TestRPrChildRank(t *testing.T) {
+	for _, tc := range []struct {
+		ns     string
+		local  string
+		want   int
+		wantOK bool
+	}{
+		{nsDrawingML, "ln", 0, true},
+		{nsDrawingML, "solidFill", 1, true},
+		{nsDrawingML, "noFill", 1, true},
+		{nsDrawingML, "gradFill", 1, true},
+		{nsDrawingML, "effectLst", 2, true},
+		{nsDrawingML, "highlight", 3, true},
+		{nsDrawingML, "uLn", 4, true},
+		{nsDrawingML, "uFillTx", 5, true},
+		{nsDrawingML, "latin", 6, true},
+		{nsDrawingML, "ea", 7, true},
+		{nsDrawingML, "cs", 8, true},
+		{nsDrawingML, "sym", 9, true},
+		{nsDrawingML, "hlinkClick", 10, true},
+		{nsDrawingML, "rtl", 11, true},
+		{nsDrawingML, "extLst", 12, true},
+		{nsDrawingML, "unknownElem", 0, false},
+		{"http://other/ns", "latin", 0, false}, // 命名空间不符
+	} {
+		got, ok := rPrChildRank(tc.ns, tc.local)
+		if got != tc.want || ok != tc.wantOK {
+			t.Errorf("rPrChildRank(%q,%q) = (%d,%v), want (%d,%v)",
+				tc.ns, tc.local, got, ok, tc.want, tc.wantOK)
+		}
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // createSlide 返回带一页的测试 Presentation 与 Slide。
@@ -505,4 +507,52 @@ func TestStaleGuard_SaveReloadPreservesGuards(t *testing.T) {
 		t.Errorf("a.Bounds after Close err = %v, want ErrClosed", err)
 	}
 	_ = s
+}
+
+// ---------- 纯函数（零覆盖消除，2026-09-13 第 5 轮） ----------
+
+// TestTimingReferencesShape 验证 p:timing 子树中 @spid 引用判定：命中 /
+// 不命中 / 无 timing / 非 spid 属性不误报。
+func TestTimingReferencesShape(t *testing.T) {
+	doc, err := xmlstore.Index([]byte(
+		`<p:sld xmlns:p="` + nsPresentationML + `">` +
+			`<p:timing><p:tnLst><p:par>` +
+			`<p:cTn id="1"><p:childTnLst>` +
+			`<p:set><p:cBhvr><p:cTn id="2"/><p:tgtEl><p:spTgt spid="4"/></p:tgtEl></p:cBhvr></p:set>` +
+			`</p:childTnLst></p:cTn>` +
+			`</p:par></p:tnLst></p:timing>` +
+			`</p:sld>`))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	if !timingReferencesShape(doc, 4) {
+		t.Error("spid=4 must be referenced")
+	}
+	if timingReferencesShape(doc, 5) {
+		t.Error("spid=5 must not be referenced")
+	}
+	if timingReferencesShape(doc, 0) {
+		t.Error("spid=0 must not be referenced")
+	}
+
+	// 无 timing 子树：恒 false。
+	doc2, err := xmlstore.Index([]byte(`<p:sld xmlns:p="` + nsPresentationML + `"><p:cSld/></p:sld>`))
+	if err != nil {
+		t.Fatalf("Index(no timing): %v", err)
+	}
+	if timingReferencesShape(doc2, 4) {
+		t.Error("no timing subtree must be false")
+	}
+
+	// timing 内非 spid 的同名属性值不误报。
+	doc3, err := xmlstore.Index([]byte(
+		`<p:sld xmlns:p="` + nsPresentationML + `">` +
+			`<p:timing><p:other spid="4"/></p:timing>` +
+			`</p:sld>`))
+	if err != nil {
+		t.Fatalf("Index(other attr): %v", err)
+	}
+	if !timingReferencesShape(doc3, 4) {
+		t.Error("spid on any timing descendant should be detected")
+	}
 }

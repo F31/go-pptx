@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // ---------- TextFrame.BodyProps / SetBodyProps ----------
@@ -473,5 +475,17 @@ func TestParagraph_AppendField_WithStyle(t *testing.T) {
 	}
 	if fld.fldIdx < 0 {
 		t.Errorf("fldIdx invalid")
+	}
+}
+
+// ---------- 纯函数（零覆盖消除，2026-09-13 第 5 轮） ----------
+
+// TestNsPrefix 验证 QName 前缀提取与缺省回落 "a"。
+func TestNsPrefix(t *testing.T) {
+	if got := nsPrefix(&xmlstore.NodeRecord{QName: xmlstore.QName{Prefix: "p", Local: "sld"}}); got != "p" {
+		t.Errorf("nsPrefix(p:sld) = %q, want p", got)
+	}
+	if got := nsPrefix(&xmlstore.NodeRecord{QName: xmlstore.QName{Local: "bodyPr"}}); got != "a" {
+		t.Errorf("nsPrefix(bodyPr) = %q, want fallback a", got)
 	}
 }

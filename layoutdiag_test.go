@@ -440,3 +440,21 @@ func TestLayoutInfo_DoesNotMutate(t *testing.T) {
 
 // 防止 binary 包导入闲置。
 var _ = binary.LittleEndian
+
+// ---------- 纯函数（零覆盖消除，2026-09-13 第 5 轮） ----------
+
+// TestAppendPartUnique 验证去重追加：已存在原切片返回，缺失追加末尾。
+func TestAppendPartUnique(t *testing.T) {
+	base := []opc.PartName{"/a.xml", "/b.xml"}
+	if got := appendPartUnique(base, "/a.xml"); len(got) != len(base) {
+		t.Errorf("existing part must not append: %v", got)
+	}
+	got := appendPartUnique(base, "/c.xml")
+	if len(got) != 3 || got[2] != opc.PartName("/c.xml") {
+		t.Errorf("append = %v, want [/a.xml /b.xml /c.xml]", got)
+	}
+	// 空 nil 切片追加。
+	if got := appendPartUnique(nil, "/x.xml"); len(got) != 1 || got[0] != opc.PartName("/x.xml") {
+		t.Errorf("nil append = %v", got)
+	}
+}

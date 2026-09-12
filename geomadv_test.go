@@ -646,3 +646,44 @@ func containsDiagCode(diags []Diagnostic, code string) bool {
 	}
 	return false
 }
+
+// ---------- 纯函数（零覆盖消除，2026-09-13 第 5 轮） ----------
+
+// TestGeometryKindString 覆盖 GeometryKind.String 三分支。
+func TestGeometryKindString(t *testing.T) {
+	for _, tc := range []struct {
+		in   GeometryKind
+		want string
+	}{
+		{GeometryPreset, "preset"},
+		{GeometryCustom, "custom"},
+		{GeometryUnknown, "unknown"},
+		{GeometryKind(99), "unknown"}, // 越界值回落 unknown
+	} {
+		if got := tc.in.String(); got != tc.want {
+			t.Errorf("GeometryKind(%d).String() = %q, want %q", int(tc.in), got, tc.want)
+		}
+	}
+}
+
+// TestEffectKindString 覆盖 EffectKind.String 全部已知类别 + unknown 回落。
+func TestEffectKindString(t *testing.T) {
+	for _, tc := range []struct {
+		in   EffectKind
+		want string
+	}{
+		{EffectOuterShadow, "outerShdw"},
+		{EffectInnerShadow, "innerShdw"},
+		{EffectGlow, "glow"},
+		{EffectSoftEdge, "softEdge"},
+		{EffectReflection, "reflection"},
+		{EffectFillOverlay, "fillOverlay"},
+		{EffectBlur, "blur"},
+		{EffectUnknown, "unknown"},
+		{EffectKind(99), "unknown"}, // 越界值回落 unknown
+	} {
+		if got := tc.in.String(); got != tc.want {
+			t.Errorf("EffectKind(%d).String() = %q, want %q", int(tc.in), got, tc.want)
+		}
+	}
+}

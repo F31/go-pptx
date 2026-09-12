@@ -101,3 +101,39 @@ func TestApplyMultiPartPlanRollsBackDeleteOnError(t *testing.T) {
 		t.Fatal("failed plan leaked deleted part into committed view")
 	}
 }
+
+// TestCloneChangeSet 验证变更集深拷贝：nil 透传、三类 map 逐项复制、
+// 修改副本不影响原集（applyMultiPartPlan 回滚依赖该语义）。
+func TestCloneChangeSet(t *testing.T) {
+	if got := cloneChangeSet(nil); got != nil {
+		t.Errorf("cloneChangeSet(nil) = %v, want nil", got)
+	}
+	if got := cloneChangeSet(&opc.ChangeSet{}); got == nil || !got.IsEmpty() {
+		t.Errorf("cloneChangeSet(empty) = %+v, want empty non-nil", got)
+	}
+
+	orig := &opc.ChangeSet{
+		Patched: map[opc.PartName][]byte{"/a.xml": []byte("a-data")},
+		Added: map[opc.PartName]opc.AddedPart{
+			"/b.xml": {Content: []byte("b-data"), ContentType: "ct/b"},
+		},
+		Deleted: map[opc.PartName]bool{"/c.xml": true},
+	}
+	clone := cloneChangeSet(orig)
+	if clone == orig {
+		t.Fatal("clone must be a new ChangeSet")
+	}
+	if string(clone.Patched["/a.xml"]) != "a-data" ||
+		string(clone.Added["/b.xml"].Content) != "b-data" ||
+		clone.Added["/b.xml"].ContentType != "ct/b" ||
+		!clone.Deleted["/c.xml"] {
+		t.Fatalf("clone content mismatch: %+v", clone)
+	}
+	// 深拷贝：改副本字节不回写原集。
+	clone.Patched["/a.xml"][0] = 'X'
+	clone.Added["/b.xml"].Content[0] = 'X'
+	clone.Deleted["/d.xml"] = true
+	if orig.Patched["/a.xml"][0] != 'a' || orig.Added["/b.xml"].Content[0] != 'b' || orig.Deleted["/d.xml"] {
+		t.Fatal("clone shares backing arrays with original (not a deep copy)")
+	}
+}

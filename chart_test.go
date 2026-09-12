@@ -703,3 +703,26 @@ func mustPartBytes(t *testing.T, p *Presentation, name opc.PartName) []byte {
 	}
 	return b
 }
+
+// ---------- 纯函数（零覆盖消除，2026-09-13 第 5 轮） ----------
+
+// TestChartTypeFromPlot 由图表组元素名解析类型：三类已知 + 未知回落。
+func TestChartTypeFromPlot(t *testing.T) {
+	for _, tc := range []struct {
+		local string
+		want  ChartType
+		ok    bool
+	}{
+		{"barChart", ChartBar, true},
+		{"lineChart", ChartLine, true},
+		{"pieChart", ChartPie, true},
+		{"scatterChart", 0, false}, // 不在 CHART-01 受限范围
+		{"", 0, false},
+	} {
+		got, ok := chartTypeFromPlot(tc.local)
+		if ok != tc.ok || (ok && got != tc.want) {
+			t.Errorf("chartTypeFromPlot(%q) = (%v,%v), want (%v,%v)",
+				tc.local, got, ok, tc.want, tc.ok)
+		}
+	}
+}
