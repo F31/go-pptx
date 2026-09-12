@@ -582,3 +582,26 @@ func TestFormatHandlesStaleAndClosed(t *testing.T) {
 func hasDiag(ds []Diagnostic) bool { return len(ds) > 0 }
 
 // diagHasCode 由 style_test 提供，本处不重复定义。
+
+// ---------- 纯函数 ----------
+
+// TestClamp01 表驱动覆盖 clamp01 的三个分支（下界截断 / 上界截断 /
+// 区间内原样返回），含边界值 0 与 1 本身。
+func TestClamp01(t *testing.T) {
+	for _, tc := range []struct {
+		in, want float64
+	}{
+		{-1.5, 0},
+		{-0.0001, 0},
+		{0, 0},
+		{0.3, 0.3},
+		{0.5, 0.5},
+		{1, 1},
+		{1.0001, 1},
+		{42, 1},
+	} {
+		if got := clamp01(tc.in); got != tc.want {
+			t.Errorf("clamp01(%v) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}

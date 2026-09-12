@@ -3,11 +3,13 @@ package pptx
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // docPropsParts returns minimal template parts, optionally stripped of
@@ -408,5 +410,77 @@ func TestCorePropertiesModifiedSemanticsPerCall(t *testing.T) {
 	}
 	if d := time.Since(cp.Modified.Value); d > 5*time.Minute || d < -5*time.Minute {
 		t.Errorf("modified = %v, not near now", cp.Modified.Value)
+	}
+}
+
+// TestLeafTextPatch 直接驱动 leafTextPatch 的三条路径：普通元素的文本
+// 区间替换（含特殊字符转义）、自闭合元素的整元素重建（保留原始属性）、
+// 非法 XML 1.0 字符拒绝。补丁语义经 ApplyPatches 回放验证。
+func TestLeafTextPatch(t *testing.T) {
+	base := []byte(`<cp:coreProperties xmlns:cp="` + nsCoreProps + `" xmlns:dc="` + nsDC + `">` +
+		`<dc:title>old</dc:title><dc:subject/><dc:keywords xml:lang="zh"/></cp:coreProperties>`)
+	doc, err := xmlstore.Index(base)
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	root := doc.Root()
+	title := childByNSLocal(doc, root, nsDC, "title")
+	subject := childByNSLocal(doc, root, nsDC, "subject")
+	keywords := childByNSLocal(doc, root, nsDC, "keywords")
+	if title == nil || subject == nil || keywords == nil {
+		t.Fatalf("nodes not found: title=%v subject=%v keywords=%v", title, subject, keywords)
+	}
+
+	// 1) 普通元素：替换 [OpenEnd, CloseStart) 文本区间 + 实体转义。
+	p1, err := leafTextPatch(doc, title, "new <&> 值")
+	if err != nil {
+		t.Fatalf("leafTextPatch(title): %v", err)
+	}
+	if p1.Start != title.OpenEnd || p1.End != title.CloseStart {
+		t.Errorf("span = [%d,%d), want [%d,%d)", p1.Start, p1.End, title.OpenEnd, title.CloseStart)
+	}
+	if string(p1.Replacement) != "new &lt;&amp;&gt; 值" {
+		t.Errorf("replacement = %q, want escaped text", p1.Replacement)
+	}
+
+	// 2) 自闭合无属性：重建开标签（"/>" → ">"）+ 文本 + 闭标签。
+	p2, err := leafTextPatch(doc, subject, "s")
+	if err != nil {
+		t.Fatalf("leafTextPatch(subject): %v", err)
+	}
+	if p2.Start != subject.Source.Start || p2.End != subject.Source.End {
+		t.Errorf("self-closing span = [%d,%d), want whole element [%d,%d)",
+			p2.Start, p2.End, subject.Source.Start, subject.Source.End)
+	}
+
+	// 3) 自闭合带属性：保留原始属性文本（xml:lang）。
+	p3, err := leafTextPatch(doc, keywords, "k")
+	if err != nil {
+		t.Fatalf("leafTextPatch(keywords): %v", err)
+	}
+
+	out, err := xmlstore.ApplyPatches(base, []xmlstore.SpanPatch{p1, p2, p3})
+	if err != nil {
+		t.Fatalf("ApplyPatches: %v", err)
+	}
+	got := string(out)
+	for _, want := range []string{
+		`<dc:title>new &lt;&amp;&gt; 值</dc:title>`,
+		`<dc:subject>s</dc:subject>`,
+		`<dc:keywords xml:lang="zh">k</dc:keywords>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("output missing %q:\n%s", want, got)
+		}
+	}
+
+	// 4) XML 1.0 禁止字符：拒绝而非静默转码（方案 §19.3）。
+	_, err = leafTextPatch(doc, title, "bad\x00char")
+	if err == nil {
+		t.Fatal("invalid control char must be rejected")
+	}
+	var oe *OperationError
+	if !errors.As(err, &oe) || !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("err = %v, want OperationError wrapping ErrInvalidArgument", err)
 	}
 }

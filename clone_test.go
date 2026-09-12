@@ -791,7 +791,7 @@ func TestFallbackCloneCT(t *testing.T) {
 		{"kind_notes_no_ct", clonePartPlan{kind: "notes"}, ctNotesSlide},
 		{"kind_chart_no_ct", clonePartPlan{kind: "chart"}, ctChartPart},
 		{"kind_workbook_no_ct", clonePartPlan{kind: "workbook"}, ctWorkbook},
-		{"kind_media_no_ct", clonePartPlan{kind: "media"}, ""},   // media 不在兜底白名单
+		{"kind_media_no_ct", clonePartPlan{kind: "media"}, ""}, // media 不在兜底白名单
 		{"unknown_kind", clonePartPlan{kind: "weird"}, ""},
 		{"empty", clonePartPlan{}, ""},
 	}

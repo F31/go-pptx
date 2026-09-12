@@ -104,7 +104,7 @@ var goldenExperimentalSymbols = []string{
 //   - v1.0.2 = 127 项；本版 = 129 项（+2）
 //   - +Slide.AdvanceAfter：p:transition@advTm 读侧，与 SetAdvanceAfter 写入对偶（仅追加只读）
 //   - +Slide.Hidden：p:sldId@show="0" 读侧（仅追加只读）
-//   两方法均为追加式只读公开方法，binary-compat with v1.0.0..v1.0.2；列入 Stable 段。
+//     两方法均为追加式只读公开方法，binary-compat with v1.0.0..v1.0.2；列入 Stable 段。
 var goldenStableMethods = []string{
 	"AudioShape.AudioSource", "AudioShape.Kind", "AudioShape.Profile",
 	"AudioShape.Role", "AudioShape.SetPlayback", "AutoShape.Kind",

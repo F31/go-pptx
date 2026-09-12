@@ -570,6 +570,7 @@ func TestGeometrySaveRoundTrip(t *testing.T) {
 // TestRectContains 覆盖 Rect.Contains 的全部分支：
 //   - W<0 或 H<0 视为空（早返回 false）
 //   - 否则按 [X, X+W] × [Y, Y+H] 半开区间判包含（含边界）
+//
 // 全表驱动，零 PPTX fixture 依赖，便于跨重构快速回归。
 func TestRectContains(t *testing.T) {
 	cases := []struct {
