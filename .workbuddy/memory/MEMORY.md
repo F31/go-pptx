@@ -8,7 +8,7 @@
 - **全系列 binary-compat**：// Stable 34 / Experimental 5 / 50 Stable 符号 / 158 总 type / 17 哨兵（含错误字符串）全部锁死；v1.0.3 仅追加 2 Stable 只读方法（`Slide.Hidden` / `Slide.AdvanceAfter`），**Stable 方法 127 → 129**。
 - **不变量由 `api_surface_test.go` 7 个 AST 测试守门**（golden 名单优于计数、parser.ParseDir 优于 grep——`grep '^type [A-Z]'` 只数 149 漏分组声明）。**改动公共 API 表面必须同步 golden 清单**；根包非测试文件禁止 `//go:build`。
 - v1.0 冻结清单已闭合（34 Stable 段=33 独立 type+1 哨兵聚合段；曾误记 51/102，系段落 grep 数误当 type 数，详见 freeze list §2026-09-12 勘误）。
-- 覆盖率现状（2026-09-13）：root **82.5%**（COV-02 门槛 82%，需盯抽取类重构）/ opc 90.4% / chart 91.4% / audioprobe 88.4% / editplan·textmap 100% / full total 84.4%（COV-04 放弃统一 90% 口径）。PERF-01 已在 ADR-016/018 双重构后重跑。
+- 覆盖率现状（2026-09-13）：root 合并口径 **84.4%**（第 5 轮零覆盖清零后；COV-02 门槛 82%，合并口径=根包测试 binary 对 -coverpkg=./. 的覆盖）/ opc 90.4% / chart 91.4% / audioprobe 88.4% / editplan·textmap 100%。**根包 0% 函数清单已清空**（2026-09-13 全仓扫描）。PERF-01 已在 ADR-016/018 双重构后重跑。
 - **唯一真缺口**：V2.6 §15.3 第 3 条后半"配音须有播放记录"——语料无 audio 标签样本，L3 从未真机验证音频播放（环境型，AUDIO-01/02/03 有代码级测试）。L3 客户端矩阵已闭合（真机 8/8，`docs/client-compat-matrix.md`）。
 - 1.x 路线图 `docs/1.x-roadmap.md`（5 方向+5 阶段+6 风险+5 决策点）。v1.0 backlog：`docs/v1.0-bug-registry.md` §4。
 
@@ -36,6 +36,7 @@
 - **2026-09-10/11**：`git commit -F .commit-msg-*.txt` 报 fatal 但 commit 实际创建成功（Windows Git Bash 隐藏文件竞态）——fatal 后先 `git log` 核实勿重复 commit。`.gitignore` 已加 `/.commit-msg-*.txt`。
 - **2026-09-12 深夜**：清理期间 scripts/ 整目录从磁盘消失（非删除目标）。教训：批量删除后必须 git status 全量核对；沙箱钩子报 aborted 立即检查无关路径。
 - **2026-09-12**：`git commit -m "...\u2192..."` 的 `\u` 转义不被 bash 解析，字面落盘。**唯一可靠**：Write 工具写 `.commitmsg_*.txt`（UTF-8）+ `git commit -F`（不要用 `.commit-msg-*` 命名，见上条）。修复：`git commit --amend -F <新文件>`。
+- **2026-09-13**：本会话两次出现 **Edit 工具报成功但改动未落盘**（tablestyle_test.go 的 helper 名替换，编译时发现；MEMORY.md 覆盖率行更新，commit 后才发现丢失）。原因未明（疑似与并行会话/文件监视有关）。对策：**重要 Edit 后立即 Read 验证落盘**；commit 前对关键文件 diff 复核。
 
 ## 待确认（阻塞/排期敏感）
 1. 团队人力基线（计划默认 2 开发 + 0.5–1 测试/语料）。
