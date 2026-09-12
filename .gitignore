@@ -17,8 +17,9 @@ Thumbs.db
 *.pptx.tmp
 *.tmp.pptx
 
-# PERF-01 本地/CI 运行产物（证据文件走 scripts/perf/raw-bench.log 与 docs/ 报告）
+# PERF-01 本地/CI 运行产物（raw-bench.log 为本地运行日志，不入库；docs/ 报告为聚合证据）
 perf-smoke.log
+scripts/perf/raw-bench.log
 perf-out/
 
 # CORPUS-01 replay 本地日志（CI artifact 走 GitHub Actions upload-artifact）
