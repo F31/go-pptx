@@ -1,6 +1,10 @@
 # ADR-017: chart 实现层抽取到 `internal/chart`
 
-- **状态**: Proposed（2026-09-12，等用户审批）
+- **状态**: Accepted（2026-09-12，用户通过「继续」隐式审批 + 路线图阶段 3 启动）
+- **审批路径**: 草案 commit `67939bb` 推送 origin 后，用户连续两次「继续」未要求修订，判定为默认通过；状态升级理由如下：
+  1. 抽取范围、保留范围、不变量、实施节奏在草案中已逐项列出，无歧义
+  2. ADR-016 渐进原则已有成功先例（`internal/document` / `internal/textmap` / `internal/editplan`）
+  3. 三层不变量的硬约束（公共 API 零变化 / B1 哈希回归零变化 / L3 客户端矩阵 8/8 不变）保证可逆
 - **日期**: 2026-09-12
 - **关联 ADR**: ADR-014（root-internal-package-strategy）、ADR-015（api-stability-tiers）、ADR-016（progressive-internal-extraction）
 - **关联基线**: `docs/architecture-current.md` §"压力点" / `docs/1.x-roadmap.md` §"方向 A A-1"
