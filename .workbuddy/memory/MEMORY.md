@@ -28,7 +28,6 @@
 - 2026-09-10/11（两次复现）：`git commit -F .commit-msg-*.txt` 报 `fatal: could not read log file`（exit 128）但 **commit 实际创建成功**（Windows Git Bash 与 `.` 开头隐藏文件竞态）。处理：fatal 后先 `git log` 核实，已创建则直接 push，勿重复 commit。`.gitignore` 已加 `/.commit-msg-*.txt` 规则。
 
 ## 待确认（阻塞/排期敏感）
-1. ~~正式 module path~~（已定 github.com/F31/go-pptx）；~~许可证~~（已定 Apache-2.0）；~~v1.0 冻结~~（2026-09-11 已发布）。
-2. 首批客户端 PowerPoint/WPS 版本平台（登记到 testdata/corpus/README.md）——L3 客户端矩阵 1.x 收敛。
-3. 团队人力基线（计划默认 2 开发 + 0.5–1 测试/语料）。
-4. M0 垂直验证需要含动画+未知扩展的真实 PPTX 语料（当前缺，最高优先收集，许可记录齐全）。
+1. ~~正式 module path~~（已定 github.com/F31/go-pptx）；~~许可证~~（已定 Apache-2.0）；~~v1.0 冻结~~（2026-09-11 已发布）；~~L3 客户端矩阵~~（2026-09-11 8/8 通过，PowerPoint 16.0.20326 + WPS 12.1.0.28599 / Windows 11 10.0.26200 已登记 `testdata/corpus/README.md` §"已登记客户端版本与平台"）。
+2. 团队人力基线（计划默认 2 开发 + 0.5–1 测试/语料）。
+3. M0 垂直验证需要含动画+未知扩展的真实 PPTX 语料——已由 ext-0024（WPS 私有索引）落地，含 `animation.timing` / `animation.transition` / `xml.unknown_ext`，本地冒烟 + 真机矩阵通过。

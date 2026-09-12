@@ -3,18 +3,29 @@
 本目录存放 go-pptx 的兼容性测试语料索引与金样约定。语料文件本身可能因许可原因
 不直接入库，索引记录必须完整，金样按本文件约定存储。
 
-## 当前落地状态（2026-09-10）
+## 当前落地状态（2026-09-12 L3 闭合）
 
 | 项 | 当前状态 |
 |---|---|
 | 公开可再分发样本 | 3 份 LibreOffice headless 导出样本：`s001-text` / `s002-table` / `s003-image` |
 | 公开金样闭环 | 3/3 已完成修改前 `.pptx`、修改后 `.edited.pptx`、`.actions.json`、`compat-smoke.json` |
-| 私有真实样本索引 | 33 份，`ext-0001`–`ext-0033`，只登记 manifest，不提交原始业务 PPTX |
-| 动画+未知扩展真实样本 | `ext-0024`（WPS，私有索引）已完成本地冒烟，含 `animation.timing` / `animation.transition` / `xml.unknown_ext` |
+| 私有真实样本索引 | 33 份，`ext-0001`–`ext-0033`（+ `ext-0024` WPS 动画 + 未知扩展），只登记 manifest，不提交原始业务 PPTX；合计 36 样本 |
+| 动画+未知扩展真实样本 | `ext-0024`（WPS，私有索引）已完成本地冒烟 + 真机矩阵通过，含 `animation.timing` / `animation.transition` / `xml.unknown_ext` |
 | 语料校验 | `scripts/gen_corpus/run.sh validate testdata/corpus`：36 samples，0 errors |
-| 客户端矩阵 | PowerPoint/WPS 真机打开验证仍待补；当前仅完成 go-pptx validate/diff 冒烟；执行矩阵见 `docs/client-compat-matrix.md` |
+| 客户端矩阵 | ✅ 已闭合（2026-09-11 真机首轮）：PowerPoint 16.0.20326 + WPS 12.1.0.28599 × 公开+私有样本 8/8 组合通过（无修复提示 + 重存 + go-pptx 回验 0 错误）；复现脚本 `scripts/l3/run_client.sh`；证据 [`docs/client-compat-matrix.md`](../../docs/client-compat-matrix.md) |
 
-结论：QA-01 的“语料为空”硬阻塞已解除；发布级 L3 兼容报告仍需按 `docs/client-compat-matrix.md` 补 PowerPoint/WPS 真机证据。
+结论：QA-01 的"语料为空"硬阻塞已解除（36 样本索引 + 3 公开 LibreOffice 金样闭环 + ext-0024 真实样本本地冒烟）；发布级 L3 兼容报告于 2026-09-11 真机首轮执行完成——详见 [`docs/client-compat-matrix.md`](../../docs/client-compat-matrix.md)（PowerPoint 16.0.20326 + WPS 12.1.0.28599 × Windows 11 10.0.26200，8/8 通过）。
+
+## 已登记客户端版本与平台
+
+> 用于语料矩阵与回归追溯；新增/升级客户端时同步更新本节。
+
+| 客户端 | 版本（首位数字版本） | ProgID | 平台 | 首次登记日期 | 状态 |
+|---|---|---|---|---|---|
+| Microsoft PowerPoint | 16.0.20326（Microsoft 365） | `PowerPoint.Application` | Windows 11 NT 10.0.26200 家庭中文版 | 2026-09-11 | ✅ 真机 4/4 通过（含动画/未知扩展私有样本 ext-0024） |
+| WPS 演示 | 12.1.0.28599 | `Kwpp.Application` | Windows 11 NT 10.0.26200 家庭中文版 | 2026-09-11 | ✅ 真机 4/4 通过 |
+
+复现方式：`scripts/l3/run_client.sh <ppt|wpp> <src.pptx> <dst.pptx>`（Windows 宿主机 COM 自动化）；样本跨真实样本 ext-0001 / ext-0008 / ext-0024（动画+未知扩展）与公开金样 s001-text 共 4 文件 × 2 客户端 = 8 组合。
 
 ## 每个样本必须记录的字段（方案 §15.1）
 

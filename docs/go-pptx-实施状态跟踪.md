@@ -67,7 +67,7 @@
 
 > **v1.0.0 已发布**：tag 对象 92dc8622（SSH SIGNATURE 嵌入，GitHub 用账号绑定 ed25519 公钥验证）；`refs/tags/v1.0.0^{}` → 44b9ba7。L3 客户端矩阵已由 2026-09-11 真机执行闭合（8/8 通过）；覆盖率 90% 经 COV-04 放弃统一口径（低层格式包保留 90%），1.x 期间继续收敛。
 
-## 当前阶段：M8 创新扩展 II（**CLONE-02 跨文档受限复制已落地；QA-01 语料硬阻塞已解除（36 样本索引 + 3 公开 LibreOffice 金样闭环）；QA-01 fuzz 八目标落地（打开 + 文本编辑 + 模板绑定）；CORPUS-01 公开金样 replay 自动回归入 CI 守门（build tag `corpus`）；AT-14 恶意包 panic 修复；M0 垂直验证测试落地（合成语料 + **真实语料 ext-0024 单 Run 替换 B1/未知区字节保留**）；TIMIR-01 边缘 case 修复已完成；DIFF-01 + SHAPE-CREATE + STALE-GUARD 已完成**；M7 四工作包全数落地；M6 七工作包已收尾；M2–M5 代码项已收口；**CORE-01 建仓首批补完（CI lint job）**；**OPC-01 真实样本冒烟收口（ext-0024 拓扑方案.pptx OPC 层字节恒等通过）**；**CI 红点解除（corpus-replay source 缺席从 Fatalf 改为 Skipf，待 opencode 提交公开样本后自动转真跑）**；**根目录文件级对齐设计 §3 清单（补 options.go / save.go / shape.go）**；**ADR-014 钉死"何时拆 internal/edit"触发条件，闭合"目录分歧"待议项**；**ADR-015 API 稳定性分级体系落地（3 Stable + 5 Experimental + 149 API 默认）**；**cmd/pptx 覆盖率补测 65.5% → 86.6%（main dispatch + 7 usage helper + bind 错误路径 + 强制失败注入）**；**v1.0 冻结清单 T-2 周启动（`docs/v1.0-freeze-list.md` + ADR-015 §"v1.0 锁定流程"同步）**；**CORPUS-01 工程化入库闭环（CI corpus-replay job 加 validate 前置 + verbose 日志归档 + helper 脚本 `scripts/run_corpus_tests.sh` + 入库指南 `docs/corpus-入库指南.md` + `corpus_replay_test.go` 跨平台路径候选支持 ext-0024 Win32 路径命中）**；发布级 L3 客户端冒烟待 PowerPoint/WPS 真机补证据）
+## 当前阶段：M8 创新扩展 II（**CLONE-02 跨文档受限复制已落地；QA-01 语料硬阻塞已解除（36 样本索引 + 3 公开 LibreOffice 金样闭环）；QA-01 fuzz 八目标落地（打开 + 文本编辑 + 模板绑定）；CORPUS-01 公开金样 replay 自动回归入 CI 守门（build tag `corpus`）；AT-14 恶意包 panic 修复；M0 垂直验证测试落地（合成语料 + **真实语料 ext-0024 单 Run 替换 B1/未知区字节保留**）；TIMIR-01 边缘 case 修复已完成；DIFF-01 + SHAPE-CREATE + STALE-GUARD 已完成**；M7 四工作包全数落地；M6 七工作包已收尾；M2–M5 代码项已收口；**CORE-01 建仓首批补完（CI lint job）**；**OPC-01 真实样本冒烟收口（ext-0024 拓扑方案.pptx OPC 层字节恒等通过）**；**CI 红点解除（corpus-replay source 缺席从 Fatalf 改为 Skipf，待 opencode 提交公开样本后自动转真跑）**；**根目录文件级对齐设计 §3 清单（补 options.go / save.go / shape.go）**；**ADR-014 钉死"何时拆 internal/edit"触发条件，闭合"目录分歧"待议项**；**ADR-015 API 稳定性分级体系落地（3 Stable + 5 Experimental + 149 API 默认）**；**cmd/pptx 覆盖率补测 65.5% → 86.6%（main dispatch + 7 usage helper + bind 错误路径 + 强制失败注入）**；**v1.0 冻结清单 T-2 周启动（`docs/v1.0-freeze-list.md` + ADR-015 §"v1.0 锁定流程"同步）**；**CORPUS-01 工程化入库闭环（CI corpus-replay job 加 validate 前置 + verbose 日志归档 + helper 脚本 `scripts/run_corpus_tests.sh` + 入库指南 `docs/corpus-入库指南.md` + `corpus_replay_test.go` 跨平台路径候选支持 ext-0024 Win32 路径命中）**；**L3 客户端矩阵闭合（2026-09-11 真机首轮，PowerPoint 16.0.20326 + WPS 12.1.0.28599 8/8 通过）**）
 
 ### 最近更新
 
@@ -141,7 +141,7 @@
 - [x] XML-01 节点索引树：NodeRecord / 命名空间环境 / 未知子树保留 / 深度预算（MaxXMLDepth）
 - [x] XML-02：文本/属性补丁与结构插入（补丁冲突检测、转义、区间降序）
 - [x] M0 垂直验证程序：含动画与未知扩展样本 → 只改一个 Run → 保存 → B1 哈希 + 同节点未知区字节不变断言（**合成语料 `vertical_test.go` + 真实语料 `vertical_corpus_test.go` 双层落地**；真实语料 ext-0024 差异区间收敛到 1 字节、p:timing 逐页保留）
-- [x] QA-01：落实 ≥20 份语料样本与许可记录、首批修改前后金样入库（36 样本索引 + 3 公开 LibreOffice 金样闭环；发布级 L3 客户端矩阵见 `docs/client-compat-matrix.md`，仍待补证据）
+- [x] QA-01：落实 ≥20 份语料样本与许可记录、首批修改前后金样入库（36 样本索引 + 3 公开 LibreOffice 金样闭环 + ext-0024 真实样本本地冒烟 + 2026-09-11 L3 客户端矩阵 8/8 通过，证据 `docs/client-compat-matrix.md`）
 
 ### 待确认事项（阻塞性）
 
@@ -178,4 +178,4 @@
 | GEOM-02/STYLE-02/LAYOUT-01/ANIM-02/VIDEO-01/CHART-02/TEXT-03 | M6 扩展七包 | M6 | **七包全部完成**（ANIM-02/VIDEO-01/TEXT-03/CHART-02/LAYOUT-01/STYLE-02/GEOM-02 按预排 ANIM-02→VIDEO-01→TEXT-03→CHART-02→LAYOUT-01→STYLE-02→GEOM-02 落地） |
 | CAP-01/TIMIR-01/TPL-01/TOOL-02 | M7 创新 I | M7 | **四项全部完成**（CAP-01 能力 manifest + `pptx capability` CLI；TOOL-02 WASM 编译目标 + 浏览器端只读检查工具 + 离线静态网页；TIMIR-01 动画时序只读 IR；TPL-01 模板数据绑定引擎 + `pptx bind` CLI）（能力 manifest + `pptx capability` CLI + WASM 编译目标 + 浏览器端只读检查工具 + 离线静态网页 + node.js 烟雾测试 + 构建脚本 + 动画时序只读 IR）；余下 TPL-01 待启动 |
 | DIFF-01 | M8 创新 II | M8 | **已完成**（语义 diff 与审计：ir.Diff 加权 LCS 页面对齐 + ShapeID 页内配对 + opaque diff 定位回溯；`pptx diff` CLI；NodePath 溯源接入 Shape 接口与 IR） |
-| QA-01 | 语料、fuzz、兼容报告 | 持续 | 进行中（模板 + fuzz 八目标已落地；语料硬阻塞已解除：36 样本索引 + 3 公开 LibreOffice 金样闭环 + ext-0024 真实样本冒烟；发布级 L3 PowerPoint/WPS 真机打开与重存矩阵待补证据） |
+| QA-01 | 语料、fuzz、兼容报告 | 持续 | 进行中（模板 + fuzz 八目标已落地；语料硬阻塞已解除：36 样本索引 + 3 公开 LibreOffice 金样闭环 + ext-0024 真实样本冒烟；2026-09-11 L3 客户端矩阵 8/8 通过） |
