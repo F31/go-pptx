@@ -194,6 +194,100 @@ func TestUpsertNarration_ExistingTrackKey(t *testing.T) {
 	}
 }
 
+// TestUpsertNarration_NilSource covers the input-validation branch: nil src
+// returns ErrInvalidArgument-wrapped OperationError. This was not exercised
+// by TestUpsertNarration_ExistingTrackKey, which always supplies a source.
+func TestUpsertNarration_NilSource(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	slides, _ := p.Slides()
+	_, _, err := slides[0].UpsertNarration(context.Background(), nil, AudioSpec{TrackKey: "k"}, PlaybackSpec{})
+	if err == nil {
+		t.Fatal("expected error for nil source")
+	}
+	var oe *OperationError
+	if !errors.As(err, &oe) {
+		t.Fatalf("err = %v, want OperationError", err)
+	}
+	if !errors.Is(oe, ErrInvalidArgument) {
+		t.Errorf("err = %v, want ErrInvalidArgument", oe)
+	}
+}
+
+// TestUpsertNarration_EmptyTrackKey covers the empty-track-key rejection.
+func TestUpsertNarration_EmptyTrackKey(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	slides, _ := p.Slides()
+	mp3 := minimalMP3()
+	src := BytesMedia(mp3, "audio/mpeg")
+	_, _, err := slides[0].UpsertNarration(context.Background(), src, AudioSpec{}, PlaybackSpec{})
+	if err == nil {
+		t.Fatal("expected error for empty track key")
+	}
+	if !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("err = %v, want ErrInvalidArgument", err)
+	}
+}
+
+// TestUpsertNarration_ClosedSlide covers the alive() guard: UpsertNarration
+// after Close() returns ErrClosed-wrapped error.
+func TestUpsertNarration_ClosedSlide(t *testing.T) {
+	p := audioDeck(t)
+	slides, _ := p.Slides()
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	mp3 := minimalMP3()
+	src := BytesMedia(mp3, "audio/mpeg")
+	_, _, err := slides[0].UpsertNarration(context.Background(), src, AudioSpec{TrackKey: "k"}, PlaybackSpec{})
+	if !errors.Is(err, ErrClosed) {
+		t.Errorf("err = %v, want ErrClosed", err)
+	}
+}
+
+// TestSetPlayback_NegativeDelay covers the negative StartDelay rejection
+// branch (ErrInvalidArgument).
+func TestSetPlayback_NegativeDelay(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	slides, _ := p.Slides()
+	mp3 := minimalMP3()
+	src := BytesMedia(mp3, "audio/mpeg")
+	as, err := slides[0].AddAudio(context.Background(), src, AudioSpec{
+		TrackKey: "sp-neg", Role: AudioRoleNarration,
+		Duration: NewOptional[time.Duration](time.Second),
+	})
+	if err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	if err := as.SetPlayback(PlaybackSpec{StartDelay: -1}); !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("err = %v, want ErrInvalidArgument", err)
+	}
+}
+
+// TestSetPlayback_ClosedPresentation covers the ErrClosed guard on
+// AudioShape.SetPlayback when the parent presentation is closed.
+func TestSetPlayback_ClosedPresentation(t *testing.T) {
+	p := audioDeck(t)
+	slides, _ := p.Slides()
+	mp3 := minimalMP3()
+	src := BytesMedia(mp3, "audio/mpeg")
+	as, err := slides[0].AddAudio(context.Background(), src, AudioSpec{
+		TrackKey: "sp-closed", Role: AudioRoleNarration,
+		Duration: NewOptional[time.Duration](time.Second),
+	})
+	if err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if err := as.SetPlayback(PlaybackSpec{StartDelay: 0}); !errors.Is(err, ErrClosed) {
+		t.Errorf("err = %v, want ErrClosed", err)
+	}
+}
+
 func TestPlanTimingSync_AT06Formula(t *testing.T) {
 	p := audioDeck(t)
 	defer p.Close()
