@@ -1,6 +1,12 @@
 package pptx
 
-import "github.com/F31/go-pptx/internal/opc"
+import (
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/F31/go-pptx/internal/opc"
+)
 
 // Slide 是页面的受控句柄（方案 §5/§14）。
 //
@@ -112,6 +118,99 @@ func (s *Slide) NotesPart() string {
 		return string(name)
 	}
 	return ""
+}
+
+// Hidden 返回页面是否标记为隐藏（p:sldId@show="0"）。
+//
+// OOXML 语义：sldId 的 show 属性仅在隐藏时出现，取值固定为 "0"；缺省或
+// 取其他值（含空串、show="1"）一律视为可见。返回 true 表示该页被显式
+// 标记隐藏，调用方（例如讲稿生成器）可据此跳过。
+//
+// 句柄失效（页面已删/文档已关）返回 ErrStaleHandle/ErrClosed。
+//
+// Stable: 公开只读方法，binary-compat（仅追加）。
+func (s *Slide) Hidden() (bool, error) {
+	if err := s.alive(); err != nil {
+		return false, Annotate(err, "Slide.Hidden")
+	}
+	doc, err := s.p.presentationDoc()
+	if err != nil {
+		return false, Annotate(err, "Slide.Hidden")
+	}
+	for _, lstID := range doc.Elements(nsPresentationML, "sldIdLst") {
+		lst := doc.Node(lstID)
+		for _, cid := range lst.Children {
+			n := doc.Node(cid)
+			if n.Namespace != nsPresentationML || n.Local() != "sldId" {
+				continue
+			}
+			idStr, ok := n.Attr("", "id")
+			if !ok {
+				continue
+			}
+			id, perr := parseUint32(idStr)
+			if perr != nil || SlideID(id) != s.id {
+				continue
+			}
+			if v, ok := n.Attr("", "show"); ok && v == "0" {
+				return true, nil
+			}
+			return false, nil
+		}
+	}
+	// 未在 sldIdLst 中找到对应 id（alive 已通过）：理论上不可能，但
+	// 防御性返回 false。
+	return false, nil
+}
+
+// AdvanceAfter 返回页面自动翻页时长（p:transition@advTm 毫秒）。
+//
+// 行为：
+//   - 第二个返回值 ok=true 表示该页存在显式 advTm（自 SetAdvanceAfter
+//     或外部 OOXML 编辑写入），返回 time.Duration 为其毫秒值；
+//     ok=false 表示未设或被外部清空，返回零时长；
+//   - 页面无 p:transition 节点返回 0, false, nil；
+//   - advTm 解析失败（非整型）返回 0, false, ErrMalformedPackage；
+//   - 句柄失效返回 ErrStaleHandle/ErrClosed。
+//
+// 与 SetAdvanceAfter 严格成对——该方法补齐读侧，使 ppts 等客户端无需
+// 自行解析 XML 即可拿到自动切页时长。
+//
+// Stable: 公开只读方法，binary-compat（仅追加）。
+func (s *Slide) AdvanceAfter() (time.Duration, bool, error) {
+	if err := s.alive(); err != nil {
+		return 0, false, Annotate(err, "Slide.AdvanceAfter")
+	}
+	doc, err := s.p.docOf(s.part)
+	if err != nil {
+		return 0, false, Annotate(err, "Slide.AdvanceAfter")
+	}
+	root := doc.Root()
+	if root == nil {
+		return 0, false, Annotate(ErrStaleHandle, "Slide.AdvanceAfter")
+	}
+	for _, cid := range root.Children {
+		c := doc.Node(cid)
+		if c == nil || c.Namespace != nsPresentationML || c.Local() != "transition" {
+			continue
+		}
+		v, ok := c.Attr("", "advTm")
+		if !ok || strings.TrimSpace(v) == "" {
+			return 0, false, nil
+		}
+		ms, perr := strconv.ParseInt(v, 10, 64)
+		if perr != nil || ms < 0 {
+			opErr := &OperationError{
+				Op:      "Slide.AdvanceAfter",
+				Part:    string(s.part),
+				Message: "invalid advTm value: " + v,
+				Err:     ErrMalformedPackage,
+			}
+			return 0, false, Annotate(opErr, "Slide.AdvanceAfter")
+		}
+		return time.Duration(ms) * time.Millisecond, true, nil
+	}
+	return 0, false, nil
 }
 
 // partName 返回页面 Part 名（OPC 风格）。当前仅库内部与测试使用；

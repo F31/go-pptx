@@ -96,6 +96,18 @@ type Page struct {
 	Shapes    []Shape      `json:"shapes"`
 	NotesText string       `json:"notesText,omitempty"`
 	HasTiming bool         `json:"hasTiming,omitempty"`
+	// Hidden 是页面是否被标记隐藏（p:sldId@show="0"）。
+	//
+	// 三态语义：
+	//   - nil：未读取或未确定（IncludeHidden=false 时一致）；
+	//   - &false：已读，确认可见（show 缺省或非 "0"）；
+	//   - &true：已读，确认被隐藏。
+	//
+	// ppts 等客户端可据此 default-skip=true 过滤讲稿源或导入页。
+	//
+	// Experimental: 字段新增，binary-compat；写侧随 1.x Hidden() 公开方法成熟
+	// 后可能扩展为 IR 多端（JSON 协议）稳定档，需走新 ADR-019+ 走评审。
+	Hidden *bool `json:"hidden,omitempty"`
 	// Timing 是 PageTiming 投影（TIMIR-01）。当 IncludeTimingIR=false 或
 	// 页无 timing 时为空。
 	Timing      *PageTiming `json:"timing,omitempty"`
@@ -141,6 +153,10 @@ type Options struct {
 	IncludeTimingNode bool
 	// IncludeTimingIR 控制是否把 p:timing 投影为 PageTiming（TIMIR-01）。
 	IncludeTimingIR bool
+	// IncludeHidden 控制 Page.Hidden 三态字段的填充：
+	//   - true（默认）：调用 Slide.Hidden()，三态字段正确填充；
+	//   - false：跳过 Page.Hidden 填充，输出 nil，节省 p:sldIdLst 解析。
+	IncludeHidden bool
 }
 
 // DefaultOptions 默认 IR 投影参数。
@@ -149,6 +165,7 @@ func DefaultOptions() Options {
 		IncludeNotes:      true,
 		IncludeTimingNode: true,
 		IncludeTimingIR:   true,
+		IncludeHidden:     true,
 	}
 }
 
@@ -271,6 +288,16 @@ func projectPage(p *pptx.Presentation, s *pptx.Slide, idx int, opts Options) (Pa
 	}
 	if opts.IncludeTimingNode {
 		page.HasTiming = s.HasTiming()
+	}
+	if opts.IncludeHidden {
+		if h, err := s.Hidden(); err == nil {
+			page.Hidden = &h
+		} else {
+			page.Diagnostics = append(page.Diagnostics, Diagnostic{
+				Code: "IR_HIDDEN_READ", Severity: SevWarning,
+				Part: s.PartName(), Message: err.Error(),
+			})
+		}
 	}
 	if opts.IncludeTimingIR && page.HasTiming {
 		raw, _, err := s.TimingTreeRaw()

@@ -34,7 +34,7 @@ const (
 	wantStableSections       = 34  // 带 "// Stable:" 段的顶层声明数（33 type + 1 哨兵聚合段）
 	wantStableSymbols        = 50  // 上述段落覆盖的符号数（33 type + 17 哨兵）
 	wantExperimentalSections = 5   // 带 "// Experimental:" 段的顶层声明数
-	wantStableMethods        = 127 // Stable type 上的导出方法数（真正的 binary-compat 表面）
+	wantStableMethods        = 129 // Stable type 上的导出方法数（v1.0.2=127；FEAT-003 读侧补全 +2）
 	wantSentinels            = 17  // 导出 Err* 哨兵数
 )
 
@@ -99,6 +99,12 @@ var goldenExperimentalSymbols = []string{
 
 // goldenStableMethods 是 Stable type 上的导出方法集合，形如 "Type.Method"（排序后）。
 // 这是 binary-compat 的真实表面：删除或重命名其中任何一条都会破坏下游编译。
+//
+// 变更记录（FEAT-003 读侧补全，2026-09-22）：
+//   - v1.0.2 = 127 项；本版 = 129 项（+2）
+//   - +Slide.AdvanceAfter：p:transition@advTm 读侧，与 SetAdvanceAfter 写入对偶（仅追加只读）
+//   - +Slide.Hidden：p:sldId@show="0" 读侧（仅追加只读）
+//   两方法均为追加式只读公开方法，binary-compat with v1.0.0..v1.0.2；列入 Stable 段。
 var goldenStableMethods = []string{
 	"AudioShape.AudioSource", "AudioShape.Kind", "AudioShape.Profile",
 	"AudioShape.Role", "AudioShape.SetPlayback", "AutoShape.Kind",
@@ -123,8 +129,9 @@ var goldenStableMethods = []string{
 	"Presentation.Validate", "Presentation.Write", "Rect.Bottom",
 	"Rect.Contains", "Rect.Right", "ReplaceMode.String", "Severity.String", "ShapeKind.String", "Slide.AddAudio",
 	"Slide.AddAutoShape", "Slide.AddChart", "Slide.AddPicture",
-	"Slide.AddTextBox", "Slide.AddVideo", "Slide.Clone",
-	"Slide.EnsureSpeakerNotes", "Slide.HasTiming", "Slide.ID",
+	"Slide.AddTextBox", "Slide.AddVideo", "Slide.AdvanceAfter",
+	"Slide.Clone", "Slide.EnsureSpeakerNotes", "Slide.HasTiming",
+	"Slide.Hidden", "Slide.ID",
 	"Slide.MoveShape", "Slide.Name", "Slide.NotesPart",
 	"Slide.PartName", "Slide.Placeholders", "Slide.RemoveShape",
 	"Slide.RemoveTransition", "Slide.SetAdvanceAfter", "Slide.SetSpeakerNotes",

@@ -13,6 +13,44 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 （暂无——本节内容已合并入 [1.0.2]）
 
+## [1.0.3] - 2026-09-22
+
+**v1.0.2 后的第三个 patch release**——按 ppts 项目《go-pptx 特性与 bug 跟踪计划》FEAT-003 实施（ppts/内部登记号 G1-2；本仓库 doc 文件位置 `docs/ppts-sync/FEAT-003-hidden-advtm-read.md`）。公共 API 表面扩展 2 个 Stable 只读方法 + 1 个 Experimental IR 字段，**与 v1.0.0 / v1.0.1 / v1.0.2 binary-compat**——零破坏、零字段删除、零签名变更。
+
+### Added
+
+- **FEAT-003 读侧补全**（按 ppts《go-pptx 特性与bug跟踪计划》V1.0 §7/FEAT-003）：
+  - `Slide.Hidden() (bool, error)`：**新增 Stable 公开方法**——读 `p:sldId@show="0"` 解析页面隐藏标志；OOXML 语义：仅 `show="0"` 视为真隐藏，缺省/其他值/空串均为可见。**binary-compat with v1.0.2**。配套测试 `TestSlide_Hidden_*` 3 条 + 文档注记。
+  - `Slide.AdvanceAfter() (time.Duration, bool, error)`：**新增 Stable 公开方法**——读 `p:transition@advTm` 毫秒值并转 `time.Duration`；与 `SetAdvanceAfter` 写入对偶。第二个返回值 `ok` 区分"显式设定"与"未设"。**binary-compat with v1.0.2**。配套测试 `TestSlide_AdvanceAfter_*` 3 条。
+  - `ir.Page.Hidden *bool`：**新增 Experimental IR 字段**——三态（`nil`=未读/`&false`=确认可见/`&true`=确认隐藏）；同时新增 `ir.Options.IncludeHidden bool`（默认 `true`）。ppts 默认过滤器可据此跳过隐藏页。配套测试 `TestFromPresentation_PageHiddenProjection` 2 子测试。
+
+### Documented
+
+- **FEAT-002 项 1 备注过滤契约注记**：`notes.go` 顶部补"隐式过滤契约"段，明确 `SpeakerNotesText` 仅取 `p:ph type="body"`，自动跳过 `hdr/ftr/sldNum/dt` 等模板占位符；ppts 项目库对此无需自行再判断。代码行为早在 v1.0 已生效，本版仅为契约文档化。
+
+### Fixed
+
+- **BUG-001（已在 HEAD 自愈，无须打 commit 改动代码）**：`validateChartData` 双声明问题——在 ppts《go-pptx 特性与bug跟踪计划》V1.0 §7/BUG-001 报告时（2026-09-12）描述的"chart.go + chartfrag.go 同时存在 validateChartData 函数体"已于 ADR-017 r3（commit `a3abfca` + 后续 33 个 commit）后自愈；当前 HEAD `c47b7a3` 仅 `chartfrag.go:22` 一处声明；`go build ./...` 全绿。ppts 侧可直接把该 BUG-001 条目标记为 CLOSED（自愈）。
+
+### Verification
+
+- `gofmt -l` 零输出（除 CRLF 假阳性外）；`go vet ./...` 零警告
+- `go test ./...` 默认 14/14 包 ok
+- `go test -tags=corpus ./...` 14/14 包 ok
+- 4 目标交叉构建（`js/wasm` + `darwin/arm64` + `wasip1/wasm` + `linux/arm64`）`CGO_ENABLED=0` 零失败
+- `api_surface_test.go` 7 个 AST 断言 PASS（`TestAPIFrozenStableMethods` 由 127 → 129，反映新增 2 个 Stable 方法）
+- 36 样本语料 validate 0 错误（corpus tag 跑过的回归）
+- 新增功能矩阵登记：`Inspect` 维度 + `Read` 维度（`Hidden`/`AdvanceAfter` 读侧）
+
+### Compatibility
+
+- v1.0.3 = ABI-compat with v1.0.0 / v1.0.1 / v1.0.2（仅追加只读公开方法 + IR 字段；旧调用方零修改）
+- v1.0.3 = API-compat with v1.0.0 / v1.0.1 / v1.0.2（冻结清单 50 Stable 符号 + 127→129 个 Stable 方法；类型总数、哨兵数、Experimental 段数不变）
+
+### Acknowledgments
+
+- ppts 项目工程提供 §7《go-pptx 特性与bug跟踪计划》V1.0 跟踪文档与 FEAT-001/002/003 验收契约；本版针对 §7/BUG-001（自愈）+ §7/FEAT-002 项 1（仅文档注记）+ §7/FEAT-003 全量。
+
 ## [1.0.2] - 2026-09-12
 
 **v1.0.1 后的第二个 patch release**——公共 API 零变化（binary-compat with v1.0.0 / v1.0.1），主要工作是 chart 实现搬迁到 `internal/chart`（[ADR-017](docs/adr/ADR-017-chart-internal-extraction.md) 三批）、Save 流式复制落地与量化（[ADR-018](docs/adr/ADR-018-save-streaming-copy.md) Tier 1）+ 反向劣化修复、B1 金样比对真正接入 CI、冻结清单不变量自动化守门、`internal/opc` 达到 COV-04 全闭合。

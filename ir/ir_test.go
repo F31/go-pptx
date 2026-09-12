@@ -93,10 +93,45 @@ func TestUnmarshal_RejectsMismatchedSchemaVersion(t *testing.T) {
 	}
 }
 
-func TestFromPresentation_NilPresentation(t *testing.T) {
-	if _, err := FromPresentation(nil, DefaultOptions()); err == nil {
-		t.Fatal("expected error for nil presentation")
-	}
+func TestFromPresentation_PageHiddenProjection(t *testing.T) {
+	// 验证 IR 默认 IncludeHidden=true 时 Page.Hidden 三态：
+	//   - 新建未显式标记的 page → &false（缺省即可见，已读到）；
+	//   - IncludeHidden=false → nil（opt-out）。
+	// sldId@show="0" 真隐藏路径由 slide_test.go::TestSlide_Hidden_AfterMark 覆盖
+	// （Slide.Hidden() 是 Page.Hidden 的唯一来源；IR 不重复读 OOXML）。
+	t.Run("default_yields_pointer_false", func(t *testing.T) {
+		p := irTestDeck(t)
+		defer p.Close()
+		doc, err := FromPresentation(p, DefaultOptions())
+		if err != nil {
+			t.Fatalf("FromPresentation: %v", err)
+		}
+		if len(doc.Pages) == 0 {
+			t.Fatal("irTestDeck produced 0 pages")
+		}
+		h := doc.Pages[0].Hidden
+		if h == nil {
+			t.Fatal("Page.Hidden should be non-nil when IncludeHidden=true (default)")
+		}
+		if *h {
+			t.Error("fresh deck has no hidden pages; *Hidden should be false")
+		}
+	})
+	t.Run("opt_out_yields_nil", func(t *testing.T) {
+		p := irTestDeck(t)
+		defer p.Close()
+		opts := DefaultOptions()
+		opts.IncludeHidden = false
+		doc, err := FromPresentation(p, opts)
+		if err != nil {
+			t.Fatalf("FromPresentation: %v", err)
+		}
+		for i, pg := range doc.Pages {
+			if pg.Hidden != nil {
+				t.Errorf("page %d: Page.Hidden should be nil when IncludeHidden=false, got %v", i, *pg.Hidden)
+			}
+		}
+	})
 }
 
 func TestOptions_Defaults(t *testing.T) {
@@ -106,6 +141,9 @@ func TestOptions_Defaults(t *testing.T) {
 	}
 	if !o.IncludeTimingNode {
 		t.Error("IncludeTimingNode default should be true")
+	}
+	if !o.IncludeHidden {
+		t.Error("IncludeHidden default should be true (FEAT-003)")
 	}
 }
 

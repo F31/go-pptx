@@ -20,6 +20,16 @@ import (
 // notesSlide + notesMaster + 关系并注册到 presentation（notesMasterIdLst）；
 // SetSpeakerNotes = Ensure + 正文结构替换（字符格式被清除，精细编辑走
 // SpeakerNotes 的富文本 API）。
+//
+// 隐式过滤契约（FEAT-002 项 1，2026-09-22 登记）：
+//   - SpeakerNotesText / SpeakerNotes / SetSpeakerNotes 仅操作 p:ph type
+//     为缺省或 "body" 的占位符（notesPhType 实现）；
+//   - p:ph type="hdr" / "ftr" / "sldNum" / "dt" 等页眉/页码/日期占位符
+//     不会进入讲稿正文——它们继承自 notesMaster，不在本库的合同面上
+//     单独保留/修改。
+//   - 调用方（ppts 自动讲解 / GenerateNarration）无需自行判断哪些占位符
+//     是讲稿 vs 页脚，所有"用 SpeakerNotesText 抽取讲稿正文" 的用法
+//     都自动得到正确结果。
 
 const (
 	// ctNotesSlide/ctNotesMaster 是备注相关 Part 的内容类型。
