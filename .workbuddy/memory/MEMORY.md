@@ -19,8 +19,9 @@
 - CI 必检：`CGO_ENABLED=0` 构建 + vet + test + `GOOS=js GOARCH=wasm` 编译（V2.6 §26 P1）；race 在 ubuntu job（本机 Windows 无 gcc）。
 - 错误分层：internal 包各自定义内部错误（不反向 import 根包防循环），公共 API 边界映射为根包 pptx 稳定错误码。
 - 代码风格：错误用 error 不 panic；文档/状态文件用中文；commit message 关联 WP 编号；相关 md 置于 docs/。
-- 目录：根包 pptx；internal/{opc,xmlstore,edit,style,textmap,geom,validate}；render/、cmd/pptx/、testdata/corpus/ 后续。
-- 状态跟踪：docs/go-pptx-实施状态跟踪.md（负责人每 PR/里程碑后更新）；记忆日志按日追加。
+- 目录：根包 pptx；internal/{opc,xmlstore,edit,style,textmap,geom,validate,document,editplan,**chart**(2026-09-12 新增)}；render/、cmd/pptx/、testdata/corpus/ 后续。
+- **chart 抽 internal 经验（ADR-017 r1，2026-09-12 落地）**：**严格区分"真零依赖根包类型"与"接收根包值对象"**——前者可直接搬（`BuildChartFrameFragment` / `ChartNumber` / `WorkbookColumn` + 4 常量），后者会反向 import 根包违反 ADR-014，必须先 type alias move 值对象。const 在 Go 中必须是编译期常量，**不能直接引用 var 包常量**——保留 const 在根包 / 函数实现搬到 internal 是干净路径。第一批仅 3 函数 + 4 常量；完整抽取需 4 批（零依赖 → type alias → 全搬迁 → 清理），第二批值对象 move 触及公共 API 表面需用户二次审批。**ChartNumber 精度保真**：`strconv.FormatFloat(v, 'g', -1, 64)` 是 chartbook.go 历史行为，搬到 internal/chart 时极易误写为 `'f', 1` 破坏 B1 黄金语料哈希——实施前必查原实现，测试断言用真实输出值。
+- **状态跟踪**：docs/go-pptx-实施状态跟踪.md（负责人每 PR/里程碑后更新）；记忆日志按日追加。
 - **句柄身份约定（STALE-GUARD，M8 落地，三层已闭环）**：所有句柄身份 = 所属形状的 cNvPr@id（`shapeNode.idHint` / `textNode.shapeHint` / `Cell.shapeHint`），path 仅作"在哪个 spTree/grpSp 下查找"的父容器提示。locate 先按 path 解析出目标元素，再向上遍历找最近 p:sp/p:cxnSp/p:graphicFrame/p:grpSp 的 cNvPr@id 与 hint 比对——不等/找不到返回 ErrStaleHandle；hint=0 走纯路径判定（向后兼容 notes/老句柄）。语义：MoveShape / AddShape（兄弟增）/ 编辑文本后句柄仍有效（cNvPr@id 未变），只有 RemoveShape 让目标 cNvPr@id 消失时句柄才失效。三层覆盖：shapeNode（形状）、textNode（Paragraph/TextRun/TextFrame）、Cell（表格单元格）。
 - **opencode 协作分界**：`testdata/corpus/`（含 README.md、s00*、ext-*）与 `scripts/gen_corpus/` 由 opencode 维护，主代理提交不纳入这些路径。
 
