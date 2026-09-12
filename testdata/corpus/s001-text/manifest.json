@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "s001-text",
+  "title": "LibreOffice generated plain text",
+  "source_license": {
+    "source": "scripts/gen_corpus generated ODP exported by LibreOffice",
+    "license": "project-owned/generated",
+    "redistributable": true,
+    "creation_steps": [
+      "python3 scripts/gen_corpus/corpus.py generate",
+      "LibreOffice --headless --convert-to pptx"
+    ]
+  },
+  "generator": {
+    "name": "LibreOffice",
+    "version": "",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+  },
+  "creation_steps": [
+    "python3 scripts/gen_corpus/corpus.py generate",
+    "LibreOffice --headless --convert-to pptx"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "generator.libreoffice",
+    "text.plain",
+    "text.zh",
+    "preserve.b1"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "ReplaceText REPORT_BODY -> Q3-2026 affects only the expected slide part",
+    "validate reports no structural errors"
+  ],
+  "known_issues": [],
+  "files": {
+    "odp": {
+      "path": "s001-text.odp",
+      "sha256": "c7ffcbf731bf7866e1ec43407973acd9d4dbf6abb382f6218f4edd2d13c890fe",
+      "size": 2176
+    },
+    "pptx": {
+      "path": "s001-text.pptx",
+      "sha256": "1048937c221816f6bdea70fff46749da39b0204c98caac3a9619248b4217aba3",
+      "size": 8584
+    }
+  },
+  "created_at": "2026-09-10T05:17:24.884848+00:00"
+}

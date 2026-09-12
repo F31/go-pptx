@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0017",
+  "title": "NVIDIA_GPU显卡技术解析_V2",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/NVIDIA_GPU显卡技术解析_V2.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Macintosh PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Macintosh PowerPoint",
+      "company": "",
+      "slides": 0,
+      "creator": "",
+      "last_modified_by": "Steve Canny",
+      "media_count": 0,
+      "chart_count": 0,
+      "table_count_hint": 61,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 28
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.powerpoint",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/NVIDIA_GPU显卡技术解析_V2.pptx",
+      "sha256": "1a521e0cb4ed595a2bc777268503ae0d9865072cd5d60a9e9ab38909a7fa78b5",
+      "size": 118918
+    }
+  },
+  "created_at": "2026-09-10T05:00:18.943704+00:00"
+}

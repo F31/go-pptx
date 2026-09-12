@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0015",
+  "title": "GPU服务器集群配置对比",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/GPU服务器集群配置对比.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Office PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Office PowerPoint",
+      "company": "PptxGenJS",
+      "slides": 1,
+      "creator": "PptxGenJS",
+      "last_modified_by": "m33098@365mso.com",
+      "media_count": 0,
+      "chart_count": 0,
+      "table_count_hint": 4,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 48
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.pptxgenjs",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/GPU服务器集群配置对比.pptx",
+      "sha256": "5e4e7a7b9bd7f61813433b24e509f295589cfdbc55492aa6246890a47a1be339",
+      "size": 18898
+    }
+  },
+  "created_at": "2026-09-10T05:00:18.847663+00:00"
+}

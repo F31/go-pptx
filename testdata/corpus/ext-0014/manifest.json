@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0014",
+  "title": "GPU_AI规格对比_一页汇报版",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/GPU_AI规格对比_一页汇报版.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "WPS 演示",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "WPS 演示",
+      "company": "OpenAI",
+      "slides": 1,
+      "creator": "OpenAI",
+      "last_modified_by": "风",
+      "media_count": 0,
+      "chart_count": 0,
+      "table_count_hint": 1,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 6
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.wps",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/GPU_AI规格对比_一页汇报版.pptx",
+      "sha256": "fed6623a7f1948aaa264045085a92628e6fb7ec33a5836ad152b86fe89005732",
+      "size": 20301
+    }
+  },
+  "created_at": "2026-09-10T05:00:18.805695+00:00"
+}

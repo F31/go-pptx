@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "go-pptx.compat-smoke/1.0",
+  "sample_id": "ext-0024",
+  "source": "/mnt/e/work/2026/服务器/拓扑方案.pptx",
+  "edited_file_committed": false,
+  "edited_file_note": "Edited PPTX was generated under /tmp/opencode for local verification only; private source is not redistributed.",
+  "gold_action": {
+    "action": "ReplaceText",
+    "old": "89144",
+    "new": "89145",
+    "scope": "single AutoShape text frame on slide1",
+    "result": {
+      "matches": 1,
+      "replaced": 1,
+      "shapes_seen": 27,
+      "shapes_tried": 17
+    }
+  },
+  "validate": {
+    "before_error_count": 0,
+    "before_warn_count": 0,
+    "after_error_count": 0,
+    "after_warn_count": 0
+  },
+  "diff": {
+    "pages_added": 0,
+    "pages_removed": 0,
+    "pages_moved": 0,
+    "pages_changed": 1,
+    "shapes_added": 0,
+    "shapes_removed": 0,
+    "shapes_changed": 1,
+    "text_changes": 1,
+    "bounds_changes": 0,
+    "notes_changes": 0,
+    "timing_changes": 0,
+    "opaque_regions": 3,
+    "changed_entry": {
+      "kind": "shape.text_changed",
+      "slideID": 257,
+      "shapeID": 4,
+      "shapeName": "标题 2",
+      "part": "/ppt/slides/slide1.xml",
+      "nodePath": "p:cSld[0]/p:spTree[0]/p:sp[3]",
+      "from": "89144 SW板-HPC双上行双fabric模式拓扑方案",
+      "to": "89145 SW板-HPC双上行双fabric模式拓扑方案"
+    }
+  },
+  "discovered_issues": [
+    {
+      "severity": "high",
+      "status": "fixed-in-working-tree",
+      "summary": "Replacing the cross-run Chinese suffix '拓扑方案' with '拓扑验证' produced NUL bytes in the preceding run when tested against this WPS sample on clean HEAD.",
+      "root_cause": "replace.go locateBlockSpan selected the first run using gei > lo without requiring the match to overlap that run; later-run matches could be anchored to an earlier run.",
+      "fix": "locateBlockSpan now requires gsi < hi && gei > lo when selecting the first overlapped run.",
+      "regression_test": "TestReplaceTextSuffixInLaterRunDoesNotCorruptPrefix",
+      "evidence": "/tmp/opencode/ext-0024.diff.json and /tmp/opencode/ext-0024.edited.pptx reproduced the bug; /tmp/opencode/ext-0024.zhfix.edited.pptx verified the fix with no NUL bytes."
+    }
+  ],
+  "client_matrix": {
+    "go_pptx_validate_before": "pass",
+    "go_pptx_validate_after": "pass",
+    "go_pptx_diff": "pass",
+    "powerpoint_open_after": "not_run",
+    "wps_open_after": "not_run"
+  }
+}

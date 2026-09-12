@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0031",
+  "title": "英伟达GPU显卡技术解析",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/英伟达GPU显卡技术解析.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Office PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Office PowerPoint",
+      "company": "PptxGenJS",
+      "slides": 30,
+      "creator": "Claude",
+      "last_modified_by": "Claude",
+      "media_count": 22,
+      "chart_count": 8,
+      "table_count_hint": 1,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 64
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.pptxgenjs",
+    "media.image",
+    "chart",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/英伟达GPU显卡技术解析.pptx",
+      "sha256": "6463aab79123e0c758303a80d53e1bfe321f74fe5ae844d24efe7773f8cd0244",
+      "size": 921058
+    }
+  },
+  "created_at": "2026-09-10T05:00:19.694172+00:00"
+}

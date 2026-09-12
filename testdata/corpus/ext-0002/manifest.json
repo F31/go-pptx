@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0002",
+  "title": "AI_Coding_方案",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/AI_Coding_方案.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Office PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Office PowerPoint",
+      "company": "PptxGenJS",
+      "slides": 1,
+      "creator": "PptxGenJS",
+      "last_modified_by": "PptxGenJS",
+      "media_count": 1,
+      "chart_count": 2,
+      "table_count_hint": 13,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 14
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.pptxgenjs",
+    "media.image",
+    "chart",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/AI_Coding_方案.pptx",
+      "sha256": "a152bc3fb045e9e4a0674d7517d973e015f9fe170105da5676a5d3df7c2fc776",
+      "size": 148900
+    }
+  },
+  "created_at": "2026-09-10T05:00:18.149365+00:00"
+}

@@ -1,0 +1,23 @@
+{
+  "sample_id": "s001-text",
+  "title": "LibreOffice generated plain text",
+  "license": "project-owned/generated",
+  "redistributable": true,
+  "feature_tags": ["generator.libreoffice", "text.plain", "text.zh", "preserve.b1"],
+  "slides": [
+    {
+      "layout": "text",
+      "title": "Quarterly Report",
+      "body": [
+        "REPORT_BODY placeholder for ReplaceText gold action.",
+        "季度汇总保持不变，用于确认未触碰段落。",
+        "Emoji and symbols: GPU → HBM, 50% & 100%."
+      ]
+    }
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "ReplaceText REPORT_BODY -> Q3-2026 affects only the expected slide part",
+    "validate reports no structural errors"
+  ]
+}

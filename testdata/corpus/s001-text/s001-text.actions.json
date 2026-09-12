@@ -1,0 +1,13 @@
+[
+  {
+    "action": "ReplaceText",
+    "old": "REPORT_BODY",
+    "new": "Q3-2026",
+    "scope": "all AutoShape text frames",
+    "expected": {
+      "matches": 1,
+      "replaced": 1,
+      "validate_error_count": 0
+    }
+  }
+]

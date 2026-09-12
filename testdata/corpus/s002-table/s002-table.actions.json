@@ -1,0 +1,13 @@
+[
+  {
+    "action": "ReplaceText",
+    "old": "GPU",
+    "new": "AI",
+    "scope": "all AutoShape text frames",
+    "expected": {
+      "matches": 1,
+      "replaced": 1,
+      "validate_error_count": 0
+    }
+  }
+]

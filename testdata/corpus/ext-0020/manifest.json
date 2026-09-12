@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0020",
+  "title": "RTX6000D_CX8_topology (1)",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/RTX6000D_CX8_topology (1).pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Office PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Office PowerPoint",
+      "company": "PptxGenJS",
+      "slides": 1,
+      "creator": "PptxGenJS",
+      "last_modified_by": "PptxGenJS",
+      "media_count": 1,
+      "chart_count": 2,
+      "table_count_hint": 1,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 6
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.pptxgenjs",
+    "media.image",
+    "chart",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/RTX6000D_CX8_topology (1).pptx",
+      "sha256": "db864695ae69a3c7e049e24617724fb799577a9ebe22a51698aeb4062102c692",
+      "size": 103787
+    }
+  },
+  "created_at": "2026-09-10T05:00:19.139613+00:00"
+}

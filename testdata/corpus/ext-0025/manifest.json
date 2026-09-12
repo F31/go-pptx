@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0025",
+  "title": "昇腾910B4_vs_910C_NPU关键参数对比_优化版",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/昇腾910B4_vs_910C_NPU关键参数对比_优化版.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Office PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Office PowerPoint",
+      "company": "OpenAI",
+      "slides": 1,
+      "creator": "OpenAI",
+      "last_modified_by": "OpenAI",
+      "media_count": 1,
+      "chart_count": 2,
+      "table_count_hint": 1,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 6
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.powerpoint",
+    "media.image",
+    "chart",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/昇腾910B4_vs_910C_NPU关键参数对比_优化版.pptx",
+      "sha256": "7ceada33a5b03ee9c7fb37f0b65fea03ad19ddcd12423b8a21811e16ca02e049",
+      "size": 121625
+    }
+  },
+  "created_at": "2026-09-10T05:00:19.415354+00:00"
+}

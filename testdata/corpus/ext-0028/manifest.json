@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0028",
+  "title": "海光_BW150_vs_BW1100_GPU对比_权威核实版",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/海光_BW150_vs_BW1100_GPU对比_权威核实版.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Macintosh PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Macintosh PowerPoint",
+      "company": "",
+      "slides": 0,
+      "creator": "",
+      "last_modified_by": "Steve Canny",
+      "media_count": 0,
+      "chart_count": 0,
+      "table_count_hint": 7,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 26
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.powerpoint",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/海光_BW150_vs_BW1100_GPU对比_权威核实版.pptx",
+      "sha256": "344e3ed9b2205ab88a5298689d2a17bc12ef5d16473e0a788ebb471e7a4683a2",
+      "size": 31903
+    }
+  },
+  "created_at": "2026-09-10T05:00:19.541882+00:00"
+}

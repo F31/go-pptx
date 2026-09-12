@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0012",
+  "title": "GPU_AI规格对比_V6",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/GPU_AI规格对比_V6.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Office PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Office PowerPoint",
+      "company": "OpenAI",
+      "slides": 10,
+      "creator": "OpenAI",
+      "last_modified_by": "m33098@365mso.com",
+      "media_count": 1,
+      "chart_count": 0,
+      "table_count_hint": 21,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 226
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.powerpoint",
+    "media.image",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/GPU_AI规格对比_V6.pptx",
+      "sha256": "7c910e2bad30adea5208ddda367cfe2af7ebfbb3be387c76c96acd405433cc03",
+      "size": 802133
+    }
+  },
+  "created_at": "2026-09-10T05:00:18.703290+00:00"
+}

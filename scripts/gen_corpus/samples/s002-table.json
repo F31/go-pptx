@@ -1,0 +1,24 @@
+{
+  "sample_id": "s002-table",
+  "title": "LibreOffice generated table",
+  "license": "project-owned/generated",
+  "redistributable": true,
+  "feature_tags": ["generator.libreoffice", "table", "text.zh", "preserve.b1"],
+  "slides": [
+    {
+      "layout": "table",
+      "title": "GPU Specification Matrix",
+      "table": [
+        ["型号", "显存", "功耗", "备注"],
+        ["H20", "96GB", "400W", "推理"],
+        ["RTX6000D", "96GB", "300W", "工作站"],
+        ["910B4", "64GB", "350W", "国产算力"]
+      ]
+    }
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "inspect reports at least one table shape",
+    "validate reports no structural errors"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0005",
+  "title": "AI服务器核心部件发展现状与趋势分析_2026_V2",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/AI服务器核心部件发展现状与趋势分析_2026_V2.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "WPS 演示",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "WPS 演示",
+      "company": "",
+      "slides": 30,
+      "creator": "",
+      "last_modified_by": "风",
+      "media_count": 2,
+      "chart_count": 12,
+      "table_count_hint": 43,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 44
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.wps",
+    "media.image",
+    "chart",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/AI服务器核心部件发展现状与趋势分析_2026_V2.pptx",
+      "sha256": "961ef59b4ee36a1a0b9450abc36f698992dffd321f45adf39f1e0de35a97d3f1",
+      "size": 900830
+    }
+  },
+  "created_at": "2026-09-10T05:00:18.340287+00:00"
+}

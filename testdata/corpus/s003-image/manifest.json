@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "s003-image",
+  "title": "LibreOffice generated picture",
+  "source_license": {
+    "source": "scripts/gen_corpus generated ODP exported by LibreOffice",
+    "license": "project-owned/generated",
+    "redistributable": true,
+    "creation_steps": [
+      "python3 scripts/gen_corpus/corpus.py generate",
+      "LibreOffice --headless --convert-to pptx"
+    ]
+  },
+  "generator": {
+    "name": "LibreOffice",
+    "version": "",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+  },
+  "creation_steps": [
+    "python3 scripts/gen_corpus/corpus.py generate",
+    "LibreOffice --headless --convert-to pptx"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "generator.libreoffice",
+    "media.image",
+    "text.plain",
+    "preserve.b1"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "inspect reports at least one picture/media shape",
+    "validate reports no structural errors"
+  ],
+  "known_issues": [],
+  "files": {
+    "odp": {
+      "path": "s003-image.odp",
+      "sha256": "d8da77355aac9777cfd1c2dcb3f7f5e46b77ae6c6e380ca87b6d0f7c145751c2",
+      "size": 2424
+    },
+    "pptx": {
+      "path": "s003-image.pptx",
+      "sha256": "d8df8677f1d0db81d44653b6e77a91971b4063a8f786f9469676b1933d770701",
+      "size": 8836
+    }
+  },
+  "created_at": "2026-09-10T05:17:33.153283+00:00"
+}

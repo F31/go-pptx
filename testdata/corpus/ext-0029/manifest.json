@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0029",
+  "title": "海光_BW150_vs_BW1100_GPU对比_精度算力补充版",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/海光_BW150_vs_BW1100_GPU对比_精度算力补充版.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Office PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Office PowerPoint",
+      "company": "PptxGenJS",
+      "slides": 1,
+      "creator": "OpenAI",
+      "last_modified_by": "OpenAI",
+      "media_count": 1,
+      "chart_count": 2,
+      "table_count_hint": 1,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 6
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.pptxgenjs",
+    "media.image",
+    "chart",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/海光_BW150_vs_BW1100_GPU对比_精度算力补充版.pptx",
+      "sha256": "db1ef1f3d96695a4f828a76e701064eff4cbe2d33b5b26caef99a0054882c67b",
+      "size": 109245
+    }
+  },
+  "created_at": "2026-09-10T05:00:19.581632+00:00"
+}

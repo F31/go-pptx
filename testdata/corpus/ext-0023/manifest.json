@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "ext-0023",
+  "title": "国产算力卡对比_BW150_910B4_天垓150S",
+  "source_license": {
+    "source": "/mnt/e/work/2026/服务器/国产算力卡对比_BW150_910B4_天垓150S.pptx",
+    "license": "private/internal; redistribution not approved",
+    "redistributable": false,
+    "creation_steps": [
+      "registered by scripts/gen_corpus/corpus.py scan"
+    ],
+    "font_environment": "unrecorded"
+  },
+  "generator": {
+    "name": "Microsoft Office PowerPoint",
+    "version": "unrecorded",
+    "platform": "unrecorded",
+    "raw": {
+      "application": "Microsoft Office PowerPoint",
+      "company": "PptxGenJS",
+      "slides": 1,
+      "creator": "PptxGenJS",
+      "last_modified_by": "m33098@365mso.com",
+      "media_count": 0,
+      "chart_count": 0,
+      "table_count_hint": 7,
+      "timing_count": 0,
+      "transition_count": 0,
+      "extlst_count": 56
+    }
+  },
+  "creation_steps": [
+    "registered by scripts/gen_corpus/corpus.py scan"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "real.pptx",
+    "generator.pptxgenjs",
+    "table",
+    "xml.unknown_ext"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "validate reports no structural errors",
+    "no-edit Write keeps unchanged parts byte-identical"
+  ],
+  "known_issues": [],
+  "files": {
+    "pptx": {
+      "path": "/mnt/e/work/2026/服务器/国产算力卡对比_BW150_910B4_天垓150S.pptx",
+      "sha256": "e4d7f89c682c1a2a554624a9ca7b6f5647cb4c9c28177276431494ea96b32291",
+      "size": 18960
+    }
+  },
+  "created_at": "2026-09-10T05:00:19.277770+00:00"
+}

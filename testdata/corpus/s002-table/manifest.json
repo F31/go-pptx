@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "go-pptx.corpus/1.0",
+  "sample_id": "s002-table",
+  "title": "LibreOffice generated table",
+  "source_license": {
+    "source": "scripts/gen_corpus generated ODP exported by LibreOffice",
+    "license": "project-owned/generated",
+    "redistributable": true,
+    "creation_steps": [
+      "python3 scripts/gen_corpus/corpus.py generate",
+      "LibreOffice --headless --convert-to pptx"
+    ]
+  },
+  "generator": {
+    "name": "LibreOffice",
+    "version": "",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+  },
+  "creation_steps": [
+    "python3 scripts/gen_corpus/corpus.py generate",
+    "LibreOffice --headless --convert-to pptx"
+  ],
+  "font_environment": "unrecorded",
+  "ooxml_type": "Transitional",
+  "feature_tags": [
+    "generator.libreoffice",
+    "table",
+    "text.zh",
+    "preserve.b1"
+  ],
+  "expectations": [
+    "OpenReader succeeds",
+    "inspect reports at least one table shape",
+    "validate reports no structural errors"
+  ],
+  "known_issues": [],
+  "files": {
+    "odp": {
+      "path": "s002-table.odp",
+      "sha256": "c147768a41607b321a71a46ed14ad77614bfd2933344d942e56c98ad1f13355a",
+      "size": 2220
+    },
+    "pptx": {
+      "path": "s002-table.pptx",
+      "sha256": "4a55a89a1ad25752d181fb7401777aafd52e5855eaa8c18da477fb1a87961bb2",
+      "size": 8826
+    }
+  },
+  "created_at": "2026-09-10T05:17:29.636967+00:00"
+}
