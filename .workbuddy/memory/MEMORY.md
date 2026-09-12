@@ -8,7 +8,7 @@
 - **v1.0.1 已发布**：`git tag -s v1.0.1`（SSH 签名）→ commit 9f24866（commit 9f24866 即"docs(release): 准备 v1.0.1 patch release 文档"）；tag 对象 13d1376。**binary-compat with v1.0.0**——公共 API 零变化，// Stable: 34 / // Experimental: 5 / 50 Stable 符号 / 158 总 type / 17 哨兵 全部锁死不变。范围：v1.0.0..HEAD 共 17 commit（ADR-016 渐进式 internal 抽取首轮收敛 / ir 表格文本投影闭环 / 5 包行为优先补测 / L3 文档同步 / MediaSource nil 流保护 / Stable 计数 off-by-one 修正 / ADR-014 三处缺陷 / 技术白皮书 / 1.x 路线图方案）。
 - **v1.0 冻结清单已闭合（2026-09-12 勘误口径）**：34 Stable 段落（33 独立 type 段 + 1 个 17 哨兵聚合段；Stable 符号合计 50）/ 5 Experimental / 0 Deprecated / 120 API type / 158 总 type。**勘误原因**：曾误记"51 Stable（34 独立 + 17）/ 102 API"——把段落 grep 数 34 误作独立 type 数（段落含 1 聚合段），且 158−51−5 算式把 var 哨兵错从 type 总数扣除。符号级承诺不变，仅计数修正；详见 freeze list §"2026-09-12 — 口径勘误"。
 - **新增导出符号流程**：按 freeze list §D 评审 checklist——升 Stable 须给"为什么 Stable"+ 不允许扩展方向 + 使用面举例；降档禁止 PR 直降必须新 ADR。
-- **1.x 已知缺口（更新于 2026-09-12 下午）**：L3 客户端矩阵已闭合（真机 8/8，`docs/client-compat-matrix.md`）；覆盖率 5 包补测至 editplan 100% / textmap 100% / opc 88.9% / audioprobe 88.4% / root 82.8%，full total **84.4%**（COV-04 评估放弃统一 90% 口径）；PERF-01 基线已在 ADR-016 重构后重跑（p50 全链路 -60%~-65%，无回归）。1.x 路线图见 `docs/1.x-roadmap.md`（5 方向 + 5 阶段 + 6 风险 + 5 决策点）。
+- **1.x 已知缺口（更新于 2026-09-12 下午，09-12 深夜实测修正）**：L3 客户端矩阵已闭合（真机 8/8，`docs/client-compat-matrix.md`）；覆盖率补测后 editplan 100% / textmap 100% / **opc 90.0%（实测，旧记 88.9% 已过时）** / audioprobe 88.4% / root 82.8%，full total **84.4%**（COV-04 评估放弃统一 90% 口径）；PERF-01 基线已在 ADR-016 重构后重跑（p50 全链路 -60%~-65%，无回归）。1.x 路线图见 `docs/1.x-roadmap.md`（5 方向 + 5 阶段 + 6 风险 + 5 决策点）。
 
 ## 工程约定（已落地）
 - module path：`github.com/F31/go-pptx`（CORE-02 已由占位 `go-pptx` 正式化；go.mod `go 1.24.0`）。
@@ -28,6 +28,7 @@
 ## 事故记录（重要）
 - 2026-09-08：git merge 触发内部 stash 失败后 `.git` 目录整体消失（工作区完好）。教训：① 本机 git 大操作（merge/rebase）前先 `cp -r .git` 备份；② merge 前务必保证 working tree clean，避免 autostash 路径。
 - 2026-09-10/11（两次复现）：`git commit -F .commit-msg-*.txt` 报 `fatal: could not read log file`（exit 128）但 **commit 实际创建成功**（Windows Git Bash 与 `.` 开头隐藏文件竞态）。处理：fatal 后先 `git log` 核实，已创建则直接 push，勿重复 commit。`.gitignore` 已加 `/.commit-msg-*.txt` 规则。
+- 2026-09-12 深夜：项目清理期间 **scripts/ 整目录从磁盘消失**（非删除目标；清理前 Grep 仍可读）。同期 chart.go/chartbook.go/chartfrag.go/internal/chart/types.go 出现未预期大量修改 + internal/chart 新增 6 个未跟踪 .go（形态符合 A-1 第三批 WIP，疑似并行会话在制品）。处置：`git restore -- scripts/` 恢复（纯 D 零丢失）；chart WIP 未触碰。教训：① 批量删除后必须 git status 全量核对；② 沙箱 safe-delete 钩子报 "Some operations were aborted" 时立即检查无关路径；③ 本机 bash coreutils（ls/sed/grep/dirname）损坏，文件操作走 PowerShell/专用工具，git 命令可用。
 
 ## 待确认（阻塞/排期敏感）
 1. ~~正式 module path~~（已定 github.com/F31/go-pptx）；~~许可证~~（已定 Apache-2.0）；~~v1.0 冻结~~（2026-09-11 已发布）；~~L3 客户端矩阵~~（2026-09-11 8/8 通过，PowerPoint 16.0.20326 + WPS 12.1.0.28599 / Windows 11 10.0.26200 已登记 `testdata/corpus/README.md` §"已登记客户端版本与平台"）。
