@@ -86,6 +86,21 @@ func TestSavePlanUnchangedIsB1(t *testing.T) {
 	}
 }
 
+func TestChangeSetIsEmpty(t *testing.T) {
+	if !(&ChangeSet{}).IsEmpty() {
+		t.Fatal("empty ChangeSet reported non-empty")
+	}
+	if (&ChangeSet{Patched: map[PartName][]byte{"/a.xml": []byte("a")}}).IsEmpty() {
+		t.Fatal("patched ChangeSet reported empty")
+	}
+	if (&ChangeSet{Added: map[PartName]AddedPart{"/a.xml": {Content: []byte("a")}}}).IsEmpty() {
+		t.Fatal("added ChangeSet reported empty")
+	}
+	if (&ChangeSet{Deleted: map[PartName]bool{"/a.xml": true}}).IsEmpty() {
+		t.Fatal("deleted ChangeSet reported empty")
+	}
+}
+
 // TestSavePlanPatchedPart 验证补丁保存：仅被补丁的 Part 内容变化，
 // 其余 Part（含 CT）B1 一致，且输出可重新 Load。
 func TestSavePlanPatchedPart(t *testing.T) {

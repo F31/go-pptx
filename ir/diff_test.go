@@ -310,6 +310,71 @@ func TestDiffNilSideTreatedAsEmpty(t *testing.T) {
 	}
 }
 
+func TestPurePageScoreAndShapeIDSet(t *testing.T) {
+	a := diffShape(2, "autoshape", "A", "")
+	b := diffShape(3, "autoshape", "B", "")
+	c := diffShape(9, "autoshape", "A", "")
+	ids := shapeIDSet([]Shape{a, b})
+	if len(ids) != 2 || !ids[2] || !ids[3] {
+		t.Fatalf("shapeIDSet = %v", ids)
+	}
+	child := diffShape(9, "autoshape", "C", "")
+	g := diffShape(5, "group", "G", "")
+	g.Children = []Shape{child}
+	if got := shapeIDSet([]Shape{g}); len(got) != 2 || !got[5] || !got[9] {
+		t.Fatalf("shapeIDSet with group = %v", got)
+	}
+	p1 := diffPage(0, 256, "/ppt/slides/slide1.xml", a)
+	p2 := diffPage(0, 257, "/ppt/slides/slide1.xml", b)
+	p3 := diffPage(0, 256, "/ppt/slides/slide1.xml", c)
+	if got := pageScore(p1, p3); got != 1 {
+		t.Fatalf("identical SlideID score = %v, want 1", got)
+	}
+	// 两个非零不同 SlideID → 0。
+	if got := pageScore(p1, p2); got != 0 {
+		t.Fatalf("different SlideID score = %v, want 0", got)
+	}
+	// 双方都无形状 → 1。
+	empty := diffPage(0, 0, "/ppt/slides/slide1.xml")
+	if got := pageScore(empty, diffPage(1, 0, "/ppt/slides/slide2.xml")); got != 1 {
+		t.Fatalf("empty-empty score = %v, want 1", got)
+	}
+	// 一方有形状、一方空 → Jaccard = 0。
+	if got := pageScore(empty, p1); got != 0 {
+		t.Fatalf("empty-vs-shapes score = %v, want 0", got)
+	}
+	// 部分交集。
+	partial1 := diffPage(0, 0, "/ppt/slides/slide1.xml", a, b)
+	partial2 := diffPage(0, 0, "/ppt/slides/slide2.xml", a, c)
+	if got := pageScore(partial1, partial2); got != 1.0/3.0 {
+		t.Fatalf("partial overlap score = %v, want 1/3", got)
+	}
+}
+
+func TestPureBoxString(t *testing.T) {
+	if got := boxString(nil); got != "" {
+		t.Fatalf("boxString(nil) = %q", got)
+	}
+	if got := boxString(&Box{X: 1, Y: 2, Width: 300, Height: 400}); got != "(1,2 300x400)" {
+		t.Fatalf("boxString = %q", got)
+	}
+	if got := boxEqual(nil, nil); !got {
+		t.Fatal("boxEqual(nil, nil) = false")
+	}
+	if got := boxEqual(&Box{X: 1}, nil); got {
+		t.Fatal("boxEqual(&Box, nil) = true")
+	}
+	if got := boxEqual(nil, &Box{X: 1}); got {
+		t.Fatal("boxEqual(nil, &Box) = true")
+	}
+	if got := boxEqual(&Box{X: 1, Y: 2}, &Box{X: 1, Y: 2}); !got {
+		t.Fatal("boxEqual equal boxes = false")
+	}
+	if got := boxEqual(&Box{X: 1}, &Box{X: 2}); got {
+		t.Fatal("boxEqual different boxes = true")
+	}
+}
+
 func TestDiffReportJSONRoundTrip(t *testing.T) {
 	a := doc(diffPage(0, 256, "/ppt/slides/slide1.xml", diffShape(2, "picture", "Logo", "")))
 	b := doc(diffPage(0, 256, "/ppt/slides/slide1.xml", diffShape(2, "picture", "Logo", "")))

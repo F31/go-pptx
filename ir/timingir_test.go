@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 const timingPar1 = `<?xml version="1.0" encoding="UTF-8"?>
@@ -217,6 +219,96 @@ func TestTimingIR_VideoNode(t *testing.T) {
 	if pt.Totals.VideoNodes != 1 {
 		t.Errorf("VideoNodes = %d, want 1", pt.Totals.VideoNodes)
 	}
+}
+
+func TestTimingIRPureHelperEdges(t *testing.T) {
+	for raw, want := range map[string]EffectClass{
+		"fly":      EffectClassEntrance,
+		"Pulse":    EffectClassEmphasis,
+		"fadeOut":  EffectClassExit,
+		"customFx": EffectClassOther,
+	} {
+		if got := classifyAnim(raw); got != want {
+			t.Fatalf("classifyAnim(%q) = %q, want %q", raw, got, want)
+		}
+	}
+	for raw, want := range map[string]TimeEventKind{
+		" begin ":         TimeEventBegin,
+		"NEXT":            TimeEventNext,
+		"end":             TimeEventEnd,
+		"onClick":         TimeEventOnClick,
+		"onDblClick":      TimeEventOnDoubleClick,
+		"onMouseOver":     TimeEventOnMouseOver,
+		"onMouseOut":      TimeEventOnMouseOut,
+		"onStopAudio":     TimeEventOnStopAudio,
+		"onMediaBookmark": TimeEventOnMediaBookmark,
+		"onTrigger":       TimeEventOnTrigger,
+		"custom":          TimeEventOther,
+	} {
+		if got := eventFromString(raw); got != want {
+			t.Fatalf("eventFromString(%q) = %q, want %q", raw, got, want)
+		}
+	}
+	for _, tc := range []struct {
+		raw       string
+		wantValue int64
+		indef     bool
+		est       bool
+		source    string
+	}{
+		{raw: "", indef: true, source: "dur-missing"},
+		{raw: "indefinite", indef: true, source: "dur"},
+		{raw: "250", wantValue: 250, source: "dur"},
+		{raw: "bad", est: true, source: "dur-malformed"},
+	} {
+		got := durationsFromProto(tc.raw, "dur")
+		if got.Value != tc.wantValue || got.Indefinite != tc.indef || got.Estimated != tc.est || got.Source != tc.source {
+			t.Fatalf("durationsFromProto(%q) = %+v", tc.raw, got)
+		}
+	}
+	if got := delaysFromProto("35"); got.Value != 35 || got.Source != "delay" {
+		t.Fatalf("delaysFromProto = %+v", got)
+	}
+}
+
+func TestTimingIRTargetsAndOpaqueHelpers(t *testing.T) {
+	for _, tc := range []struct {
+		in         *tmlTgt
+		wantName   string
+		wantShape  int64
+		wantEffect int64
+	}{
+		{in: nil},
+		{in: &tmlTgt{ElementRaw: "spTgt", SpShapeID: 42}, wantName: "sp", wantShape: 42},
+		{in: &tmlTgt{ElementRaw: "setTgt", SetEffect: 7}, wantName: "set", wantEffect: 7},
+		{in: &tmlTgt{ElementRaw: "inkTgt"}, wantName: "ink"},
+		{in: &tmlTgt{ElementRaw: "otherTgt"}, wantName: "other"},
+	} {
+		got := projectTgt(tc.in)
+		if tc.in == nil {
+			if got != nil {
+				t.Fatalf("projectTgt(nil) = %+v", got)
+			}
+			continue
+		}
+		if got.ElementName != tc.wantName || got.ShapeID != tc.wantShape || got.EffectID != tc.wantEffect {
+			t.Fatalf("projectTgt(%+v) = %+v", tc.in, got)
+		}
+	}
+	cond := projectCond(tmlCond{Evt: "onTrigger", Delay: "15", TrigSpid: 9})
+	if cond.Event != TimeEventOnTrigger || cond.Delay.Value != 15 || cond.Trigger == nil || cond.Trigger.ShapeID != 9 {
+		t.Fatalf("projectCond = %+v", cond)
+	}
+	if got := opaqueFromQName(xmlQName("p", "custom")); got == nil || got.LocalName != "custom" || got.Meta["__prefix"] != "p" {
+		t.Fatalf("opaqueFromQName = %+v", got)
+	}
+	if got := opaqueFromQName(xmlQName("", "")); got != nil {
+		t.Fatalf("empty opaque = %+v", got)
+	}
+}
+
+func xmlQName(prefix, local string) xmlstore.QName {
+	return xmlstore.QName{Prefix: prefix, Local: local}
 }
 
 func TestTimingIR_ParseError(t *testing.T) {

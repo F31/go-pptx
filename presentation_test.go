@@ -207,6 +207,80 @@ func TestSaveRejectsSourcePath(t *testing.T) {
 	}
 }
 
+func TestMapOCErrorBranches(t *testing.T) {
+	unknown := errors.New("plain")
+	tests := []struct {
+		name string
+		in   error
+		want error
+	}{
+		{"output-exists", opc.ErrOutputExists, ErrOutputExists},
+		{"atomic-unavailable", opc.ErrAtomicReplaceUnavailable, ErrAtomicReplaceUnavailable},
+		{"plan-invalid", opc.ErrPlanInvalid, ErrValidationFailed},
+		{"malformed", opc.ErrMalformedPackage, ErrMalformedPackage},
+		{"not-found", opc.ErrNotFound, ErrNotFound},
+		{"limit-exceeded", opc.ErrLimitExceeded, ErrLimitExceeded},
+		{"nil", nil, nil},
+		{"unknown", unknown, unknown},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := mapOCError(tc.in)
+			if tc.want == nil {
+				if got != nil {
+					t.Fatalf("mapOCError(%v) = %v, want nil", tc.in, got)
+				}
+				return
+			}
+			if !errors.Is(got, tc.want) {
+				t.Fatalf("mapOCError(%v) = %v, want errors.Is %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseUint32Branches(t *testing.T) {
+	if v, err := parseUint32("256"); err != nil || v != 256 {
+		t.Fatalf("parseUint32(256) = %d %v", v, err)
+	}
+	if _, err := parseUint32(""); err == nil {
+		t.Fatal("parseUint32('') no error")
+	}
+	if _, err := parseUint32("12a"); err == nil {
+		t.Fatal("parseUint32(12a) no error")
+	}
+	if _, err := parseUint32("99999999999"); err == nil {
+		t.Fatal("parseUint32 overflow no error")
+	}
+	if v, err := parseUint32("4294967295"); err != nil || v != 4294967295 {
+		t.Fatalf("parseUint32(max) = %d %v", v, err)
+	}
+}
+
+func TestSaveWriteArgumentAndContextGuards(t *testing.T) {
+	p, err := New()
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer p.Close()
+	ctx := context.Background()
+
+	if _, err := p.Save(ctx, ""); !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("Save empty path: %v, want ErrInvalidArgument", err)
+	}
+	if _, err := p.Write(ctx, nil); !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("Write nil writer: %v, want ErrInvalidArgument", err)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := p.Save(canceled, filepath.Join(t.TempDir(), "x.pptx")); err == nil || !errors.Is(err, context.Canceled) {
+		t.Errorf("Save canceled ctx: %v, want context.Canceled", err)
+	}
+	if _, err := p.Write(canceled, &bytes.Buffer{}); err == nil || !errors.Is(err, context.Canceled) {
+		t.Errorf("Write canceled ctx: %v, want context.Canceled", err)
+	}
+}
+
 // withSlides 生成含一页幻灯片的最小包字节：在模板上追加 slide Part、
 // CT Override、presentation 关系与 sldIdLst 条目（MODEL-01 测试夹具；
 // AddSlide 公共 API 属 M2）。
@@ -275,6 +349,19 @@ func TestSlidesOrderAndIDs(t *testing.T) {
 		if !p.pk.HasPart(name) {
 			t.Errorf("slides[%d] part %s missing", i, name)
 		}
+		if got := s.PartName(); got != string(name) {
+			t.Errorf("slides[%d].PartName = %q, want %q", i, got, name)
+		}
+		if got, want := s.Name(), "slide"+strconv.Itoa(i+1); got != want {
+			t.Errorf("slides[%d].Name = %q, want %q", i, got, want)
+		}
+		if got := s.NotesPart(); got != "" {
+			t.Errorf("slides[%d].NotesPart = %q, want empty", i, got)
+		}
+	}
+	var nilSlide *Slide
+	if got := nilSlide.PartName(); got != "" {
+		t.Errorf("nil Slide.PartName = %q, want empty", got)
 	}
 	// Validate：CT 覆盖与页面目标均通过。
 	if rep := p.Validate(context.Background()); rep.HasErrors() {

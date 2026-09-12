@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // ---------- 页面 API（§20.1 / M2 页面 API 收口） ----------
@@ -83,6 +84,74 @@ func slideRelEntries(n int) string {
 }
 
 func itoa(v int) string { return strconv.Itoa(v) }
+
+func TestAppendSldIdPatchBranches(t *testing.T) {
+	// 非法根元素 → ErrMalformedPackage。
+	doc, err := xmlstore.Index([]byte(`<x:foo xmlns:x="urn:x"/>`))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	if _, err := appendSldIdPatch(doc, `<p:sldId id="1" r:id="rId1"/>`); !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("bad root err = %v, want ErrMalformedPackage", err)
+	}
+
+	// 自闭合 <p:sldIdLst/> → 展开。
+	xmlPfx := `<p:presentation xmlns:p="` + nsPresentationML + `"><p:sldIdLst/></p:presentation>`
+	doc2, err := xmlstore.Index([]byte(xmlPfx))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	patches, err := appendSldIdPatch(doc2, `<p:sldId id="256"/>`)
+	if err != nil {
+		t.Fatalf("appendSldIdPatch: %v", err)
+	}
+	out, err := xmlstore.ApplyPatches([]byte(xmlPfx), patches)
+	if err != nil {
+		t.Fatalf("ApplyPatches: %v", err)
+	}
+	outStr := string(out)
+	if !strings.Contains(outStr, `<p:sldIdLst><p:sldId id="256"/></p:sldIdLst>`) ||
+		strings.Contains(outStr, `<p:sldIdLst/>`) {
+		t.Fatalf("self-closing not expanded: %s", outStr)
+	}
+
+	// 缺失 sldIdLst 且存在 sldMasterIdLst → 插入其后（schema 序）。
+	xml3 := `<p:presentation xmlns:p="` + nsPresentationML + `"><p:sldMasterIdLst><p:sldMasterId id="1"/></p:sldMasterIdLst></p:presentation>`
+	doc3, err := xmlstore.Index([]byte(xml3))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	patches, err = appendSldIdPatch(doc3, `<p:sldId id="257"/>`)
+	if err != nil {
+		t.Fatalf("appendSldIdPatch: %v", err)
+	}
+	out3, err := xmlstore.ApplyPatches([]byte(xml3), patches)
+	if err != nil {
+		t.Fatalf("ApplyPatches: %v", err)
+	}
+	out3Str := string(out3)
+	if !strings.Contains(out3Str, `<p:sldMasterIdLst><p:sldMasterId id="1"/></p:sldMasterIdLst><p:sldIdLst>`) {
+		t.Fatalf("insert-after-master failed: %s", out3Str)
+	}
+
+	// 既无 sldIdLst 也无任何 anchor → 插入根首个子元素前。
+	xml4 := `<p:presentation xmlns:p="` + nsPresentationML + `"><p:sldSz cx="1" cy="1"/></p:presentation>`
+	doc4, err := xmlstore.Index([]byte(xml4))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	patches, err = appendSldIdPatch(doc4, `<p:sldId id="258"/>`)
+	if err != nil {
+		t.Fatalf("appendSldIdPatch: %v", err)
+	}
+	out4, err := xmlstore.ApplyPatches([]byte(xml4), patches)
+	if err != nil {
+		t.Fatalf("ApplyPatches: %v", err)
+	}
+	if !strings.HasPrefix(string(out4), `<p:presentation xmlns:p="`+nsPresentationML+`"><p:sldIdLst>`) {
+		t.Fatalf("insert-before-first failed: %s", out4)
+	}
+}
 
 func TestSlideByIndex(t *testing.T) {
 	p := openFixture(t, withSlides(t, 3))

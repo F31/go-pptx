@@ -218,6 +218,46 @@ func TestTransition_PreservesAdvTm(t *testing.T) {
 	}
 }
 
+// TestTransition_AllDirections 覆盖四方向写入读取 + parseDir 非法值。
+func TestTransition_AllDirections(t *testing.T) {
+	for _, dir := range []TransitionDir{DirLeft, DirRight, DirUp, DirDown} {
+		p := transitionDeck(t)
+		s := SlidesOf(t, p)[0]
+		if err := s.SetTransition(TransitionSpec{Type: TransitionWipe, Dir: dir}); err != nil {
+			p.Close()
+			t.Fatalf("SetTransition(%s): %v", dir, err)
+		}
+		got, err := s.Transition()
+		p.Close()
+		if err != nil {
+			t.Fatalf("Transition(%s): %v", dir, err)
+		}
+		if got.Dir != dir {
+			t.Fatalf("dir = %q, want %q", got.Dir, dir)
+		}
+	}
+	// 手动构造非法 dir 值读回 → parseDir 返回空。
+	p := transitionDeck(t)
+	defer p.Close()
+	s := SlidesOf(t, p)[0]
+	hookup := []byte(xmlDecl +
+		`<p:sld xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `">` +
+		`<p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>` +
+		`<p:transition spd="med"><p:wipe dir="diagonal"/></p:transition>` +
+		`</p:sld>`)
+	if err := p.stagePatch("/ppt/slides/slide1.xml", hookup); err != nil {
+		t.Fatalf("stagePatch: %v", err)
+	}
+	p.commit()
+	got, err := s.Transition()
+	if err != nil {
+		t.Fatalf("Transition: %v", err)
+	}
+	if got.Dir != "" {
+		t.Fatalf("invalid dir parsed as %q, want empty", got.Dir)
+	}
+}
+
 // TestTransition_ReplaceInPlace 测试二次 SetTransition 替换不重复创建。
 func TestTransition_ReplaceInPlace(t *testing.T) {
 	p := transitionDeck(t)

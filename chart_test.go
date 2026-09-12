@@ -591,6 +591,385 @@ func TestChartClosedErrors(t *testing.T) {
 	}
 }
 
+func TestChartShapeSetAltTextAndDecorative(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	s := SlidesOf(t, p)[0]
+	if _, err := s.AddChart(context.Background(), chartSpecFixture()); err != nil {
+		t.Fatalf("AddChart: %v", err)
+	}
+	cs := chartShapesOf(t, s)[0]
+	if err := cs.SetAltText("图表替代文本"); err != nil {
+		t.Fatalf("SetAltText: %v", err)
+	}
+	if got := cs.AltText(); got != "图表替代文本" {
+		t.Fatalf("AltText = %q", got)
+	}
+	if cs.IsDecorative() {
+		t.Fatal("IsDecorative = true after SetAltText")
+	}
+	if err := cs.SetDecorative(true); err != nil {
+		t.Fatalf("SetDecorative: %v", err)
+	}
+	if got := cs.AltText(); got != "" {
+		t.Fatalf("AltText after decorative = %q, want empty（互斥）", got)
+	}
+	if !cs.IsDecorative() {
+		t.Fatal("IsDecorative = false after SetDecorative(true)")
+	}
+	// 关闭后失效。
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if err := cs.SetAltText("x"); !errors.Is(err, ErrClosed) {
+		t.Fatalf("closed SetAltText %v, want ErrClosed", err)
+	}
+	if err := cs.SetDecorative(false); !errors.Is(err, ErrClosed) {
+		t.Fatalf("closed SetDecorative %v, want ErrClosed", err)
+	}
+}
+
+func TestChartPlotElementMapping(t *testing.T) {
+	for typ, want := range map[ChartType]string{
+		ChartBar:  "barChart",
+		ChartLine: "lineChart",
+		ChartPie:  "pieChart",
+	} {
+		if got := typ.plotElement(); got != want {
+			t.Fatalf("plotElement(%d) = %q, want %q", typ, got, want)
+		}
+		if back, ok := chartTypeFromPlot(want); !ok || back != typ {
+			t.Fatalf("chartTypeFromPlot(%q) = %d %v, want %d", want, back, ok, typ)
+		}
+	}
+	if ChartType(99).plotElement() != "" {
+		t.Fatal("unknown plotElement not empty")
+	}
+	if _, ok := chartTypeFromPlot("areaChart"); ok {
+		t.Fatal("unknown plot matched")
+	}
+}
+
+func TestChartSerCategoriesAllPaths(t *testing.T) {
+	cases := []struct {
+		name string
+		cat  string
+		want []string
+	}{
+		{"strRef", `<c:cat><c:strRef><c:strCache><c:pt idx="0"><c:v>A</c:v></c:pt><c:pt idx="1"><c:v>B</c:v></c:pt></c:strCache></c:strRef></c:cat>`, []string{"A", "B"}},
+		{"numRef", `<c:cat><c:numRef><c:numCache><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2</c:v></c:pt></c:numCache></c:numRef></c:cat>`, []string{"1", "2"}},
+		{"strLit", `<c:cat><c:strLit><c:pt idx="0"><c:v>X</c:v></c:pt></c:strLit></c:cat>`, []string{"X"}},
+		{"numLit", `<c:cat><c:numLit><c:pt idx="0"><c:v>7</c:v></c:pt></c:numLit></c:cat>`, []string{"7"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			xml := `<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart><c:plotArea><c:barChart><c:ser>` +
+				tc.cat + `<c:val><c:numRef><c:numCache><c:pt idx="0"><c:v>1</c:v></c:pt></c:numCache></c:numRef></c:val>` +
+				`</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>`
+			doc, err := xmlstore.Index([]byte(xml))
+			if err != nil {
+				t.Fatalf("Index: %v", err)
+			}
+			sers := doc.Elements("http://schemas.openxmlformats.org/drawingml/2006/chart", "ser")
+			if len(sers) != 1 {
+				t.Fatalf("ser elements = %d", len(sers))
+			}
+			got, ok := chartSerCategories(doc, doc.Node(sers[0]))
+			if !ok {
+				t.Fatal("categories not resolved")
+			}
+			if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+				t.Fatalf("categories = %v, want %v", got, tc.want)
+			}
+		})
+	}
+	// 无 cat → false。
+	xml := `<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart><c:plotArea><c:barChart><c:ser><c:val><c:numRef><c:numCache/></c:numRef></c:val></c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>`
+	doc, err := xmlstore.Index([]byte(xml))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	sers := doc.Elements("http://schemas.openxmlformats.org/drawingml/2006/chart", "ser")
+	if got, ok := chartSerCategories(doc, doc.Node(sers[0])); ok || got != nil {
+		t.Fatalf("no-cat = %v %v", got, ok)
+	}
+}
+
+func TestChartSerValuesAndName(t *testing.T) {
+	const ns = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+	mkDoc := func(serBody string) (*xmlstore.XMLDocument, *xmlstore.NodeRecord) {
+		xml := `<c:chartSpace xmlns:c="` + ns + `"><c:chart><c:plotArea><c:barChart><c:ser>` +
+			serBody + `</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>`
+		doc, err := xmlstore.Index([]byte(xml))
+		if err != nil {
+			t.Fatalf("Index: %v", err)
+		}
+		sers := doc.Elements(ns, "ser")
+		return doc, doc.Node(sers[0])
+	}
+	// 系列名：tx/v 与 tx/strRef/strCache。
+	doc, ser := mkDoc(`<c:tx><c:v>Direct</c:v></c:tx>`)
+	if got := chartSerName(doc, ser); got != "Direct" {
+		t.Fatalf("tx/v name = %q", got)
+	}
+	doc, ser = mkDoc(`<c:tx><c:strRef><c:strCache><c:pt idx="0"><c:v>RefName</c:v></c:pt></c:strCache></c:strRef></c:tx>`)
+	if got := chartSerName(doc, ser); got != "RefName" {
+		t.Fatalf("strRef name = %q", got)
+	}
+	doc, ser = mkDoc(`<c:tx><c:strRef><c:strCache/></c:strRef></c:tx>`)
+	if got := chartSerName(doc, ser); got != "" {
+		t.Fatalf("empty cache name = %q", got)
+	}
+	// 无 tx → 空名。
+	doc, ser = mkDoc(``)
+	if got := chartSerName(doc, ser); got != "" {
+		t.Fatalf("no-tx name = %q", got)
+	}
+	// 数值：numRef/numCache 与 numLit，含非数值 pt → 0。
+	doc, ser = mkDoc(`<c:val><c:numRef><c:numCache><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2.5</c:v></c:pt></c:numCache></c:numRef></c:val>`)
+	got := chartSerValues(doc, ser)
+	if len(got) != 2 || got[0] != 1 || got[1] != 2.5 {
+		t.Fatalf("numRef values = %v", got)
+	}
+	doc, ser = mkDoc(`<c:val><c:numLit><c:pt idx="0"><c:v>3</c:v></c:pt><c:pt idx="1"><c:v>bad</c:v></c:pt></c:numLit></c:val>`)
+	got = chartSerValues(doc, ser)
+	if len(got) != 2 || got[0] != 3 || got[1] != 0 {
+		t.Fatalf("numLit values = %v", got)
+	}
+	doc, ser = mkDoc(`<c:val><c:numRef><c:numCache/></c:numRef></c:val>`)
+	if got := chartSerValues(doc, ser); len(got) != 0 {
+		t.Fatalf("empty values = %v", got)
+	}
+	doc, ser = mkDoc(`<c:val/>`)
+	if got := chartSerValues(doc, ser); len(got) != 0 {
+		t.Fatalf("no-val = %v", got)
+	}
+}
+
+func TestChartIsCanonicalBranches(t *testing.T) {
+	const ns = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+	ser := `<c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>s</c:v></c:tx><c:cat><c:strRef><c:strCache><c:pt idx="0"><c:v>a</c:v></c:pt></c:strCache></c:strRef></c:cat><c:val><c:numRef><c:numCache><c:pt idx="0"><c:v>1</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser>`
+	bar := `<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/>` + ser + `<c:axId val="1"/><c:axId val="2"/></c:barChart>`
+	line := `<c:lineChart><c:grouping val="standard"/>` + ser + `<c:axId val="1"/><c:axId val="2"/></c:lineChart>`
+	pie := `<c:pieChart><c:varyColors val="0"/>` + ser + `</c:pieChart>`
+	axes := `<c:catAx><c:axId val="1"/></c:catAx><c:valAx><c:axId val="2"/></c:valAx>`
+	chart := `<c:chart><c:plotArea>` + bar + axes + `</c:plotArea></c:chart>`
+
+	idx := func(x string) (*xmlstore.XMLDocument, *xmlstore.NodeRecord) {
+		t.Helper()
+		doc, err := xmlstore.Index([]byte(`<c:chartSpace xmlns:c="` + ns + `">` + x + `</c:chartSpace>`))
+		if err != nil {
+			t.Fatalf("Index: %v", err)
+		}
+		return doc, doc.Root()
+	}
+	cases := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"canonical-bar", chart, true},
+		{"canonical-line", `<c:chart><c:plotArea>` + line + axes + `</c:plotArea></c:chart>`, true},
+		{"canonical-pie", `<c:chart><c:plotArea>` + pie + `</c:plotArea></c:chart>`, true},
+		{"extra-chartSpace-child", chart + `<c:foo xmlns:c="` + ns + `"/>`, false},
+		{"non-chartML-child", `<c:chart><c:plotArea><x:x xmlns:x="urn:x"/></c:plotArea></c:chart>`, false},
+		{"missing-plotArea", `<c:chart/>`, false},
+		{"layout-nonempty", `<c:chart><c:plotArea><c:layout><c:manualLayout/></c:layout>` + bar + axes + `</c:plotArea></c:chart>`, false},
+		{"multi-plot", `<c:chart><c:plotArea>` + bar + pie + axes + `</c:plotArea></c:chart>`, false},
+		{"unknown-bar-child", `<c:chart><c:plotArea><c:barChart><c:bad/></c:barChart>` + axes + `</c:plotArea></c:chart>`, false},
+		{"zero-ser", `<c:chart><c:plotArea><c:barChart><c:axId val="1"/><c:axId val="2"/></c:barChart>` + axes + `</c:plotArea></c:chart>`, false},
+		{"bar-missing-valAx", `<c:chart><c:plotArea><c:barChart>` + ser + `<c:axId val="1"/></c:barChart><c:catAx><c:axId val="1"/></c:catAx></c:plotArea></c:chart>`, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc, root := idx(tc.body)
+			if got := chartIsCanonical(doc, root); got != tc.want {
+				t.Fatalf("chartIsCanonical = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestChartOfGraphicBranches(t *testing.T) {
+	idx := func(x string) (*xmlstore.XMLDocument, *xmlstore.NodeRecord) {
+		t.Helper()
+		doc, err := xmlstore.Index([]byte(x))
+		if err != nil {
+			t.Fatalf("Index: %v", err)
+		}
+		return doc, doc.Root()
+	}
+	// 正常：graphic → graphicData(图表 URI) → c:chart。
+	ok := `<p:graphicFrame xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `" xmlns:c="` + nsChartML + `">` +
+		`<a:graphic><a:graphicData uri="` + chartGraphicURI + `"><c:chart/></a:graphicData></a:graphic></p:graphicFrame>`
+	doc, root := idx(ok)
+	if got := chartOfGraphic(doc, root); got == nil || got.Namespace != nsChartML || got.Local() != "chart" {
+		t.Fatalf("normal chartOfGraphic = %+v", got)
+	}
+	// 非图表 URI → nil。
+	other := `<p:graphicFrame xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `" xmlns:c="` + nsChartML + `">` +
+		`<a:graphic><a:graphicData uri="urn:other"><c:chart/></a:graphicData></a:graphic></p:graphicFrame>`
+	doc, root = idx(other)
+	if got := chartOfGraphic(doc, root); got != nil {
+		t.Fatalf("non-chart URI matched: %+v", got)
+	}
+	// 无 graphic → nil。
+	doc, root = idx(`<p:graphicFrame xmlns:p="` + nsPresentationML + `"/>`)
+	if got := chartOfGraphic(doc, root); got != nil {
+		t.Fatalf("no graphic matched: %+v", got)
+	}
+	// graphic 无 graphicData → nil。
+	doc, root = idx(`<p:graphicFrame xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `"><a:graphic/></p:graphicFrame>`)
+	if got := chartOfGraphic(doc, root); got != nil {
+		t.Fatalf("no graphicData matched: %+v", got)
+	}
+	// graphicData 有 URI 但无 c:chart 子元素 → nil。
+	doc, root = idx(`<p:graphicFrame xmlns:a="` + nsDrawingML + `" xmlns:p="` + nsPresentationML + `"><a:graphic><a:graphicData uri="` + chartGraphicURI + `"/></a:graphic></p:graphicFrame>`)
+	if got := chartOfGraphic(doc, root); got != nil {
+		t.Fatalf("no chart child matched: %+v", got)
+	}
+}
+
+func TestCanonicalPredicates(t *testing.T) {
+	const ns = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+	const ad = nsDrawingML
+	mk := func(inner string) (*xmlstore.XMLDocument, *xmlstore.NodeRecord) {
+		t.Helper()
+		doc, err := xmlstore.Index([]byte(`<r xmlns:c="` + ns + `" xmlns:a="` + ad + `">` + inner + `</r>`))
+		if err != nil {
+			t.Fatalf("Index: %v", err)
+		}
+		root := doc.Root()
+		if len(root.Children) == 0 {
+			t.Fatal("empty test element")
+		}
+		return doc, doc.Node(root.Children[0])
+	}
+
+	t.Run("canonicalSer", func(t *testing.T) {
+		good := `<c:ser><c:idx/><c:order/><c:tx/><c:cat/><c:val/></c:ser>`
+		doc, root := mk(good)
+		if !canonicalSer(doc, root, ChartBar) {
+			t.Fatal("bar ser rejected")
+		}
+		doc, root = mk(`<c:ser><c:smooth/></c:ser>`)
+		if !canonicalSer(doc, root, ChartLine) {
+			t.Fatal("line smooth rejected")
+		}
+		if canonicalSer(doc, root, ChartBar) {
+			t.Fatal("smooth allowed on bar")
+		}
+		doc, root = mk(`<c:ser><c:bad/></c:ser>`)
+		if canonicalSer(doc, root, ChartBar) {
+			t.Fatal("unknown ser child allowed")
+		}
+		doc, root = mk(`<c:ser><x:x xmlns:x="urn:x"/></c:ser>`)
+		if canonicalSer(doc, root, ChartBar) {
+			t.Fatal("non-chartML ser child allowed")
+		}
+		doc, root = mk(`<c:ser><c:trendline><c:bad/></c:trendline></c:ser>`)
+		if canonicalSer(doc, root, ChartBar) {
+			t.Fatal("bad trendline accepted")
+		}
+		doc, root = mk(`<c:ser><c:errBars><c:bad/></c:errBars></c:ser>`)
+		if canonicalSer(doc, root, ChartBar) {
+			t.Fatal("bad errBars accepted")
+		}
+	})
+
+	t.Run("canonicalTrendlineAndErrBars", func(t *testing.T) {
+		doc, root := mk(`<c:trendline><c:name/><c:trendlineType/><c:dispEq/></c:trendline>`)
+		if !canonicalTrendline(doc, root) {
+			t.Fatal("good trendline rejected")
+		}
+		doc, root = mk(`<c:trendline><x:x xmlns:x="urn:x"/></c:trendline>`)
+		if canonicalTrendline(doc, root) {
+			t.Fatal("non-chartML trendline accepted")
+		}
+		doc, root = mk(`<c:errBars><c:errDir/><c:errBarType/><c:noEndCap/></c:errBars>`)
+		if !canonicalErrBars(doc, root) {
+			t.Fatal("good errBars rejected")
+		}
+		doc, root = mk(`<c:errBars><c:weird/></c:errBars>`)
+		if canonicalErrBars(doc, root) {
+			t.Fatal("unknown errBars accepted")
+		}
+	})
+
+	t.Run("canonicalTitleAndRichText", func(t *testing.T) {
+		good := `<c:title><c:overlay/><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>x</a:t></a:r></a:p></c:rich></c:tx></c:title>`
+		doc, root := mk(good)
+		if !canonicalTitleSubtree(doc, root) {
+			t.Fatal("good title rejected")
+		}
+		doc, root = mk(`<c:title><c:bad/></c:title>`)
+		if canonicalTitleSubtree(doc, root) {
+			t.Fatal("unknown title child accepted")
+		}
+		// rich 缺失 / 多子元素 / 非法富文本元素。
+		doc, root = mk(`<c:tx/>`)
+		if canonicalRichText(doc, root) {
+			t.Fatal("missing rich accepted")
+		}
+		doc, root = mk(`<c:tx><c:rich/><c:extra/></c:tx>`)
+		if canonicalRichText(doc, root) {
+			t.Fatal("extra tx child accepted")
+		}
+		doc, root = mk(`<c:tx><c:rich><a:bad/></c:rich></c:tx>`)
+		if canonicalRichText(doc, root) {
+			t.Fatal("bad rich element accepted")
+		}
+	})
+
+	t.Run("canonicalAxExtensions", func(t *testing.T) {
+		doc, root := mk(`<c:catAx><c:axId/><c:scaling><c:orientation/></c:scaling></c:catAx>`)
+		if !canonicalAxExtensions(doc, root, true) {
+			t.Fatal("good axes rejected")
+		}
+		doc, root = mk(`<c:catAx><c:scaling><c:logBase/></c:scaling></c:catAx>`)
+		if canonicalAxExtensions(doc, root, false) {
+			t.Fatal("logBase accepted when disallowed")
+		}
+		if !canonicalAxExtensions(doc, root, true) {
+			t.Fatal("logBase rejected when allowed")
+		}
+		doc, root = mk(`<c:catAx><c:scaling><x:x xmlns:x="urn:x"/></c:scaling></c:catAx>`)
+		if canonicalAxExtensions(doc, root, true) {
+			t.Fatal("non-chartML scaling child accepted")
+		}
+		doc, root = mk(`<c:catAx><c:weird/></c:catAx>`)
+		if canonicalAxExtensions(doc, root, true) {
+			t.Fatal("unknown axes child accepted")
+		}
+	})
+}
+
+func TestChartWorkbookPartOfBranches(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	s := SlidesOf(t, p)[0]
+	if _, err := s.AddChart(context.Background(), chartSpecFixture()); err != nil {
+		t.Fatalf("AddChart: %v", err)
+	}
+	cs := chartShapesOf(t, s)[0]
+	part, err := cs.chartPartOf()
+	if err != nil {
+		t.Fatalf("chartPartOf: %v", err)
+	}
+	if name, ok := p.chartWorkbookPartOf(part); !ok || !strings.Contains(string(name), "/ppt/embeddings/") {
+		t.Fatalf("chartWorkbookPartOf = %q %v", name, ok)
+	}
+	// 不存在的 Part → false。
+	if _, ok := p.chartWorkbookPartOf("/ppt/charts/nope.xml"); ok {
+		t.Fatal("missing part reported workbook")
+	}
+	// 无 package 关系的 Part（slide 自身）→ false。
+	slides, _ := p.Slides()
+	if _, ok := p.chartWorkbookPartOf(slides[0].part); ok {
+		t.Fatal("slide part reported workbook")
+	}
+}
+
 func mustPartBytes(t *testing.T, p *Presentation, name opc.PartName) []byte {
 	t.Helper()
 	b, err := p.partBytes(name)

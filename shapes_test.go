@@ -352,6 +352,40 @@ func TestShapeHandleLifecycle(t *testing.T) {
 	}
 }
 
+func TestShapeNodePathAndPlaceholder(t *testing.T) {
+	p := shapeDeckFixture(t)
+	defer p.Close()
+	s, err := p.Slide(0)
+	if err != nil {
+		t.Fatalf("Slide(0): %v", err)
+	}
+	shapes, err := s.Shapes()
+	if err != nil {
+		t.Fatalf("Shapes: %v", err)
+	}
+	// 顶层形状 NodePath 以 spTree 为祖先。
+	for _, sh := range shapes {
+		np := sh.NodePath()
+		if !strings.HasPrefix(np, "p:cSld[0]/p:spTree[0]/") {
+			t.Errorf("id=%d NodePath = %q, want spTree ancestor", sh.ID(), np)
+		}
+	}
+	// 占位符规范化：type=title → title/0；仅 idx=2 无 type → obj/2。
+	title := shapeByID(t, shapes, 2).(*AutoShape)
+	if typ, idx, ok := title.Placeholder(); !ok || typ != "title" || idx != 0 {
+		t.Errorf("title placeholder = %q/%d/%v, want title/0/true", typ, idx, ok)
+	}
+	obj := shapeByID(t, shapes, 9).(*AutoShape)
+	if typ, idx, ok := obj.Placeholder(); !ok || typ != "obj" || idx != 2 {
+		t.Errorf("obj placeholder = %q/%d/%v, want obj/2/true", typ, idx, ok)
+	}
+	// 非占位符 TextBox → ok=false。
+	box := shapeByID(t, shapes, 4).(*AutoShape)
+	if typ, idx, ok := box.Placeholder(); ok {
+		t.Errorf("textbox placeholder = %q/%d/%v, want not ok", typ, idx, ok)
+	}
+}
+
 // tfText 返回 TextFrame 全文本（段落以 '\n' 连接；测试便捷读取）。
 func tfText(t *testing.T, tf *TextFrame) string {
 	t.Helper()

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -510,5 +511,56 @@ func TestRejectOutputFlag(t *testing.T) {
 	fsReject.String("output", "", "output path")
 	if code := rejectOutputFlag(fsReject); code != ExitUsageError {
 		t.Errorf("with --output = %v, want UsageError", code)
+	}
+}
+
+func TestContextFromArgsPreservesArgs(t *testing.T) {
+	args := []string{"inspect", "input.pptx"}
+	ctx, out := contextFromArgs(args)
+	if ctx == nil {
+		t.Fatal("context is nil")
+	}
+	if len(out) != len(args) || out[0] != args[0] || out[1] != args[1] {
+		t.Fatalf("args = %v, want %v", out, args)
+	}
+}
+
+func TestUsageBind(t *testing.T) {
+	orig := stderrW
+	var b strings.Builder
+	stderrW = &b
+	defer func() { stderrW = orig }()
+	usageBind()
+	if got := b.String(); !strings.Contains(got, "pptx bind") || !strings.Contains(got, "--data") || !strings.Contains(got, "--output") {
+		t.Fatalf("usageBind output = %q", got)
+	}
+}
+
+func TestOutputHelpers(t *testing.T) {
+	dir := t.TempDir()
+	existing := filepath.Join(dir, "out.pptx")
+	if err := os.WriteFile(existing, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if f, err := openFileForWrite(existing, false); err == nil {
+		_ = f.Close()
+		t.Fatal("openFileForWrite existing without overwrite succeeded")
+	}
+	created := filepath.Join(dir, "created.pptx")
+	f, err := openFileForWrite(created, false)
+	if err != nil {
+		t.Fatalf("openFileForWrite create: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openFileForWrite(dir, true); err == nil {
+		t.Fatal("openFileForWrite directory path succeeded")
+	}
+	if got := resolveOutputPath(""); got != "" {
+		t.Fatalf("resolve empty = %q", got)
+	}
+	if got := resolveOutputPath("relative.pptx"); !filepath.IsAbs(got) || !strings.HasSuffix(got, "relative.pptx") {
+		t.Fatalf("resolve relative = %q", got)
 	}
 }

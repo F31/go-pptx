@@ -3,6 +3,8 @@ package pptx
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/F31/go-pptx/internal/opc"
@@ -45,5 +47,37 @@ func TestOpenReader_ExternalOfficeDocument(t *testing.T) {
 	}
 	if !errors.Is(err, ErrMalformedPackage) {
 		t.Fatalf("OpenReader error = %v, want ErrMalformedPackage", err)
+	}
+}
+
+func TestOpenFileErrorBranches(t *testing.T) {
+	// 路径不存在 → os.Open 失败（Annotate 包装，不含错误分类哨兵）。
+	if _, err := Open(filepath.Join(t.TempDir(), "missing.pptx")); err == nil {
+		t.Fatal("Open missing path succeeded")
+	}
+	// 目录路径 → os.Open 成功但 Stat/读失败路径。
+	if _, err := Open(t.TempDir()); err == nil {
+		t.Fatal("Open directory succeeded")
+	}
+	// 非 ZIP 内容 → opc.Load 失败映射 ErrMalformedPackage。
+	dir := t.TempDir()
+	bad := filepath.Join(dir, "bad.pptx")
+	if err := os.WriteFile(bad, []byte("not a zip"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(bad); !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("Open bad file: %v, want ErrMalformedPackage", err)
+	}
+	// 合法 Open 路径仍可用。
+	good := filepath.Join(dir, "good.pptx")
+	if err := os.WriteFile(good, newDocBytes(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Open(good)
+	if err != nil {
+		t.Fatalf("Open good file: %v", err)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
 	}
 }

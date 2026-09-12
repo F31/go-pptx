@@ -325,3 +325,49 @@ func TestCapability_NoExternalFixtureRequired(t *testing.T) {
 		t.Fatal("main part discovery failed")
 	}
 }
+
+func TestCapability_StandaloneHelpers(t *testing.T) {
+	m := NewCapabilityManifest()
+	if len(m.Dimensions) != 6 {
+		t.Fatalf("dimensions = %d, want 6", len(m.Dimensions))
+	}
+	if len(m.Features) != 0 {
+		t.Fatalf("initial features = %d, want empty", len(m.Features))
+	}
+	PopulateCapabilityDimensions(&m)
+	for _, k := range []string{
+		CapabilityInspect, CapabilityCreate, CapabilityEdit,
+		CapabilityPreserve, CapabilityRender, CapabilityPlay,
+	} {
+		if _, ok := m.Dimensions[k]; !ok {
+			t.Errorf("dimension %q missing after PopulateCapabilityDimensions", k)
+		}
+	}
+	PopulateCapabilityFeatures(&m)
+	if len(m.Features) == 0 {
+		t.Fatal("features not populated")
+	}
+	SortCapabilityFeatures(&m)
+	for i := 1; i < len(m.Features); i++ {
+		if m.Features[i-1].Key >= m.Features[i].Key {
+			t.Fatalf("features not sorted: %q then %q", m.Features[i-1].Key, m.Features[i].Key)
+		}
+	}
+	indent, err := MarshalManifestIndent(m, "  ")
+	if err != nil {
+		t.Fatalf("MarshalManifestIndent: %v", err)
+	}
+	if !bytes.Contains(indent, []byte("\n  \"")) {
+		t.Fatalf("indent output missing indentation: %s", indent)
+	}
+	if !bytes.Contains(indent, []byte(`"schemaVersion": "`+CapabilityManifestSchemaVersion+`"`)) {
+		t.Fatalf("indent output missing schemaVersion: %s", indent)
+	}
+	round, err := UnmarshalManifest(indent)
+	if err != nil {
+		t.Fatalf("UnmarshalManifest: %v", err)
+	}
+	if round.SchemaVersion != m.SchemaVersion || len(round.Features) != len(m.Features) {
+		t.Fatalf("round-trip mismatch: %+v vs %+v", round.SchemaVersion, len(round.Features))
+	}
+}

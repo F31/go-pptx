@@ -269,3 +269,58 @@ func TestScannerEmptyAndSimple(t *testing.T) {
 		}
 	}
 }
+
+func TestScannerAccessorsAndTokenKindStrings(t *testing.T) {
+	want := map[TokenKind]string{
+		TokenStart:    "Start",
+		TokenEnd:      "End",
+		TokenText:     "Text",
+		TokenComment:  "Comment",
+		TokenPI:       "PI",
+		TokenCDATA:    "CDATA",
+		TokenDoctype:  "Doctype",
+		TokenKind(99): "Unknown",
+	}
+	for kind, str := range want {
+		if got := kind.String(); got != str {
+			t.Fatalf("TokenKind(%d).String = %q, want %q", kind, got, str)
+		}
+	}
+	s, err := NewScanner([]byte(`<a><b/></a>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ErrOffset() != -1 || s.Depth() != 0 {
+		t.Fatalf("initial offset/depth = %d/%d", s.ErrOffset(), s.Depth())
+	}
+	if !s.Next() || s.Token().RawName != "a" || s.Depth() != 1 {
+		t.Fatalf("after root start token=%+v depth=%d", s.Token(), s.Depth())
+	}
+	if !s.Next() || s.Token().RawName != "b" || !s.Token().SelfClosing || s.Depth() != 1 {
+		t.Fatalf("after self-closing token=%+v depth=%d", s.Token(), s.Depth())
+	}
+	for s.Next() {
+	}
+	if s.Err() != nil || s.ErrOffset() != -1 || s.Depth() != 0 {
+		t.Fatalf("final err=%v offset=%d depth=%d", s.Err(), s.ErrOffset(), s.Depth())
+	}
+}
+
+func TestSyntaxErrorFormatting(t *testing.T) {
+	s, err := NewScanner([]byte(`<a><b></a>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for s.Next() {
+	}
+	var se *SyntaxError
+	if !errors.As(s.Err(), &se) {
+		t.Fatalf("err = %v, want SyntaxError", s.Err())
+	}
+	if s.ErrOffset() != se.Offset {
+		t.Fatalf("ErrOffset = %d, want %d", s.ErrOffset(), se.Offset)
+	}
+	if !strings.Contains(se.Error(), "byte offset") {
+		t.Fatalf("SyntaxError string = %q", se.Error())
+	}
+}

@@ -163,6 +163,37 @@ func TestCorePropertiesSetPatchAndReadBack(t *testing.T) {
 	}
 }
 
+func TestCorePropertiesCreatesCoreAndAppRootRelsTogether(t *testing.T) {
+	p := openDocProps(t, docPropsParts(t, true, true, false))
+	defer p.Close()
+
+	if err := p.SetCoreProperties(CorePropertiesPatch{
+		Title:   NewOptional("Report"),
+		Company: NewOptional("F31"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if _, err := p.Write(context.Background(), &buf); err != nil {
+		t.Fatal(err)
+	}
+	p2 := openDocPropsReader(t, buf.Bytes())
+	defer p2.Close()
+	if rel, ok := p2.rootRelTargetPublic(relCoreProps); !ok || rel != "/docProps/core.xml" {
+		t.Fatalf("core rel = %q %v, want /docProps/core.xml true", rel, ok)
+	}
+	if rel, ok := p2.rootRelTargetPublic(relExtProps); !ok || rel != "/docProps/app.xml" {
+		t.Fatalf("app rel = %q %v, want /docProps/app.xml true", rel, ok)
+	}
+	cp, err := p2.CoreProperties()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp.Title.Value != "Report" || cp.Company.Value != "F31" {
+		t.Fatalf("core props = %+v, want title and company", cp)
+	}
+}
+
 // rootRelTargetPublic 暴露内部辅助供测试断言。
 func (p *Presentation) rootRelTargetPublic(relType string) (opc.PartName, bool) {
 	name, ok, _ := p.rootRelTarget(relType)

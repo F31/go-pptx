@@ -241,6 +241,273 @@ func TestAudioProfile_RecordsAllFields(t *testing.T) {
 	}
 }
 
+func TestAudioShape_KindAndSourceAccessors(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	slides, _ := p.Slides()
+	mp3 := minimalMP3()
+	as, err := slides[0].AddAudio(context.Background(), BytesMedia(mp3, "audio/mpeg"),
+		AudioSpec{TrackKey: "acc", Source: BytesMedia(mp3, "audio/mpeg"), Role: AudioRoleBackground})
+	if err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	if as.Kind() != ShapeAudio {
+		t.Fatalf("Kind = %v, want ShapeAudio", as.Kind())
+	}
+	src, err := as.AudioSource()
+	if err != nil {
+		t.Fatalf("AudioSource: %v", err)
+	}
+	if got := src.DeclaredType(); got != "audio/mpeg" {
+		t.Fatalf("DeclaredType = %q", got)
+	}
+	if got := audioCTForExt("WAV"); got != "audio/wav" {
+		t.Fatalf("audioCTForExt(WAV) = %q", got)
+	}
+	if got := audioCTForExt("ogg"); got != "application/octet-stream" {
+		t.Fatalf("audioCTForExt(ogg) = %q", got)
+	}
+	if got := extOfMedia("/ppt/media/audio1.mp3"); got != "mp3" {
+		t.Fatalf("extOfMedia = %q", got)
+	}
+	if got := extOfMedia("/ppt/media/noext"); got != "" {
+		t.Fatalf("extOfMedia(noext) = %q", got)
+	}
+	if got := p.DebugAudioXML(); !strings.Contains(got, "AudioProfile") {
+		t.Fatalf("DebugAudioXML missing profile: %.200s", got)
+	}
+	var nilP *Presentation
+	if got := nilP.DebugAudioXML(); got != "" {
+		t.Fatalf("nil DebugAudioXML = %q", got)
+	}
+}
+
+func TestAudioShape_AudioSourceErrorBranches(t *testing.T) {
+	p := audioDeck(t)
+	slides, _ := p.Slides()
+	mp3 := minimalMP3()
+	as, err := slides[0].AddAudio(context.Background(), BytesMedia(mp3, "audio/mpeg"),
+		AudioSpec{TrackKey: "err", Source: BytesMedia(mp3, "audio/mpeg"), Role: AudioRoleNarration})
+	if err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := as.AudioSource(); !errors.Is(err, ErrClosed) {
+		t.Fatalf("closed AudioSource: %v, want ErrClosed", err)
+	}
+	// 空 profile → ErrNotFound。
+	p2 := audioDeck(t)
+	defer p2.Close()
+	empty := &AudioShape{shapeNode: shapeNode{p: p2}}
+	if _, err := empty.AudioSource(); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("empty profile AudioSource: %v, want ErrNotFound", err)
+	}
+}
+
+func TestAudioAddAudio_ProbeErrorMapped(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	slides, _ := p.Slides()
+	// 损坏 ID3 头：probe 失败 → ErrUnsupportedFormat（mapProbeError 映射）。
+	bad := []byte{'I', 'D', '3', 4, 0, 0, 0x7f, 0x7f, 0x7f, 0x7f}
+	_, err := slides[0].AddAudio(context.Background(), BytesMedia(bad, "audio/mpeg"),
+		AudioSpec{TrackKey: "bad", Source: BytesMedia(bad, "audio/mpeg"),
+			Role: AudioRoleNarration, Duration: NewOptional[time.Duration](time.Second)})
+	if !errors.Is(err, ErrUnsupportedFormat) {
+		t.Fatalf("err = %v, want ErrUnsupportedFormat", err)
+	}
+	if err := mapProbeError(nil); err != nil {
+		t.Fatalf("mapProbeError(nil) = %v", err)
+	}
+}
+
+func TestAudioDebugAddedParts(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	// 空文档：无 added/override。
+	if got := p.debugAddedParts(); len(got) != 0 {
+		t.Fatalf("empty debugAddedParts = %v", got)
+	}
+	// 添加一个 Part 后出现。
+	slides, _ := p.Slides()
+	mp3 := minimalMP3()
+	if _, err := slides[0].AddAudio(context.Background(), BytesMedia(mp3, "audio/mpeg"),
+		AudioSpec{TrackKey: "dbg", Source: BytesMedia(mp3, "audio/mpeg"),
+			Role:     AudioRoleNarration,
+			Duration: NewOptional[time.Duration](time.Second)}); err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	got := p.debugAddedParts()
+	if len(got) == 0 {
+		t.Fatal("debugAddedParts empty after AddAudio")
+	}
+	var sawAudio bool
+	for _, n := range got {
+		if strings.HasPrefix(n, "/docProps/audio.xml") {
+			sawAudio = true
+		}
+	}
+	if !sawAudio {
+		t.Fatalf("audio.xml not staged: %v", got)
+	}
+}
+
+func TestAudioHelperEdges(t *testing.T) {
+	if got := roleFromString(" narration "); got != AudioRoleNarration {
+		t.Fatalf("role narration = %v", got)
+	}
+	if got := roleFromString("BACKGROUND"); got != AudioRoleBackground {
+		t.Fatalf("role background = %v", got)
+	}
+	if got := roleFromString("Effect"); got != AudioRoleEffect {
+		t.Fatalf("role effect = %v", got)
+	}
+	if got := roleFromString("weird"); got != AudioRoleNarration {
+		t.Fatalf("role unknown = %v", got)
+	}
+	if got := audioContentType(audioprobe.MediaInfo{Container: "wav"}); got != "audio/wav" {
+		t.Fatalf("ct wav = %q", got)
+	}
+	if got := audioContentType(audioprobe.MediaInfo{Container: "mp3"}); got != "audio/mpeg" {
+		t.Fatalf("ct mp3 = %q", got)
+	}
+	if got := audioContentType(audioprobe.MediaInfo{Container: "ogg"}); got != "application/octet-stream" {
+		t.Fatalf("ct ogg = %q", got)
+	}
+	if got := audioExt(audioprobe.MediaInfo{Container: "wav"}); got != "wav" {
+		t.Fatalf("ext wav = %q", got)
+	}
+	if got := audioExt(audioprobe.MediaInfo{Container: "ogg"}); got != "bin" {
+		t.Fatalf("ext ogg = %q", got)
+	}
+	if got := hintFromName("/ppt/media/x.mp3"); got != "mp3" {
+		t.Fatalf("hint = %q", got)
+	}
+	if got := hintFromName("noext"); got != "" {
+		t.Fatalf("hint noext = %q", got)
+	}
+	var sb strings.Builder
+	xmlEscapeAttr(&sb, `a"b&c<d>e`)
+	if got := sb.String(); got != `a&quot;b&amp;c&lt;d&gt;e` {
+		t.Fatalf("xmlEscapeAttr = %q", got)
+	}
+	sb.Reset()
+	xmlEscapeAttr(&sb, "plain")
+	if got := sb.String(); got != "plain" {
+		t.Fatalf("xmlEscapeAttr plain = %q", got)
+	}
+}
+
+func TestAudioPlaybackSpecDefaults(t *testing.T) {
+	var spec PlaybackSpec
+	if got := spec.Trigger.String(); got != "onSlideEnter" {
+		t.Fatalf("default trigger = %q", got)
+	}
+}
+
+func TestAudioDedupSharedMediaPart(t *testing.T) {
+	p := audioDeck(t)
+	slides, _ := p.Slides()
+	mp3 := minimalMP3()
+	spec := func(key string) AudioSpec {
+		return AudioSpec{TrackKey: key, Source: BytesMedia(mp3, "audio/mpeg"),
+			Role:     AudioRoleNarration,
+			Duration: NewOptional[time.Duration](time.Second)}
+	}
+	as1, err := slides[0].AddAudio(context.Background(), BytesMedia(mp3, "audio/mpeg"), spec("a1"))
+	if err != nil {
+		t.Fatalf("AddAudio a1: %v", err)
+	}
+	as2, err := slides[0].AddAudio(context.Background(), BytesMedia(mp3, "audio/mpeg"), spec("a2"))
+	if err != nil {
+		t.Fatalf("AddAudio a2: %v", err)
+	}
+	if as1.profile.MediaPart != as2.profile.MediaPart {
+		t.Fatalf("dedup failed: %s vs %s", as1.profile.MediaPart, as2.profile.MediaPart)
+	}
+	// 保存 → 重开 → 再同字节 AddAudio：复用已提交 Part（pk 分支）。
+	var buf bytes.Buffer
+	if _, err := p.Write(context.Background(), &buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	p.Close()
+	p2 := openFixture(t, buf.Bytes())
+	defer p2.Close()
+	slides2, _ := p2.Slides()
+	as3, err := slides2[0].AddAudio(context.Background(), BytesMedia(mp3, "audio/mpeg"), spec("a3"))
+	if err != nil {
+		t.Fatalf("AddAudio a3: %v", err)
+	}
+	if as3.profile.MediaPart != as1.profile.MediaPart {
+		t.Fatalf("pk dedup failed: %s vs %s", as3.profile.MediaPart, as1.profile.MediaPart)
+	}
+	// 不同内容 → 新 Part。
+	mp3b := append([]byte(nil), mp3...)
+	mp3b[4] ^= 0xff
+	as4, err := slides2[0].AddAudio(context.Background(), BytesMedia(mp3b, "audio/mpeg"), spec("a4"))
+	if err != nil {
+		t.Fatalf("AddAudio a4: %v", err)
+	}
+	if as4.profile.MediaPart == as1.profile.MediaPart {
+		t.Fatalf("different content reused part %s", as4.profile.MediaPart)
+	}
+}
+
+func TestAudioSourceRefOpenFailure(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	// 指向不存在的 part → Open 返回 ErrNotFound。
+	src := sourceRef{part: "/ppt/media/nope.mp3", ct: "audio/mpeg", p: p}
+	if _, err := src.Open(context.Background()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Open missing part err = %v, want ErrNotFound", err)
+	}
+	// 已关闭 → ErrClosed。
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := src.Open(context.Background()); !errors.Is(err, ErrClosed) {
+		t.Fatalf("Open closed err = %v, want ErrClosed", err)
+	}
+}
+
+func TestLastAudioHandleNotFound(t *testing.T) {
+	// 无音频 pic 的页面 → ErrNotFound。
+	p := slideWithBody(t, `<a:bodyPr/><a:p><a:r><a:t>X</a:t></a:r></a:p>`)
+	defer p.Close()
+	s := mustSlide(t, p)
+	if _, err := s.lastAudioHandle(); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("lastAudioHandle err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestRecordAudioProfileCorruptedReset(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	// 既有 audio.xml 无 </AudioProfiles> 闭标签 → 重置为仅含本条目。
+	corrupt := []byte(`<?xml version="1.0"?><AudioProfiles xmlns="x"><Profile trackKey="stale"/></AudioProfiles`)
+	if err := p.stagePatch("/docProps/audio.xml", corrupt); err != nil {
+		t.Fatalf("stagePatch: %v", err)
+	}
+	p.commit()
+	if err := p.recordAudioProfile(AudioProfile{TrackKey: "fresh", MediaPart: "/ppt/media/a.mp3", ContentSHA256: "s", Version: 1}); err != nil {
+		t.Fatalf("recordAudioProfile: %v", err)
+	}
+	if got := p.DebugAudioXML(); !strings.Contains(got, "fresh") || strings.Contains(got, "stale") {
+		t.Fatalf("reset audio.xml = %s", got)
+	}
+	// 无 Part → 新建全量。
+	p2 := audioDeck(t)
+	defer p2.Close()
+	if err := p2.recordAudioProfile(AudioProfile{TrackKey: "new", MediaPart: "/ppt/media/b.mp3"}); err != nil {
+		t.Fatalf("recordAudioProfile new: %v", err)
+	}
+	if got := p2.DebugAudioXML(); !strings.Contains(got, "new") {
+		t.Fatalf("new audio.xml = %s", got)
+	}
+}
+
 // audioDeck 是一个含 spTree 的最小可扩展模板。
 func audioDeck(t *testing.T) *Presentation {
 	t.Helper()

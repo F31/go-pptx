@@ -14,6 +14,33 @@ import (
 // minimalMP3 / minimalWAV / audioDeck / slideXML 由 audio_test.go 与
 // text_test.go 提供。
 
+func TestSyncTimingToAudio_Wrapper(t *testing.T) {
+	p := audioDeck(t)
+	defer p.Close()
+	slides, _ := p.Slides()
+	mp3 := minimalMP3()
+	as, err := slides[0].AddAudio(context.Background(), BytesMedia(mp3, "audio/mpeg"),
+		AudioSpec{TrackKey: "syn", Source: BytesMedia(mp3, "audio/mpeg"),
+			Role:     AudioRoleNarration,
+			Duration: NewOptional[time.Duration](2 * time.Second)})
+	if err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	if err := as.SetPlayback(PlaybackSpec{Trigger: PlaybackOnSlideEnter, StartDelay: 0}); err != nil {
+		t.Fatalf("SetPlayback: %v", err)
+	}
+	rep, err := p.SyncTimingToAudio(context.Background(), TimingSyncOptions{TailPadding: time.Second})
+	if err != nil {
+		t.Fatalf("SyncTimingToAudio: %v", err)
+	}
+	if rep.Applied != 1 {
+		t.Fatalf("applied = %d, want 1", rep.Applied)
+	}
+	if xb := slideXML(t, slides[0]); !strings.Contains(xb, `advTm="3000"`) {
+		t.Fatalf("slide XML missing advTm=3000:\n%s", xb)
+	}
+}
+
 func TestSetPlayback_AppendsTiming(t *testing.T) {
 	p := audioDeck(t)
 	defer p.Close()

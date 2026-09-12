@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // ---------- TABLE-01：富文本表格、合并、样式子集（§9.1） ----------
@@ -519,5 +520,72 @@ func TestTableSaveRoundTrip(t *testing.T) {
 	cont, _ := tb2.Cell(0, 1)
 	if ok, _ := cont.IsContinuation(); !ok {
 		t.Error("continuation flag lost across save")
+	}
+}
+
+func TestTableStyleHelperEdges(t *testing.T) {
+	// nil 守卫。
+	if got := tblStyleNode(nil, "x"); got != nil {
+		t.Fatalf("tblStyleNode(nil) = %+v", got)
+	}
+	if got := tblStyleNode(mustIndexTable(t, `<a:tblStyleLst xmlns:a="`+nsDrawingML+`"/>`), ""); got != nil {
+		t.Fatalf("tblStyleNode empty id = %+v", got)
+	}
+	if got := tblStylePartNode(nil, nil, PartFirstRow); got != nil {
+		t.Fatalf("tblStylePartNode(nil,nil) = %+v", got)
+	}
+	if got := tcStyleNode(nil, nil); got != nil {
+		t.Fatalf("tcStyleNode(nil,nil) = %+v", got)
+	}
+	if got, _ := fillIn(nil, nil); got != nil {
+		t.Fatalf("fillIn(nil,nil) = %+v", got)
+	}
+	// 找不到 styleId → nil。
+	doc := mustIndexTable(t, `<a:tblStyleLst xmlns:a="`+nsDrawingML+`"><a:tblStyle styleId="S1"/></a:tblStyleLst>`)
+	if got := tblStyleNode(doc, "nope"); got != nil {
+		t.Fatalf("missing style = %+v", got)
+	}
+	// fillPropIn 未知填充 → 默认。
+	doc2 := mustIndexTable(t, `<a:tcPr xmlns:a="`+nsDrawingML+`"><a:weirdFill/></a:tcPr>`)
+	root2 := doc2.Root()
+	if node, kind := fillPropIn(doc2, root2); node != nil || kind != FillUnspecified {
+		t.Fatalf("unknown fill = %+v %v", node, kind)
+	}
+}
+
+// mustIndexTable 构造仅含给定 spTree 内容的最小单页表格文档（白盒辅助）。
+func mustIndexTable(t *testing.T, xml string) *xmlstore.XMLDocument {
+	t.Helper()
+	doc, err := xmlstore.Index([]byte(xml))
+	if err != nil {
+		t.Fatalf("Index: %v", err)
+	}
+	return doc
+}
+
+func TestParseToggleVariants(t *testing.T) {
+	if got := parseToggle("on", true); got != ToggleOn {
+		t.Fatalf("on = %v", got)
+	}
+	if got := parseToggle("1", true); got != ToggleOn {
+		t.Fatalf("1 = %v", got)
+	}
+	if got := parseToggle("true", true); got != ToggleOn {
+		t.Fatalf("true = %v", got)
+	}
+	if got := parseToggle("off", true); got != ToggleOff {
+		t.Fatalf("off = %v", got)
+	}
+	if got := parseToggle("0", true); got != ToggleOff {
+		t.Fatalf("0 = %v", got)
+	}
+	if got := parseToggle("false", true); got != ToggleOff {
+		t.Fatalf("false = %v", got)
+	}
+	if got := parseToggle("weird", true); got != ToggleDefault {
+		t.Fatalf("weird = %v", got)
+	}
+	if got := parseToggle("on", false); got != ToggleDefault {
+		t.Fatalf("not-ok = %v", got)
 	}
 }

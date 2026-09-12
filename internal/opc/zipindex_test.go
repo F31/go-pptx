@@ -330,4 +330,44 @@ func TestPartName(t *testing.T) {
 	if got, _ := ContentTypesPartName.EntryName(); got != "[Content_Types].xml" {
 		t.Errorf("EntryName = %q", got)
 	}
+	if _, err := PartName("bad").EntryName(); !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("invalid EntryName err = %v, want ErrMalformedPackage", err)
+	}
+}
+
+func TestPartNameFromEntry(t *testing.T) {
+	got, err := PartNameFromEntry("ppt/slides/slide1.xml")
+	if err != nil {
+		t.Fatalf("PartNameFromEntry: %v", err)
+	}
+	if got != "/ppt/slides/slide1.xml" || got.String() != "/ppt/slides/slide1.xml" {
+		t.Fatalf("part name = %q", got)
+	}
+	for _, entry := range []string{"", "/abs.xml", `ppt\x.xml`, "ppt/../x.xml", "ppt/"} {
+		if _, err := PartNameFromEntry(entry); !errors.Is(err, ErrMalformedPackage) {
+			t.Fatalf("entry %q err = %v, want ErrMalformedPackage", entry, err)
+		}
+	}
+}
+
+func TestIndexEntryNamesCopyAndInvalidLookups(t *testing.T) {
+	data := zipBytes(t, map[string]string{"a.xml": "<a/>", "dir/b.xml": "<b/>"})
+	ix, err := scanBytes(t, data, Budget{})
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	names := ix.EntryNames()
+	if len(names) != 2 {
+		t.Fatalf("EntryNames = %v", names)
+	}
+	names[0] = "mutated.xml"
+	if ix.EntryNames()[0] == "mutated.xml" {
+		t.Fatal("EntryNames did not return a copy")
+	}
+	if ix.HasPart("bad") {
+		t.Fatal("invalid part reported present")
+	}
+	if _, err := ix.OpenPart("bad"); !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("OpenPart invalid err = %v, want ErrMalformedPackage", err)
+	}
 }

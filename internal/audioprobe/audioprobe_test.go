@@ -2,6 +2,8 @@ package audioprobe
 
 import (
 	"encoding/binary"
+	"errors"
+	"strings"
 	"testing"
 )
 
@@ -53,6 +55,73 @@ func TestProbeWAVPCM(t *testing.T) {
 	}
 	if info.BitrateKbps != 128 {
 		t.Errorf("bitrate = %d, want 128", info.BitrateKbps)
+	}
+}
+
+func TestProbeWAVFormatVariantsAndUnknownChunk(t *testing.T) {
+	for _, tc := range []struct {
+		tag  uint16
+		want string
+	}{
+		{0x0003, "ieee_float"},
+		{0xFFFE, "extensible"},
+		{0x1234, "format=0x1234"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			wav := wavSamplePCM(8000, 1, 16, 16000)
+			binary.LittleEndian.PutUint16(wav[20:22], tc.tag)
+			// Rewrite the data chunk as an unknown odd-sized chunk followed by data to cover warnings and padding.
+			prefix := append([]byte(nil), wav[:36]...)
+			prefix = append(prefix, []byte{'X', 'X', 'X', 'X', 1, 0, 0, 0, 0, 0}...)
+			prefix = append(prefix, wav[36:]...)
+			info, err := Probe(ProbeInput{Data: prefix})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.Encoding != tc.want {
+				t.Fatalf("encoding = %q, want %q", info.Encoding, tc.want)
+			}
+			if len(info.Warnings) == 0 || !strings.Contains(info.Warnings[0], "unknown wav chunk") {
+				t.Fatalf("warnings = %v", info.Warnings)
+			}
+		})
+	}
+}
+
+func TestProbeWAVMalformedChunks(t *testing.T) {
+	shortFmt := []byte("RIFF\x1c\x00\x00\x00WAVEfmt \x08\x00\x00\x00abcdefgh")
+	_, err := Probe(ProbeInput{Data: shortFmt})
+	if !errors.Is(err, ErrMalformedMedia) {
+		t.Fatalf("short fmt err = %v, want ErrMalformedMedia", err)
+	}
+	ds64 := []byte("RIFF\x14\x00\x00\x00WAVEds64\x08\x00\x00\x00abcdefgh")
+	_, err = Probe(ProbeInput{Data: ds64})
+	if !errors.Is(err, ErrMalformedMedia) {
+		t.Fatalf("short ds64 err = %v, want ErrMalformedMedia", err)
+	}
+	noFmt := []byte("RIFF\x10\x00\x00\x00WAVEJUNK\x00\x00\x00\x00")
+	_, err = Probe(ProbeInput{Data: noFmt})
+	if !errors.Is(err, ErrMalformedMedia) {
+		t.Fatalf("no fmt err = %v, want ErrMalformedMedia", err)
+	}
+}
+
+func TestProbeWAVDS64KnownDuration(t *testing.T) {
+	wav := []byte("RIFF\xff\xff\xff\xffWAVE")
+	ds64 := make([]byte, 8+28)
+	copy(ds64[:4], "ds64")
+	binary.LittleEndian.PutUint32(ds64[4:8], 28)
+	binary.LittleEndian.PutUint64(ds64[16:24], 16000)
+	wav = append(wav, ds64...)
+	fmtChunk := wavSamplePCM(8000, 1, 16, 0)[12:36]
+	wav = append(wav, fmtChunk...)
+	wav = append(wav, []byte{'d', 'a', 't', 'a', 0xff, 0xff, 0xff, 0xff}...)
+	info, err := Probe(ProbeInput{Data: wav})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.State != DurationKnown || info.Duration.Milliseconds() != 1000 {
+		t.Fatalf("state/duration = %v/%dms, want known 1000ms", info.State, info.Duration.Milliseconds())
 	}
 }
 
@@ -171,6 +240,30 @@ func TestProbeMP3CBR(t *testing.T) {
 	}
 }
 
+func TestMP3Helpers(t *testing.T) {
+	mono := mp3FrameHeader(false, false)
+	if got := detectChannels(mono); got != 1 {
+		t.Fatalf("mono channels = %d, want 1", got)
+	}
+	stereo := mp3FrameHeader(true, false)
+	if got := detectChannels(stereo); got != 2 {
+		t.Fatalf("stereo channels = %d, want 2", got)
+	}
+	withTag := append([]byte("audio"), make([]byte, 123)...)
+	copy(withTag[len(withTag)-128:], "TAG")
+	if got := skipID3v1(withTag); len(got) != len(withTag)-128 {
+		t.Fatalf("skipID3v1 len = %d, want %d", len(got), len(withTag)-128)
+	}
+	if _, _, _, _, ok := parseMP3Frame([]byte{0, 1, 2}); ok {
+		t.Fatal("short frame parsed ok")
+	}
+	badLayer := mp3FrameBytes(false, false)
+	badLayer[1] &^= 0b00000110
+	if _, _, _, _, ok := parseMP3Frame(badLayer); ok {
+		t.Fatal("bad layer parsed ok")
+	}
+}
+
 func TestProbeMP3WithID3(t *testing.T) {
 	// 构造 ID3v2 头 + 一帧 MP3。
 	data := append([]byte("ID3"), 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10)
@@ -200,6 +293,19 @@ func TestProbeMP3ID3v2Only(t *testing.T) {
 	}
 }
 
+func TestProbeMP3ID3Malformed(t *testing.T) {
+	data := []byte{'I', 'D', '3', 4, 0, 0, 0x7f, 0x7f, 0x7f, 0x7f}
+	_, err := Probe(ProbeInput{Data: data})
+	if !errors.Is(err, ErrMalformedMedia) {
+		t.Fatalf("err = %v, want ErrMalformedMedia", err)
+	}
+	data = []byte{'I', 'D', '3', 4, 0, 0, 0, 0, 0, 0}
+	_, err = Probe(ProbeInput{Data: data})
+	if !errors.Is(err, ErrMalformedMedia) {
+		t.Fatalf("err = %v, want ErrMalformedMedia", err)
+	}
+}
+
 func TestProbeMP3XingVBR(t *testing.T) {
 	// CBR 帧 + 紧跟的 Xing VBR 标签：frames=100。
 	frame := mp3FrameBytes(false, false)
@@ -217,6 +323,25 @@ func TestProbeMP3XingVBR(t *testing.T) {
 	// 100 帧 MPEG1/L3 = 100 * 1152 / 44100 ≈ 2.612 s。
 	if d := info.Duration.Milliseconds(); d < 2600 || d > 2625 {
 		t.Errorf("duration ms = %d, want ~2612", d)
+	}
+}
+
+func TestProbeMP3VBRI(t *testing.T) {
+	frame := mp3FrameBytes(false, false)
+	data := append([]byte(nil), frame...)
+	pad := make([]byte, 42)
+	copy(pad[32:36], "VBRI")
+	binary.BigEndian.PutUint16(pad[40:42], 50)
+	data = append(data, pad...)
+	info, err := Probe(ProbeInput{Data: data})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.State != DurationKnown {
+		t.Fatalf("state = %v, want known", info.State)
+	}
+	if d := info.Duration.Milliseconds(); d < 1300 || d > 1315 {
+		t.Fatalf("duration = %dms, want ~1306ms", d)
 	}
 }
 
@@ -241,6 +366,12 @@ func TestProbeByHintUnknown(t *testing.T) {
 }
 
 func TestKnownDuration(t *testing.T) {
+	if got := KnownDuration(-10).Nanoseconds; got != 0 {
+		t.Fatalf("negative duration = %d, want 0", got)
+	}
+	if got := (Duration{}).Milliseconds(); got != 0 {
+		t.Fatalf("zero duration ms = %d, want 0", got)
+	}
 	d := KnownDuration(1500)
 	if d.Nanoseconds != 1500 {
 		t.Errorf("nanos = %d", d.Nanoseconds)
@@ -257,9 +388,16 @@ func TestKnownDuration(t *testing.T) {
 }
 
 func TestProbeErrorUnwrap(t *testing.T) {
-	e := &ProbeError{Op: "x", Err: ErrMalformedMedia}
-	if !errIs(e, ErrMalformedMedia) {
+	e := &ProbeError{Op: "x", Message: "bad", Err: ErrMalformedMedia}
+	if !errors.Is(e, ErrMalformedMedia) || !errIs(e, ErrMalformedMedia) {
 		t.Error("unwrap failed")
+	}
+	if got := e.Error(); !strings.Contains(got, "x: bad") || !strings.Contains(got, ErrMalformedMedia.Error()) {
+		t.Fatalf("Error = %q", got)
+	}
+	plain := (&ProbeError{Op: "x", Message: "bad"}).Error()
+	if plain != "x: bad" {
+		t.Fatalf("plain Error = %q", plain)
 	}
 }
 

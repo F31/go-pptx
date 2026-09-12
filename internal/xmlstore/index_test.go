@@ -294,3 +294,52 @@ func TestIndexOriginalSharedAndRootless(t *testing.T) {
 		t.Error("Original should share input backing array")
 	}
 }
+
+func TestNodeAndAttributeAccessorsEdges(t *testing.T) {
+	d := mustIndex(t, `<r xmlns:p="urn:p" p:id="7" plain="x"><a/></r>`)
+	root := d.Root()
+	if root.Local() != "r" {
+		t.Fatalf("root local = %q", root.Local())
+	}
+	if v, ok := root.AttrLocal("id"); !ok || v != "7" {
+		t.Fatalf("AttrLocal(id) = %q ok=%v", v, ok)
+	}
+	if _, ok := root.AttrLocal("missing"); ok {
+		t.Fatal("missing AttrLocal matched")
+	}
+	if root.Scope() == nil {
+		t.Fatal("missing root scope")
+	}
+	if uri, ok := root.Scope().Resolve("p"); !ok || uri != "urn:p" {
+		t.Fatalf("scope p = %q ok=%v", uri, ok)
+	}
+	if got := root.Attrs[0].Name(); got.Prefix != "p" || got.Local != "id" {
+		t.Fatalf("attr name = %+v", got)
+	}
+	if got := root.Attrs[1].Local(); got != "plain" {
+		t.Fatalf("attr local = %q", got)
+	}
+	if n := d.Node(NodeID(99)); n != nil {
+		t.Fatalf("out-of-range node = %+v", n)
+	}
+	if got := d.Slice(ByteRange{Start: -1, End: 1}); got != nil {
+		t.Fatalf("invalid slice = %q", got)
+	}
+	if got := d.Slice(ByteRange{Start: 2, End: 1}); got != nil {
+		t.Fatalf("reversed slice = %q", got)
+	}
+	if got := d.Slice(ByteRange{Start: 0, End: len(d.Original()) + 1}); got != nil {
+		t.Fatalf("oversized slice = %q", got)
+	}
+}
+
+func TestDepthErrorFormatting(t *testing.T) {
+	_, err := IndexWith([]byte(`<a><b/></a>`), IndexOptions{MaxDepth: 1})
+	var de *DepthError
+	if !errors.As(err, &de) {
+		t.Fatalf("err = %v, want DepthError", err)
+	}
+	if !strings.Contains(de.Error(), "depth 2 exceeds limit 1") {
+		t.Fatalf("DepthError string = %q", de.Error())
+	}
+}

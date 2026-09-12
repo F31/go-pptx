@@ -189,8 +189,31 @@ func TestCheck_AsError_FromEnvelope(t *testing.T) {
 	// 走 check.Inspect("garbage") 拿到 ok=false 的 envelope，AsError 检测出来。
 	data := []byte("garbage")
 	out, _ := check.Inspect(context.Background(), data, "x.pptx")
-	if err := check.AsError(out); err == nil {
+	if err := check.AsError(out); err == nil || err.Error() == "" {
 		t.Errorf("AsError should report ok=false envelope")
+	}
+}
+
+func TestCheck_FailJSONAndAsErrorEdges(t *testing.T) {
+	out := check.FailJSON("missing input")
+	var env struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(out), &env); err != nil {
+		t.Fatalf("FailJSON invalid JSON: %v", err)
+	}
+	if env.OK || env.Error != "missing input" {
+		t.Fatalf("FailJSON envelope = %+v", env)
+	}
+	if err := check.AsError(out); err == nil || err.Error() != "missing input" {
+		t.Fatalf("AsError(FailJSON) = %v, want missing input", err)
+	}
+	if err := check.AsError("not-json"); err == nil || !strings.Contains(err.Error(), "parse result") {
+		t.Fatalf("AsError invalid JSON = %v", err)
+	}
+	if err := check.AsError(`{"ok":false}`); err == nil || !strings.Contains(err.Error(), "no error message") {
+		t.Fatalf("AsError missing message = %v", err)
 	}
 }
 

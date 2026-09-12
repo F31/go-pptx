@@ -409,6 +409,98 @@ func TestRunResetRemovesEmptyRPr(t *testing.T) {
 	}
 }
 
+func TestSetFontCreatesRPrAndReplacesFill(t *testing.T) {
+	// 无 rPr 的 Run：SetFont 属性 + 颜色新建 rPr 并插入 solidFill。
+	p := slideWithBody(t, `<a:bodyPr/><a:p><a:r><a:t>X</a:t></a:r></a:p>`)
+	s := mustSlide(t, p)
+	tf := slideBodyTF(t, s)
+	paras, _ := tf.Paragraphs()
+	runs, _ := paras[0].Runs()
+	if err := runs[0].SetFont(FontStyle{
+		Italic: NewOptional(true),
+		Color:  NewOptional(ColorSpec{RGB: "00FF00"}),
+	}); err != nil {
+		t.Fatalf("SetFont: %v", err)
+	}
+	ef, _ := runs[0].ExplicitFont()
+	if !ef.Italic.Set || !ef.Italic.Value || !ef.Color.Set || ef.Color.Value.RGB != "00FF00" {
+		t.Fatalf("font after create = %+v", ef)
+	}
+	// 非 solidFill 的既有填充被显式颜色替换。
+	p2 := slideWithBody(t, `<a:bodyPr/><a:p><a:r><a:rPr><a:noFill/></a:rPr><a:t>X</a:t></a:r></a:p>`)
+	s2 := mustSlide(t, p2)
+	tf2 := slideBodyTF(t, s2)
+	paras2, _ := tf2.Paragraphs()
+	runs2, _ := paras2[0].Runs()
+	if err := runs2[0].SetFont(FontStyle{Color: NewOptional(ColorSpec{Scheme: "accent1"})}); err != nil {
+		t.Fatalf("SetFont replace fill: %v", err)
+	}
+	xml := slideXML(t, s2)
+	if strings.Contains(xml, "noFill") {
+		t.Fatalf("noFill not replaced: %s", xml)
+	}
+	if !strings.Contains(xml, "accent1") {
+		t.Fatalf("accent1 not written: %s", xml)
+	}
+	// 非法 ColorSpec（无 Scheme 且无 RGB）→ ErrInvalidArgument。
+	p3 := slideWithBody(t, `<a:bodyPr/><a:p><a:r><a:rPr b="1"/><a:t>X</a:t></a:r></a:p>`)
+	s3 := mustSlide(t, p3)
+	tf3 := slideBodyTF(t, s3)
+	paras3, _ := tf3.Paragraphs()
+	runs3, _ := paras3[0].Runs()
+	if err := runs3[0].SetFont(FontStyle{Color: NewOptional(ColorSpec{})}); !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("invalid color err = %v, want ErrInvalidArgument", err)
+	}
+}
+
+func TestSetFontExpandsSelfClosingRPr(t *testing.T) {
+	// 自闭合 rPr 带属性 + 设置需要子元素的字段 → 展开为完整形态。
+	p := slideWithBody(t, `<a:bodyPr/><a:p><a:r><a:rPr b="1"/><a:t>X</a:t></a:r></a:p>`)
+	s := mustSlide(t, p)
+	tf := slideBodyTF(t, s)
+	paras, _ := tf.Paragraphs()
+	runs, _ := paras[0].Runs()
+	if err := runs[0].SetFont(FontStyle{
+		Color: NewOptional(ColorSpec{RGB: "00FF00"}),
+		Latin: NewOptional("Arial"),
+	}); err != nil {
+		t.Fatalf("SetFont expand: %v", err)
+	}
+	ef, _ := runs[0].ExplicitFont()
+	if !ef.Bold.Set || !ef.Bold.Value {
+		t.Fatalf("bold lost during expand: %+v", ef.Bold)
+	}
+	if !ef.Color.Set || ef.Color.Value.RGB != "00FF00" || !ef.Latin.Set || ef.Latin.Value != "Arial" {
+		t.Fatalf("font after expand = %+v", ef)
+	}
+	xml := slideXML(t, s)
+	if !strings.Contains(xml, "</a:rPr>") || strings.Contains(xml, "<a:rPr b=\"1\"/>") {
+		t.Fatalf("rPr not expanded properly: %s", xml)
+	}
+	// 只有属性变更（无子元素字段）→ 保持自闭合形态。
+	p2 := slideWithBody(t, `<a:bodyPr/><a:p><a:r><a:rPr b="1"/><a:t>X</a:t></a:r></a:p>`)
+	s2 := mustSlide(t, p2)
+	tf2 := slideBodyTF(t, s2)
+	paras2, _ := tf2.Paragraphs()
+	runs2, _ := paras2[0].Runs()
+	if err := runs2[0].SetFont(FontStyle{Italic: NewOptional(true)}); err != nil {
+		t.Fatalf("SetFont attr-only: %v", err)
+	}
+	xml2 := slideXML(t, s2)
+	if !strings.Contains(xml2, `<a:rPr b="1" i="1"/>`) {
+		t.Fatalf("rPr should stay self-closing with attrs: %s", xml2)
+	}
+	// 自闭合展开路径的非法颜色同样拒绝。
+	p3 := slideWithBody(t, `<a:bodyPr/><a:p><a:r><a:rPr b="1"/><a:t>X</a:t></a:r></a:p>`)
+	s3 := mustSlide(t, p3)
+	tf3 := slideBodyTF(t, s3)
+	paras3, _ := tf3.Paragraphs()
+	runs3, _ := paras3[0].Runs()
+	if err := runs3[0].SetFont(FontStyle{Color: NewOptional(ColorSpec{})}); !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("invalid color on self-closing: %v, want ErrInvalidArgument", err)
+	}
+}
+
 func TestSetFontUnknownRPrChildRejected(t *testing.T) {
 	// rPr 含库不识别的子元素：SetFont 需要插入时拒绝（不破坏顺序）。
 	inner := `<a:bodyPr/><a:p><a:r><a:rPr lang="en-US"><a:noFill/><a:foo xmlns:a="urn:odd"/><a:t>?</a:t></a:rPr><a:t>X</a:t></a:r></a:p>`

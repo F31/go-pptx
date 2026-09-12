@@ -2,6 +2,8 @@ package videoprobe
 
 import (
 	"encoding/binary"
+	"errors"
+	"strings"
 	"testing"
 )
 
@@ -117,6 +119,12 @@ func TestMP4_NonFtypFirstBox(t *testing.T) {
 }
 
 func TestKnownDuration_Normalization(t *testing.T) {
+	if got := KnownDuration(-1).Nanoseconds; got != 0 {
+		t.Fatalf("negative KnownDuration = %d, want 0", got)
+	}
+	if got := (Duration{}).Milliseconds(); got != 0 {
+		t.Fatalf("zero milliseconds = %d, want 0", got)
+	}
 	d := KnownDuration(1500000000) // 1.5s
 	if d.Milliseconds() != 1500 {
 		t.Errorf("Milliseconds = %d, want 1500", d.Milliseconds())
@@ -159,5 +167,57 @@ func TestWebM_NoDocTypeStillContainerKnown(t *testing.T) {
 	}
 	if info.Container != "webm" {
 		t.Errorf("Container = %q, want webm", info.Container)
+	}
+}
+
+func TestProbeErrorAndMalformedError(t *testing.T) {
+	err := MalformedError("mp4", "ftyp box too short")
+	if !errors.Is(err, ErrMalformedMedia) {
+		t.Fatalf("errors.Is = false for ErrMalformedMedia: %v", err)
+	}
+	if got := err.Error(); !strings.Contains(got, "videoprobe: mp4: ftyp box too short") {
+		t.Fatalf("Error = %q", got)
+	}
+	plain := (&ProbeError{ProbeInput: "bad input", Err: ErrMalformedMedia}).Error()
+	if plain != "videoprobe: bad input" {
+		t.Fatalf("plain Error = %q", plain)
+	}
+	if got := ErrMalformedMedia.Error(); got != "video media: malformed" {
+		t.Fatalf("sentinel Error = %q", got)
+	}
+}
+
+func TestMP4_ExtendedSizeFtypIsMalformed(t *testing.T) {
+	data := []byte{0, 0, 0, 1, 'x', 'x', 'x', 'x', 'f', 't', 'y', 'p', 'i', 's', 'o', 'm'}
+	_, err := Probe(ProbeInput{Data: data})
+	if !errors.Is(err, ErrMalformedMedia) {
+		t.Fatalf("err = %v, want ErrMalformedMedia", err)
+	}
+}
+
+func TestMP4_MalformedTooShortBox(t *testing.T) {
+	data := []byte{0, 0, 0, 12, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0}
+	_, err := Probe(ProbeInput{Data: data})
+	if !errors.Is(err, ErrMalformedMedia) {
+		t.Fatalf("err = %v, want ErrMalformedMedia", err)
+	}
+}
+
+func TestWebM_DocTypeBrands(t *testing.T) {
+	data := append([]byte{0x1A, 0x45, 0xDF, 0xA3, 0x42, 0x82, 0x84}, []byte("webm")...)
+	info, err := Probe(ProbeInput{Data: data})
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if len(info.Brands) != 1 || info.Brands[0] != "webm" {
+		t.Fatalf("Brands = %v, want [webm]", info.Brands)
+	}
+	data = append([]byte{0x1A, 0x45, 0xDF, 0xA3}, []byte("matroska")...)
+	info, err = Probe(ProbeInput{Data: data})
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if len(info.Brands) != 1 || info.Brands[0] != "matroska" {
+		t.Fatalf("Brands = %v, want [matroska]", info.Brands)
 	}
 }
