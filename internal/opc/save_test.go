@@ -217,3 +217,64 @@ func TestSaveToFileVerifyCatchesCorruption(t *testing.T) {
 		t.Error("verifyOutput accepted truncated output")
 	}
 }
+
+// TestVerifyOutputNonZipFile covers the zip.NewReader error branch of
+// verifyOutput: when the output file is parseable as a file but not a valid
+// ZIP archive (bad magic bytes / truncated CD), verifyOutput must return a
+// wrapped ErrMalformedPackage. This is the "save succeeded but file is
+// corrupt on disk" defense path.
+func TestVerifyOutputNonZipFile(t *testing.T) {
+	pk := loadMiniPackage(t)
+	plan, err := BuildSavePlan(pk, &ChangeSet{})
+	if err != nil {
+		t.Fatalf("BuildSavePlan: %v", err)
+	}
+	dir := t.TempDir()
+	notAZip := filepath.Join(dir, "broken.tmp")
+	if err := os.WriteFile(notAZip, []byte("not a zip archive — plain text"), 0o644); err != nil {
+		t.Fatalf("write non-zip: %v", err)
+	}
+	err = verifyOutput(notAZip, plan)
+	if err == nil {
+		t.Fatal("verifyOutput accepted non-zip file")
+	}
+	if !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("err = %v, want ErrMalformedPackage", err)
+	}
+}
+
+// TestVerifyOutputEntryNameMismatch covers the per-entry name comparison loop
+// branch (count matches but a name differs): a ZIP whose entry names align in
+// count but diverge in content from the plan must be rejected. The existing
+// truncation test covers the count-mismatch branch; this covers the
+// name-mismatch branch.
+func TestVerifyOutputEntryNameMismatch(t *testing.T) {
+	pk := loadMiniPackage(t)
+	plan, err := BuildSavePlan(pk, &ChangeSet{})
+	if err != nil {
+		t.Fatalf("BuildSavePlan: %v", err)
+	}
+	dir := t.TempDir()
+	// Serialize the plan to a temp file first, then patch one entry's bytes
+	// to rename it so the count is preserved but a name disagrees.
+	tmp := filepath.Join(dir, "patched.tmp")
+	var buf bytes.Buffer
+	if err := plan.Write(pk, &buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	// Rebuild plan with one entry renamed to a non-existent path — entry
+	// count is the same but a name comparison fails.
+	if len(plan.Entries) == 0 {
+		t.Skip("plan has no entries to mismatch")
+	}
+	renamed := make([]PlannedEntry, len(plan.Entries))
+	copy(renamed, plan.Entries)
+	renamed[0] = PlannedEntry{Name: PartName("/ppt/ghost.xml"), Action: plan.Entries[0].Action}
+	mismatched := &SavePlan{Entries: renamed}
+	if err := verifyOutput(tmp, mismatched); err == nil {
+		t.Error("verifyOutput accepted output with mismatched entry name")
+	}
+}

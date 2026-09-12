@@ -144,6 +144,48 @@ func TestRelationshipsMalformed(t *testing.T) {
 	}
 }
 
+// TestRelationshipsPercentEscapes covers all three valid hexVal branches
+// (digits, lowercase a-f, uppercase A-F) via unescapePercent, which is
+// invoked during ParseRelationships → resolveTarget. The "bad percent" case
+// in TestRelationshipsMalformed covers the invalid branch; this test covers
+// the three success branches and the "incomplete escape" branch.
+//
+// Note: Relationship.Target retains the raw attribute value; unescapePercent
+// is applied to TargetPart (the package-resolved PartName).
+func TestRelationshipsPercentEscapes(t *testing.T) {
+	src := PartName("/ppt/deck.xml")
+	cases := []struct {
+		name string
+		data string
+		want string
+	}{
+		{"digits", miniRels(rel("rId1", RelSlide, "file%20name.xml")), "/ppt/file name.xml"},
+		{"lower", miniRels(rel("rId1", RelSlide, "file%ab.xml")), "/ppt/file\xab.xml"},
+		{"upper", miniRels(rel("rId1", RelSlide, "file%AB.xml")), "/ppt/file\xab.xml"},
+		{"mixed", miniRels(rel("rId1", RelSlide, "a%2Bb%3Dc.xml")), "/ppt/a+b=c.xml"},
+	}
+	for _, tc := range cases {
+		set, err := ParseRelationships(src, []byte(tc.data))
+		if err != nil {
+			t.Errorf("%s: ParseRelationships: %v", tc.name, err)
+			continue
+		}
+		if len(set.All()) != 1 {
+			t.Errorf("%s: %d rels", tc.name, len(set.All()))
+			continue
+		}
+		got := string(set.All()[0].TargetPart)
+		if got != tc.want {
+			t.Errorf("%s: TargetPart = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+	// Incomplete escape (% at end with no hex digits after) → wrapped
+	// ErrMalformedPackage via ParseRelationships.
+	if _, err := ParseRelationships(src, []byte(miniRels(rel("rId1", RelSlide, "abc%")))); !errors.Is(err, ErrMalformedPackage) {
+		t.Errorf("incomplete percent escape err = %v, want ErrMalformedPackage", err)
+	}
+}
+
 // loadMiniPackage 构造含循环关系（版式 ↔ 母版）与非固定名称主 Part
 // （ppt/deck.xml）的迷你包，验证 Load / MainPart / Walk（OPC-02 验收：
 // 非固定名称、循环关系）。
@@ -335,5 +377,125 @@ func mustFailLoad(t *testing.T, entries map[string]string, want error) {
 	data := zipBytes(t, entries)
 	if _, err := Load(bytes.NewReader(data), int64(len(data)), Budget{}); !errors.Is(err, want) {
 		t.Fatalf("Load err = %v, want %v", err, want)
+	}
+}
+
+// TestPackageOpenPart covers the OpenPart wrapper on Package: loads a minimal
+// package and confirms OpenPart returns a readable stream for an existing part
+// and a "not found" error for a missing one. The underlying index.OpenPart
+// path was previously 0% covered.
+func TestPackageOpenPart(t *testing.T) {
+	pk := mustLoad(t, map[string]string{
+		"[Content_Types].xml":  miniContentTypes(`<Override PartName="/ppt/presentation.xml" ContentType="application/xml"/>`),
+		"_rels/.rels":          miniRels(rel("rId1", RelOfficeDocument, "ppt/presentation.xml")),
+		"ppt/presentation.xml": `<p:presentation/>`,
+	})
+	rc, err := pk.OpenPart("/ppt/presentation.xml")
+	if err != nil {
+		t.Fatalf("OpenPart existing: %v", err)
+	}
+	defer rc.Close()
+	buf := make([]byte, 8)
+	n, _ := rc.Read(buf)
+	if n == 0 {
+		t.Fatal("OpenPart returned empty stream")
+	}
+	if _, err := pk.OpenPart("/ppt/nonexistent.xml"); err == nil {
+		t.Fatal("OpenPart missing part must return error")
+	}
+}
+
+// TestBudgetNormalizeAllZero covers the normalize() fallback: a zero Budget
+// (every field <= 0) must be replaced field-by-field with DefaultBudget().
+func TestBudgetNormalizeAllZero(t *testing.T) {
+	got := (Budget{}).normalize()
+	def := DefaultBudget()
+	if got.MaxEntries != def.MaxEntries ||
+		got.MaxXMLBytes != def.MaxXMLBytes ||
+		got.MaxMediaBytes != def.MaxMediaBytes ||
+		got.MaxTotalBytes != def.MaxTotalBytes ||
+		got.MaxXMLDepth != def.MaxXMLDepth {
+		t.Fatalf("normalize(zero) = %+v, want all defaults %+v", got, def)
+	}
+}
+
+// TestBudgetNormalizePartialOverride covers the mixed case: a budget with one
+// non-zero field keeps that field; the remaining four fields fall back to
+// defaults. This exercises the per-field if-branches that an all-zero budget
+// would compress.
+func TestBudgetNormalizePartialOverride(t *testing.T) {
+	got := Budget{MaxXMLDepth: 42}.normalize()
+	def := DefaultBudget()
+	if got.MaxXMLDepth != 42 {
+		t.Fatalf("MaxXMLDepth override lost: %d", got.MaxXMLDepth)
+	}
+	if got.MaxEntries != def.MaxEntries ||
+		got.MaxXMLBytes != def.MaxXMLBytes ||
+		got.MaxMediaBytes != def.MaxMediaBytes ||
+		got.MaxTotalBytes != def.MaxTotalBytes {
+		t.Fatalf("non-overridden fields not defaulted: %+v", got)
+	}
+}
+
+// TestContentTypesAddOverride covers the addOverride happy path and the three
+// rejection branches (invalid PartName, empty contentType, duplicate name).
+// The existing ParseContentTypes-driven tests do not exercise addOverride
+// directly because they only round-trip through the XML serializer.
+func TestContentTypesAddOverride(t *testing.T) {
+	ct := &ContentTypes{
+		overrides:      map[PartName]string{},
+		lowerOverrides: map[string]string{},
+		defaults:       map[string]string{},
+	}
+	if err := ct.addOverride("/ppt/slides/slide1.xml", "ct-slide"); err != nil {
+		t.Fatalf("addOverride valid: %v", err)
+	}
+	if got, ok := ct.Lookup("/ppt/slides/slide1.xml"); !ok || got != "ct-slide" {
+		t.Fatalf("Lookup after add = %q, %v", got, ok)
+	}
+	// Duplicate → wrapped ErrMalformedPackage.
+	if err := ct.addOverride("/ppt/slides/slide1.xml", "ct-slide"); !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("dup addOverride err = %v, want ErrMalformedPackage", err)
+	}
+	// Invalid PartName → wrapped ErrMalformedPackage.
+	if err := ct.addOverride("not valid", "ct-x"); !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("invalid PartName err = %v, want ErrMalformedPackage", err)
+	}
+	// Empty contentType → wrapped ErrMalformedPackage.
+	if err := ct.addOverride("/ppt/slides/slide2.xml", ""); !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("empty ct err = %v, want ErrMalformedPackage", err)
+	}
+}
+
+// TestContentTypesLookupLowercaseFallback covers the Lookup precedence chain:
+// (1) exact-match overrides, (2) case-insensitive fallback (lowerOverrides),
+// (3) extension defaults. The middle branch was uncovered; we seed the
+// maps directly so we can exercise all three fallbacks without a parse round
+// trip.
+func TestContentTypesLookupLowercaseFallback(t *testing.T) {
+	ct := &ContentTypes{
+		overrides:      map[PartName]string{"/ppt/slides/slide1.xml": "ct-slide-exact"},
+		lowerOverrides: map[string]string{"ppt/slides/slide2.xml": "ct-slide-lower"},
+		defaults:       map[string]string{"xml": "application/xml"},
+	}
+	// Exact match → overrides branch.
+	if got, ok := ct.Lookup("/ppt/slides/slide1.xml"); !ok || got != "ct-slide-exact" {
+		t.Fatalf("exact Lookup = %q, %v, want ct-slide-exact/true", got, ok)
+	}
+	// Case mismatch on registered name → lowerOverrides branch.
+	if got, ok := ct.Lookup("/ppt/slides/SLIDE2.XML"); !ok || got != "ct-slide-lower" {
+		t.Fatalf("case-insensitive Lookup = %q, %v, want ct-slide-lower/true", got, ok)
+	}
+	// No override, has extension → default branch.
+	if got, ok := ct.Lookup("/ppt/notes/notesSlide1.xml"); !ok || got != "application/xml" {
+		t.Fatalf("default Lookup = %q, %v, want application/xml/true", got, ok)
+	}
+	// No override, no extension (trailing dot) → ok=false.
+	if _, ok := ct.Lookup("/ppt/notes/weird."); ok {
+		t.Fatal("trailing-dot Lookup must return false")
+	}
+	// Invalid PartName → ok=false (Lookup early-return guard).
+	if _, ok := ct.Lookup("not valid"); ok {
+		t.Fatal("invalid PartName Lookup must return false")
 	}
 }
