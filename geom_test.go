@@ -564,3 +564,74 @@ func TestGeometrySaveRoundTrip(t *testing.T) {
 		t.Errorf("quad changed across save: before %+v after %+v", qBefore, qAfter)
 	}
 }
+
+// ---------- Rect.Contains（GEOM-01 公开 API；纯几何，无文档依赖） ----------
+
+// TestRectContains 覆盖 Rect.Contains 的全部分支：
+//   - W<0 或 H<0 视为空（早返回 false）
+//   - 否则按 [X, X+W] × [Y, Y+H] 半开区间判包含（含边界）
+// 全表驱动，零 PPTX fixture 依赖，便于跨重构快速回归。
+func TestRectContains(t *testing.T) {
+	cases := []struct {
+		name string
+		r    Rect
+		p    Point
+		want bool
+	}{
+		// 内部与四条边界（含边界语义）。
+		{"inside_center", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: 50, Y: 50}, true},
+		{"top_left_boundary", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: 0, Y: 0}, true},
+		{"top_right_boundary", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: 100, Y: 0}, true},
+		{"bottom_left_boundary", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: 0, Y: 100}, true},
+		{"bottom_right_boundary", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: 100, Y: 100}, true},
+
+		// 四方向越界各 1 例（覆盖 X<r.X、X>X+W、Y<r.Y、Y>Y+H）。
+		{"left_of", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: -1, Y: 50}, false},
+		{"right_of", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: 101, Y: 50}, false},
+		{"above", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: 50, Y: -1}, false},
+		{"below", Rect{X: 0, Y: 0, W: 100, H: 100}, Point{X: 50, Y: 101}, false},
+
+		// W/H 为负视为空（早返回 false，覆盖 if 分支）。
+		{"negative_width", Rect{X: 0, Y: 0, W: -10, H: 100}, Point{X: 5, Y: 50}, false},
+		{"negative_height", Rect{X: 0, Y: 0, W: 100, H: -10}, Point{X: 50, Y: 5}, false},
+		{"both_negative", Rect{X: 0, Y: 0, W: -1, H: -1}, Point{X: 0, Y: 0}, false},
+
+		// 退化矩形：W=0 或 H=0 时退化为线/点，验证半开区间语义。
+		{"degenerate_point_hit", Rect{X: 0, Y: 0, W: 0, H: 0}, Point{X: 0, Y: 0}, true},
+		{"degenerate_point_miss", Rect{X: 0, Y: 0, W: 0, H: 0}, Point{X: 1, Y: 0}, false},
+		{"degenerate_horizontal_line_hit", Rect{X: 0, Y: 0, W: 100, H: 0}, Point{X: 50, Y: 0}, true},
+		{"degenerate_horizontal_line_miss", Rect{X: 0, Y: 0, W: 100, H: 0}, Point{X: 50, Y: 1}, false},
+		{"degenerate_vertical_line_hit", Rect{X: 0, Y: 0, W: 0, H: 100}, Point{X: 0, Y: 50}, true},
+		{"degenerate_vertical_line_miss", Rect{X: 0, Y: 0, W: 0, H: 100}, Point{X: 1, Y: 50}, false},
+
+		// 负坐标矩形（§8 允许；含边界在偏移坐标系下同样生效）。
+		{"negative_origin_inside", Rect{X: -1000, Y: -500, W: 2000, H: 1500}, Point{X: 0, Y: 250}, true},
+		{"negative_origin_corner", Rect{X: -1000, Y: -500, W: 2000, H: 1500}, Point{X: 1000, Y: 1000}, true},
+		{"negative_origin_outside", Rect{X: -1000, Y: -500, W: 2000, H: 1500}, Point{X: -1500, Y: 0}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.r.Contains(tc.p); got != tc.want {
+				t.Errorf("Rect%+v.Contains(%+v) = %v, want %v", tc.r, tc.p, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestRectContainsEmptyDirect 显式覆盖早返回 false 分支：当 W<0 即
+// 便点坐标在 X/Y 数值上"看似"在范围内，也必须返回 false（防止实现
+// 误把负宽当作起点坐标或发生整数下溢）。
+func TestRectContainsEmptyDirect(t *testing.T) {
+	r := Rect{X: 100, Y: 100, W: -50, H: 50} // X=100, X+W=50；负宽
+	for _, p := range []Point{{X: 100, Y: 100}, {X: 75, Y: 125}, {X: 50, Y: 150}} {
+		if r.Contains(p) {
+			t.Errorf("Rect%+v.Contains(%+v) = true, want false (负宽视为空)", r, p)
+		}
+	}
+	r = Rect{X: 100, Y: 100, W: 50, H: -50}
+	for _, p := range []Point{{X: 100, Y: 100}, {X: 125, Y: 75}, {X: 150, Y: 50}} {
+		if r.Contains(p) {
+			t.Errorf("Rect%+v.Contains(%+v) = true, want false (负高视为空)", r, p)
+		}
+	}
+}
