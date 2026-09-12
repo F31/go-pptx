@@ -3,11 +3,12 @@
 ## 项目定位
 纯 Go（CGO_ENABLED=0、无外部运行时强依赖）PPTX 创建/编辑组件。设计基线《go-pptx 完整设计方案 V2.6 开发实施版》，实施依《go-pptx 项目实施计划》M0–M8 阶段门禁制推进。
 
-## 发布状态（2026-09-11）
-- **v1.0.0 已发布**：`git tag -s v1.0.0`（SSH 签名，仓库级 `gpg.format=ssh` + `user.signingkey=~/.ssh/id_ed25519`）→ commit 44b9ba7；tag 对象 92dc8622。发布文档三件套：`CHANGELOG.md` + `docs/RELEASE-NOTES-v1.0.0.md` + 跟踪文档"v1.0 冻结通告"段。
+## 发布状态（2026-09-12）
+- **v1.0.0 已发布**：`git tag -s v1.0.0`（SSH 签名，仓库级 `gpg.format=ssh` + `user.signingkey=~/.ssh/id_ed25519`）→ commit 44b9ba7；tag 对象 92dc8622。
+- **v1.0.1 已发布**：`git tag -s v1.0.1`（SSH 签名）→ commit 9f24866（commit 9f24866 即"docs(release): 准备 v1.0.1 patch release 文档"）；tag 对象 13d1376。**binary-compat with v1.0.0**——公共 API 零变化，// Stable: 34 / // Experimental: 5 / 50 Stable 符号 / 158 总 type / 17 哨兵 全部锁死不变。范围：v1.0.0..HEAD 共 17 commit（ADR-016 渐进式 internal 抽取首轮收敛 / ir 表格文本投影闭环 / 5 包行为优先补测 / L3 文档同步 / MediaSource nil 流保护 / Stable 计数 off-by-one 修正 / ADR-014 三处缺陷 / 技术白皮书 / 1.x 路线图方案）。
 - **v1.0 冻结清单已闭合（2026-09-12 勘误口径）**：34 Stable 段落（33 独立 type 段 + 1 个 17 哨兵聚合段；Stable 符号合计 50）/ 5 Experimental / 0 Deprecated / 120 API type / 158 总 type。**勘误原因**：曾误记"51 Stable（34 独立 + 17）/ 102 API"——把段落 grep 数 34 误作独立 type 数（段落含 1 聚合段），且 158−51−5 算式把 var 哨兵错从 type 总数扣除。符号级承诺不变，仅计数修正；详见 freeze list §"2026-09-12 — 口径勘误"。
 - **新增导出符号流程**：按 freeze list §D 评审 checklist——升 Stable 须给"为什么 Stable"+ 不允许扩展方向 + 使用面举例；降档禁止 PR 直降必须新 ADR。
-- **1.x 已知缺口（更新于 2026-09-12）**：L3 客户端矩阵已闭合（真机 8/8，`docs/client-compat-matrix.md`）；覆盖率根包 82.7% / cmd 87.2% / full 83.2%（`docs/coverage-roadmap.md`），90% 目标 1.x 继续收敛；PERF-01 基线已在 ADR-016 重构后重跑（p50 全链路 -60%~-65%，无回归）。
+- **1.x 已知缺口（更新于 2026-09-12 下午）**：L3 客户端矩阵已闭合（真机 8/8，`docs/client-compat-matrix.md`）；覆盖率 5 包补测至 editplan 100% / textmap 100% / opc 88.9% / audioprobe 88.4% / root 82.8%，full total **84.4%**（COV-04 评估放弃统一 90% 口径）；PERF-01 基线已在 ADR-016 重构后重跑（p50 全链路 -60%~-65%，无回归）。1.x 路线图见 `docs/1.x-roadmap.md`（5 方向 + 5 阶段 + 6 风险 + 5 决策点）。
 
 ## 工程约定（已落地）
 - module path：`github.com/F31/go-pptx`（CORE-02 已由占位 `go-pptx` 正式化；go.mod `go 1.24.0`）。
