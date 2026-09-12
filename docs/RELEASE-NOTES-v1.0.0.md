@@ -3,9 +3,10 @@
 > 2026-09-11 · 已随 `git tag -s v1.0.0`（SSH 签名）发布
 
 我们很高兴发布 **go-pptx v1.0.0**——这是该项目的第一个稳定版本。M0–M8 全部里程碑收口，
-**51 个 Stable API 段落**（覆盖核心对象模型入口、错误码、诊断、几何值对象、句柄 ID、
-枚举、Shape 句柄、Capability Output 契约族）+ **5 个 Experimental 段落**（明确标注演化
-边界）+ **102 个 API 默认类型**（v1.0 冻结已有字段，仅追加）。
+**50 个 Stable 符号**（33 独立类型 + 17 错误哨兵，共 34 个 `// Stable:` 段落；覆盖核心
+对象模型入口、错误码、诊断、几何值对象、句柄 ID、枚举、Shape 句柄、Capability Output
+契约族）+ **5 个 Experimental 段落**（明确标注演化边界）+ **120 个 API 默认类型**（v1.0
+冻结已有字段，仅追加）。
 
 ## Highlights
 
@@ -18,8 +19,8 @@
   效修复。
 
 - **三级 API 稳定性体系**（[ADR-015](adr/ADR-015-api-stability-tiers.md)）：
-  - **Stable** 51 段落——v1.0 后承诺向后兼容，仅追加新方法/字段
-  - **API 默认** 102 类型——v1.0 后冻结已有字段，仅追加新字段
+  - **Stable** 34 段落（50 符号：33 类型 + 17 哨兵）——v1.0 后承诺向后兼容，仅追加新方法/字段
+  - **API 默认** 120 类型——v1.0 后冻结已有字段，仅追加新字段
   - **Experimental** 5 段落——1.x 内可能改，godoc 段注明演化边界
 
 - **跨平台**：纯 Go（`CGO_ENABLED=0`），CI 验证 `js/wasm` / `darwin/arm64` /
@@ -32,7 +33,7 @@
 - **CI 三 OS + WASM + 跨平台 + 公开语料 replay** 守门完整——`lint` /
   `corpus-replay` / `cross-build` 三个 job 覆盖日常 PR。
 
-## Stable API（51 types / 35 sections）
+## Stable API（50 symbols / 34 sections）
 
 ### 核心入口（6）
 
@@ -111,8 +112,8 @@ v1.0.0 是首个稳定版本，无破坏性变更路径：
    承诺增量扩展的字段保持兼容；破坏性变更（如有）会在 `CHANGELOG.md` 段标注
    `BREAKING`。
 2. **依赖 ADR-015 三级体系**：
-   - 业务代码可直接信赖 Stable 段落（51 个）的承诺——不需版本适配
-   - API 默认（102 个）按需检查 godoc 段
+   - 业务代码可直接信赖 Stable 段落（34 个，覆盖 50 符号）的承诺——不需版本适配
+   - API 默认（120 个）按需检查 godoc 段
    - Experimental（5 个）明确标注演化边界，建议业务代码若有依赖加
      deprecation wrapper
 

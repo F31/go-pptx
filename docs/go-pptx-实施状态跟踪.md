@@ -11,11 +11,11 @@
 
 | 档级 | 数量 | 段落位置 | 1.x 演化 |
 |---|---|---|---|
-| **Stable** | **51 段落**（34 独立 type + 17 错误哨兵聚合集合段 1） | §A.1-A.4 + §C.1/C.6/C.6.1/C.10 累计 | 仅追加新方法/字段；不破坏已有签名 |
+| **Stable** | **34 段落**（33 独立 type 段 + 1 个 17 错误哨兵聚合段；Stable 符号合计 50） | §A.1-A.4 + §C.1/C.6/C.6.1/C.10 累计 | 仅追加新方法/字段；不破坏已有签名 |
 | **Experimental** | **5** | §B | 1.x 内可能改；godoc 段注明演化边界 |
 | **Deprecated** | **0** | — | v1.0 后视需要启用 |
-| **API 默认** | **102** | §C 余下 | 仅追加新字段；不破坏已有默认值 |
-| **总 type** | **158** | grep `^type [A-Z]` | — |
+| **API 默认** | **120** type | 158 总 type − 33 Stable type − 5 Experimental | 仅追加新字段；不破坏已有默认值 |
+| **总 type** | **158** | grep `^type [A-Z]`（哨兵为 var，不计入） | — |
 
 完整逐类型分配见 [`docs/v1.0-freeze-list.md`](v1.0-freeze-list.md) §"当前快照" + [ADR-015](adr/ADR-015-api-stability-tiers.md) §"v1.0 冻结清单"。
 
@@ -31,7 +31,12 @@
 | T+0 末窗口形状 | 2026-09-10 | +9（ShapeKind + 8 Shape 句柄 + TextShape 别名） |
 | T-3 日补齐 | 2026-09-10 | +2（CapabilityFeature / CapabilityManifestSource 补齐 §A.4 4 type 全部有 Stable 段落；v1.0 freeze list 与代码同步） |
 
-合计：**51 Stable 段落（34 独立 type + 17 错误哨兵聚合集合段 1）/ 5 Experimental / 158 总**。
+合计：**34 Stable 段落（33 独立 type + 1 个哨兵聚合段覆盖 17 哨兵，符号合计 50）/ 5 Experimental / 120 API 默认 / 158 总 type**。
+
+> **2026-09-12 勘误**：此前合计误记"51 Stable 段落（34 独立 type + 17 哨兵）/ 102 API"——
+> 将"段落 grep 数 34"误作"独立 type 34"（段落含 1 个哨兵聚合段，独立 type 实为 33），
+> 且 158 − 51 − 5 的算式把 17 个 var 哨兵从 type 总数中错误扣除（API 应为 158 − 33 − 5 = 120）。
+> 符号级承诺不受影响，仅计数口径修正（详见 freeze list §"2026-09-12 — 口径勘误"）。
 
 ### 段落形态（三种固化）
 

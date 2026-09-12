@@ -50,14 +50,22 @@ v1.0 标签的发布日 T-2 周起：
 3. 在 `docs/go-pptx-实施状态跟踪.md` 公开通告后，v1.0 tag 同步冻结 API 级字段（不再接受字段重命名/类型调整 PR）。
 4. Experimental 与 Deprecated 可继续演化为 v1.x。
 
-## 当前快照（2026-09-10）
+## 当前快照（2026-09-12 修正口径）
 
-| 标签 | 数量 | 候选列表 |
+> 2026-09-12 勘误：此前快照将"Stable 段落 grep 数"误作"独立类型数"（段落 34 中含 1 个
+> 17 哨兵聚合段，独立 type 实为 33）；"API 默认"沿用了"158 − 51 − 5 = 102"的错误算式
+> （17 个哨兵是 `var` 声明，本就不在 158 个 type 之内）。以下为 grep 可验证的修正口径。
+
+| 标签 | 数量 | 口径说明 |
 |---|---|---|
-| Stable | 3 + 28 + 6 + 3 + 9 = **49 个独立类型 / 33 个 Stable 段落** | 核心对象模型入口 3 个 + T-2 周首批加 Stable 段落 28 个（错误码 17 集合段 + OperationError 1 + 诊断契约 4 + 几何值对象 4 + 枚举 2）+ T-1 周收敛 6 个（Capability Output 契约 4 + 句柄 ID 类型 2）+ T+0 文本入口 3 个（`TextFrame` / `Paragraph` / `TextRun`）+ T+0 末窗口 9 个（`ShapeKind` 枚举 + 7 Shape 句柄族 `GroupShape`/`AutoShape`/`OpaqueShape`/`PictureShape`/`TableShape`/`ChartShape`/`AudioShape`/`VideoShape` + `TextShape` 别名跟随 `AutoShape`） |
+| Stable 段落 | **34**（grep `^// Stable:`） | 33 个独立 type 段 + 1 个错误码哨兵聚合段（覆盖 17 个 `Err*`） |
+| Stable 符号合计 | **50** | 33 个独立 type（含 `TextShape` 别名）+ 17 个 `Err*` 哨兵 var |
 | Experimental | 5 | `ChartWorkbookBuilder`、`ChartDataBook`、`DefaultWorkbookBuilder`、`CustomPropertyKind`、`CustomPropertyValue` |
 | Deprecated | 0 | — |
-| API（默认） | 104 | 其余全部导出符号，含全部 `*Spec` / `*Option` 输入规格、`*Info` / `*Report` 只读报告（T+0 末窗口 9 个从 API 上移 Stable） |
+| API（默认） | **120** type | 158 总 type − 33 Stable type − 5 Experimental |
+| 总 type 数 | **158**（grep `^type [A-Z]`，含 2 个 type alias） | 哨兵为 var 声明，不计入 type 数 |
+
+33 个独立 Stable type 的构成：核心对象模型入口 3（`Presentation`/`Slide`/`Shape`）+ 文本入口 3（`TextFrame`/`Paragraph`/`TextRun`）+ `OperationError` 1 + 诊断契约 4（`Diagnostic`/`Severity`/`ValidationReport`/`CapabilityStatus`）+ 几何值对象 4（`EMU`/`Point`/`Rect`/`Quad`）+ 枚举 3（`ReplaceMode`/`MultiCellTextPolicy`/`ShapeKind`）+ Capability Output 4（`CapabilityManifest`/`CapabilityManifestSource`/`CapabilityDimension`/`CapabilityFeature`）+ 句柄 ID 类型 2（`SlideID`/`ShapeID`）+ 8 Shape 句柄（`GroupShape`/`AutoShape`/`OpaqueShape`/`PictureShape`/`TableShape`/`ChartShape`/`AudioShape`/`VideoShape`）+ `TextShape` 别名 1。
 
 > **§C 精化（2026-09-10 T+0 窗口）**：§C.1 / §C.3 / §C.5 / §C.7 / §C.9 / §C.11 / §C.13 / §C.14 / §C.17 各子类从"约 X 个"估值改为 grep 精化定值；§C 总 132 类型 = 21 Stable（§C.1: 10 + §C.2: 2 + §C.6: 4 + §C.10: 1 + `MultiCellTextPolicy`）+ 111 API。同时修正文档错误（`MergePolicy` 不存在、`FillKind` 误归、`*Spec`/`*Report` 跨类重复）。详见 [`docs/v1.0-freeze-list.md` §"v1.0 评审执行进度"](../../v1.0-freeze-list.md) "2026-09-10 — T+0 §C 精化窗口" + "2026-09-10 — T+0 文本入口 Stable 化" + "2026-09-10 — T+0 末窗口 形状抽象类 Stable 化" 段。
 

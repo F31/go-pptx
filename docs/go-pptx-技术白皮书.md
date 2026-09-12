@@ -34,14 +34,14 @@ v1.0.0 是组件的第一个稳定版本，完成了《项目实施计划》M0�
 | 维度 | 现状 |
 |---|---|
 | 导出类型总数 | 158（含 2 个 `type alias`） |
-| Stable 段落 | 51（34 个独立 type + 1 个错误码集合段聚合 17 哨兵） |
+| Stable 段落 | 34（33 个独立 type 段 + 1 个错误码集合段聚合 17 哨兵；Stable 符号合计 50） |
 | Experimental | 5（chart workbook / 自定义属性） |
-| API 默认级 | 102（允许追加新字段，不破坏已有签名） |
+| API 默认级 | 120（允许追加新字段，不破坏已有签名） |
 | Deprecated | 0 |
-| 默认测试 | 9 包 0 失败 |
-| 公开金样回归 | 3 个 LibreOffice 生成样本（`s001-text` / `s002-table` / `s003-image`）+ 33 私有 `ext-*` 索引 |
-| 交叉构建验证 | `js/wasm` · `darwin/arm64` · `wasip1/wasm` · `linux/arm64` 四平台零失败 |
-| 覆盖率 | 根包 77.1% / `cmd/pptx` 86.6%（V2.6 §15.3 目标 90%，非硬性门槛） |
+| 默认测试 | 13 包 0 失败（2026-09-12 实测） |
+| 公开金样回归 | 3 个 LibreOffice 生成样本（`s001-text` / `s002-table` / `s003-image`）+ 36 个语料索引（`ext-0024` 真实样本垂直验证 PASS）；L3 客户端矩阵 PowerPoint/WPS 真机 8/8 通过 |
+| 交叉构建验证 | `js/wasm` · `darwin/arm64` · `wasip1/wasm` · `linux/arm64` 四平台零失败（CI `cross-build` job 固化） |
+| 覆盖率 | 根包 82.7% / `cmd/pptx` 87.2% / 全仓 full 83.2%（2026-09-11 记账口径，分包实测略高，见 [coverage-roadmap](coverage-roadmap.md)；1.x 期间继续收敛） |
 
 ---
 
@@ -100,7 +100,7 @@ go-pptx 采用"**根包做门面、内部包承实现**"的依赖结构，确保
                                 ▼
                 ┌───────────────────────────┐
                 │   package pptx (根)       │  ← 公共 SDK 门面 + 主要领域逻辑
-                │   74 .go · ~35.6k 行      │     158 导出类型 / 732 导出符号
+                │   41 .go · ~22k 行（非测试）│     158 导出类型 / 732 导出符号
                 └──────┬──────┬──────┬──────┘
                        │      │      │
               ┌────────▼─┐  ┌─▼────┐ ┌▼────────────┐ ┌▼──────────┐
@@ -351,16 +351,16 @@ go-pptx 公开承诺**三级稳定性**（[ADR-015](adr/ADR-015-api-stability-ti
 
 完整的逐项评审记录见 [`docs/v1.0-freeze-list.md`](v1.0-freeze-list.md)；最终结果：
 
-| 阶段 | 时间 | 增量 | 累计 Stable |
+| 阶段 | 时间 | 增量 | 累计 Stable 符号 |
 |---|---|---|---|
 | 评审开始日 | 2026-09-10 | 核心入口 3（Presentation/Slide/Shape） | 3 |
 | T-2 周首批 | 2026-09-10 | 错误码 17 集合段 + OperationError 1 + 诊断契约 4 + 几何值对象 4 + 枚举 2 = +28 | 31 |
 | T-1 周收敛 | 2026-09-10 | Capability Output 4 + 句柄 ID 类型 2 = +6 | 37 |
-| T-3 日补齐 | 2026-09-10 | `CapabilityFeature` / `CapabilityManifestSource` 段落补齐（f188c69 漏段修复） | 39 |
-| T+0 文本入口 | 2026-09-10 | `TextFrame` / `Paragraph` / `TextRun` = +3 | 42 |
-| T+0 末窗口形状 | 2026-09-10 | `ShapeKind` + 8 Shape 句柄 + `TextShape` 别名 = +9 | 51 |
+| T-3 日补齐 | 2026-09-10 | `CapabilityFeature` / `CapabilityManifestSource` 段落补齐（f188c69 漏段修复；符号已在 T-1 计入，仅 +2 段落） | 37 |
+| T+0 文本入口 | 2026-09-10 | `TextFrame` / `Paragraph` / `TextRun` = +3 | 40 |
+| T+0 末窗口形状 | 2026-09-10 | `ShapeKind` + 8 Shape 句柄 + `TextShape` 别名 = +10 | 50 |
 
-**v1.0 锁定的 51 个 Stable 段落**包含：
+**v1.0 锁定的 50 个 Stable 符号**（34 段落）包含：
 - 核心入口 6：`Presentation` / `Slide` / `Shape` / `TextFrame` / `Paragraph` / `TextRun`
 - 错误码集合段 1（聚合 17 哨兵 + `OperationError`）
 - 诊断契约 4：`Diagnostic` / `Severity` / `ValidationReport` / `CapabilityStatus`
@@ -692,8 +692,8 @@ for _, client := range clients {
 
 ### 11.3 演进原则
 
-- **不破坏 Stable**：v1.x 期间 51 个 Stable 段落承诺向后兼容
-- **API 默认可加**：102 个 API 默认类型允许追加新字段与方法；不允许删除或重命名
+- **不破坏 Stable**：v1.x 期间 34 个 Stable 段落（50 符号）承诺向后兼容
+- **API 默认可加**：120 个 API 默认类型允许追加新字段与方法；不允许删除或重命名
 - **Experimental 可改**：5 个 Experimental 类型可继续演化，必须发公告不静默
 - **架构压力按触发条件拆**（ADR-014）：合并冲突热点 / 第三方扩展需求 / 编译时间瓶颈任一触发才启动 `internal/edit` 等深层抽取
 
@@ -737,7 +737,7 @@ for _, client := range clients {
 
 ### 12.4 反馈与升级指引
 
-- **升级到 1.0**：51 个 Stable 段落承诺向后兼容——升级不会破坏现有调用
+- **升级到 1.0**：34 个 Stable 段落（50 符号）承诺向后兼容——升级不会破坏现有调用
 - **Experimental 用户**：留意公告；如有破坏性变更，至少两个小版本过渡
 - **API 默认用户**：字段追加无需关注；删除 / 重命名不会发生
 - **问题反馈**：通过 GitHub Issues（首选）；附最小复现 + 原始 PPTX 哈希（不含文件本体）

@@ -8,7 +8,7 @@
 
 ## 上下文
 
-go-pptx 根包 `package pptx` 当前承载全部公共 API（**74 个 .go 文件、35,597 行、158 导出类型、737 导出符号**），M0–M8 全部落地，已进入发布前。设计文档 §3 规划了如下分层目录：
+go-pptx 根包 `package pptx` 当前承载全部公共 API（**2026-09-10 本 ADR 撰写时点：74 个 .go 文件、35,597 行、158 导出类型、737 导出符号**；ADR-016 重构后 2026-09-12 实测：非测试 41 文件 / 22,091 行，导出类型仍 158），M0–M8 全部落地，已进入发布前。设计文档 §3 规划了如下分层目录：
 
 ```
 internal/opc/        # ✅ 已落地
@@ -39,11 +39,9 @@ internal/validate/   # ❌ 根包内
 
 ### 2. 已部分收敛、暂不深拆：`internal/editplan` / 低层事务 primitive
 
-**ADR-016 后的状态。** 该层承载设计 §3 关键不变量——"不维护两个可独立修改的文档真相"。生产业务路径已收敛到 `internal/editplan.SinglePartPatch` / `MultiPartPlan`，根包通过未导出 `document_store.go` adapter 应用计划；直接 `stageAdd` / `stagePatch` / `stageDelete` / `commit` 调用仅保留在 `presentation.go` 低层 primitive 与 adapter/helper 边界。
+**ADR-016 后的状态。** 该层承载设计 §3 关键不变量——"不维护两个可独立修改的文档真相"。生产业务路径已收敛到 `internal/editplan.SinglePartPatch` / `MultiPartPlan`，根包通过未导出 `document_store.go` adapter 应用计划；直接 `stageAdd` / `stagePatch` / `stageDelete` / `commit` 调用仅保留在 `document_store.go` adapter/helper 边界（primitive 本体定义于 `presentation.go`）。
 
-仍然**暂不深拆**完整 `internal/edit`，因为：
-
-但**当前不拆**，因为：
+当前**不深拆**完整 `internal/edit`，因为：
 
 - 深拆收益是"进一步强制力"而非"正确性"——大规模搬迁的回归风险仍高于收益；
 - go-pptx 核心价值是"字节级保真"，真实语料垂直验证（`vertical_corpus_test.go` ext-0024 单 Run 替换差异区间收敛到 1 字节）是产品最强证据，发布前**不希望让核心编辑路径抖动**；

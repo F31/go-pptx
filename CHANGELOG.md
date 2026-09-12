@@ -32,12 +32,12 @@ The first stable release of go-pptx.
 
 ### Highlights
 
-- **Three-tier API stability** — Stable (51 types: 34 independent sections + 17 error sentinels sharing one aggregated section) / API default (104 types, additive evolution allowed) / Experimental (5 types, may change in 1.x). See [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md) and [ADR-015](docs/adr/ADR-015-api-stability-tiers.md).
+- **Three-tier API stability** — Stable (50 symbols: 33 independent types + 17 error sentinels sharing one aggregated section, 34 `// Stable:` sections total) / API default (120 types, additive evolution allowed) / Experimental (5 types, may change in 1.x). See [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md) and [ADR-015](docs/adr/ADR-015-api-stability-tiers.md).
 - **M0–M8 milestones complete** — full PPTX read/edit stack: OPC engine, XML store with span patches, slide/shape/text/table/chart/audio/video model, capability manifest, semantic diff, template binding.
 - **Public corpus** — three LibreOffice-generated public samples (`s001-text` / `s002-table` / `s003-image`) gated by `//go:build corpus` CI job.
 - **Cross-platform** — pure Go (CGO=0), CI-verified builds for `js/wasm`, `darwin/arm64`, `wasip1/wasm`, `linux/arm64`.
 
-### Stable API (51 types)
+### Stable API (33 types + 17 error sentinels = 50 symbols)
 
 - **Core entry points (6)** — `Presentation`, `Slide`, `Shape`, `TextFrame`, `Paragraph`, `TextRun`
 - **Error sentinel family (17)** — one shared `// Stable:` section in `errors.go`; individual `Err*` constants append-only:
