@@ -145,3 +145,112 @@ func TestBuildChartFrameFragmentZeroValues(t *testing.T) {
 		t.Errorf("zero-id literal cNvPr missing:\n%s", frag)
 	}
 }
+
+// =============== 第二批 type alias + method 共享测试 ===============
+
+// TestChartTypeStringMethods 验证 ChartType.String() 输出与历史行为一致。
+func TestChartTypeStringMethods(t *testing.T) {
+	cases := map[ChartType]string{
+		ChartBar:  "bar",
+		ChartLine: "line",
+		ChartPie:  "pie",
+	}
+	for typ, want := range cases {
+		if got := typ.String(); got != want {
+			t.Errorf("ChartType(%d).String() = %q, want %q", typ, got, want)
+		}
+	}
+	if got := ChartType(99).String(); got != "ChartType(99)" {
+		t.Errorf("unknown ChartType.String() = %q, want %q", got, "ChartType(99)")
+	}
+}
+
+// TestChartTypePlotElement 验证 ChartType.PlotElement 输出与历史行为一致。
+func TestChartTypePlotElement(t *testing.T) {
+	cases := map[ChartType]string{
+		ChartBar:  "barChart",
+		ChartLine: "lineChart",
+		ChartPie:  "pieChart",
+	}
+	for typ, want := range cases {
+		if got := typ.PlotElement(); got != want {
+			t.Errorf("ChartType(%d).PlotElement() = %q, want %q", typ, got, want)
+		}
+	}
+	if got := ChartType(99).PlotElement(); got != "" {
+		t.Errorf("unknown ChartType.PlotElement() = %q, want empty", got)
+	}
+}
+
+// TestChartErrorTypeStringMethods 验证 ChartErrorType.String() 输出。
+func TestChartErrorTypeStringMethods(t *testing.T) {
+	cases := map[ChartErrorType]string{
+		ChartErrStandardDeviation: "stdDev",
+		ChartErrStandardError:     "stdErr",
+		ChartErrFixed:             "fixed",
+		ChartErrPercentage:        "percentage",
+	}
+	for typ, want := range cases {
+		if got := typ.String(); got != want {
+			t.Errorf("ChartErrorType(%d).String() = %q, want %q", typ, got, want)
+		}
+	}
+	if got := ChartErrorType(99).String(); got != "" {
+		t.Errorf("unknown ChartErrorType.String() = %q, want empty", got)
+	}
+}
+
+// TestChartTrendTypeStringMethods 验证 ChartTrendType.String() 输出。
+func TestChartTrendTypeStringMethods(t *testing.T) {
+	cases := map[ChartTrendType]string{
+		ChartTrendLinear:        "linear",
+		ChartTrendLogarithmic:   "log",
+		ChartTrendExponential:   "exp",
+		ChartTrendPolynomial:    "poly",
+		ChartTrendPower:         "power",
+		ChartTrendMovingAverage: "movingAvg",
+	}
+	for typ, want := range cases {
+		if got := typ.String(); got != want {
+			t.Errorf("ChartTrendType(%d).String() = %q, want %q", typ, got, want)
+		}
+	}
+	if got := ChartTrendType(99).String(); got != "" {
+		t.Errorf("unknown ChartTrendType.String() = %q, want empty", got)
+	}
+}
+
+// TestChartSpecFieldSetLocked 验证 ChartSpec 字段集与 ADR-017 第二批契约一致。
+func TestChartSpecFieldSetLocked(t *testing.T) {
+	spec := ChartSpec{
+		Type:       ChartBar,
+		Title:      "title",
+		Categories: []string{"a", "b"},
+		Series:     []ChartSeries{{Name: "s", Values: []float64{1, 2}}},
+		X:          100,
+		Y:          200,
+		Width:      3000000,
+		Height:     4000000,
+	}
+	if spec.Type != ChartBar {
+		t.Errorf("ChartSpec.Type = %v, want ChartBar", spec.Type)
+	}
+	if len(spec.Categories) != 2 || spec.Categories[0] != "a" {
+		t.Errorf("ChartSpec.Categories = %v", spec.Categories)
+	}
+	if len(spec.Series) != 1 || spec.Series[0].Name != "s" {
+		t.Errorf("ChartSpec.Series = %v", spec.Series)
+	}
+}
+
+// TestChartAxisOptionsOptionalField 验证 Optional[float64] 字段在 ChartAxisOptions 中可用。
+func TestChartAxisOptionsOptionalField(t *testing.T) {
+	opt := Optional[float64]{Value: 0.5, Set: true}
+	opts := ChartAxisOptions{ValueLogBase: 10, Min: opt, Max: NewOptional(99.5)}
+	if !opts.Min.Set || opts.Min.Value != 0.5 {
+		t.Errorf("ChartAxisOptions.Min = %v, want Set=true Value=0.5", opts.Min)
+	}
+	if !opts.Max.Set || opts.Max.Value != 99.5 {
+		t.Errorf("ChartAxisOptions.Max = %v, want Set=true Value=99.5", opts.Max)
+	}
+}

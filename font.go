@@ -1,19 +1,23 @@
 package pptx
 
-import "fmt"
+import (
+	"fmt"
+
+	chartinternal "github.com/F31/go-pptx/internal/chart"
+)
 
 // Optional[T] 是"未设置/显式设置"的双态包装（方案 §5.2）。
+//
+// ADR-017 第二批：实现搬到 internal/chart.Optional[T]；本类型为 alias，
+// 公共 API 表面零变化（NewOptional / 字段集自动共享）。
 //
 // Set=false 表示无本地覆盖（继承）；Set=true 时必须按 Value 理解——
 // 例如 FontStyle.Bold 的 Set=true, Value=false 表示显式取消粗体，而非
 // "未设置"。读取状态与写入 patch 语义见 FontStyle 文档。
-type Optional[T any] struct {
-	Value T
-	Set   bool
-}
+type Optional[T any] = chartinternal.Optional[T]
 
 // NewOptional 构造显式设置值。
-func NewOptional[T any](v T) Optional[T] { return Optional[T]{Value: v, Set: true} }
+func NewOptional[T any](v T) Optional[T] { return chartinternal.NewOptional(v) }
 
 // FontSize 是字号（单位 pt；XML 存储为百分之一 pt 的 a:sz val，
 // 单位集中换算属 GEOM-01，本类型先承担强类型职责）。

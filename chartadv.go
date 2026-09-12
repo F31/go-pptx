@@ -1,5 +1,9 @@
 package pptx
 
+import (
+	chartinternal "github.com/F31/go-pptx/internal/chart"
+)
+
 // 本文件实现 CHART-02（方案 §9.2 后续 / §2.3 矩阵）：图表数据标签、
 // 误差线、趋势线、类别轴日期模式与值轴对数/极值扩展。仅 R 档白名单——
 // 超出即显式 ErrInvalidArgument，绝不静默降级。
@@ -17,112 +21,51 @@ package pptx
 //     <c:dateAx> 替代 <c:catAx>；<c:catAx> 不混用。
 //   - 值轴 Min/Max：Optional[float64]，Set=true 即写 <c:min>/<c:max>。
 
-// ---------- 公共类型 ----------
+// ---------- 公共类型（type alias，ADR-017 第二批） ----------
 
-// ChartDataLabel 描述图表级数据标签 c:dLbls（R 档）。Show=false 即不
-// 写（PowerPoint 默认隐藏）；Show=true 写 <c:dLbls>；Position ∈ 白
-// 名单 ctr / inr / inb / outT / outB / outL / outR / t / b / l / r。
-type ChartDataLabel struct {
-	Show     bool
-	Position string // 留空 = PowerPoint 默认；不允许白名单外值
-}
+// ChartDataLabel 描述图表级数据标签 c:dLbls（R 档）。
+type ChartDataLabel = chartinternal.ChartDataLabel
 
 // ChartErrorType 枚举 c:errBars 合法 errBarType 值。
-type ChartErrorType int
-
-const (
-	// ChartErrStandardDeviation 对应 c:errBarType val="stdDev"。
-	ChartErrStandardDeviation ChartErrorType = iota
-	// ChartErrStandardError 对应 c:errBarType val="stdErr"。
-	ChartErrStandardError
-	// ChartErrFixed 对应 c:errBarType val="fixed" + val=Value。
-	ChartErrFixed
-	// ChartErrPercentage 对应 c:errBarType val="percentage" + val=Value。
-	ChartErrPercentage
-)
-
-func (e ChartErrorType) String() string {
-	switch e {
-	case ChartErrStandardDeviation:
-		return "stdDev"
-	case ChartErrStandardError:
-		return "stdErr"
-	case ChartErrFixed:
-		return "fixed"
-	case ChartErrPercentage:
-		return "percentage"
-	}
-	return ""
-}
+type ChartErrorType = chartinternal.ChartErrorType
 
 // ChartErrorBars 描述单个系列的误差线 c:errBars（R 档白名单）。
-// Pie 图不支持误差线（生成时静默跳过该字段，写入读取完整性见测试）。
-type ChartErrorBars struct {
-	Type      ChartErrorType // 必填，固定四值之一
-	Value     float64        // Fixed/Percentage 时使用；stdDev/stdErr 忽略
-	Direction string         // plus / minus / both（白名单）
-	NoEndCap  bool           // <c:noEndCap val="1"/>
-}
+type ChartErrorBars = chartinternal.ChartErrorBars
 
 // ChartTrendType 枚举 c:trendline 合法 trendlineType 值。
-type ChartTrendType int
-
-const (
-	ChartTrendLinear ChartTrendType = iota
-	ChartTrendLogarithmic
-	ChartTrendExponential
-	ChartTrendPolynomial
-	ChartTrendPower
-	ChartTrendMovingAverage
-)
-
-func (t ChartTrendType) String() string {
-	switch t {
-	case ChartTrendLinear:
-		return "linear"
-	case ChartTrendLogarithmic:
-		return "log"
-	case ChartTrendExponential:
-		return "exp"
-	case ChartTrendPolynomial:
-		return "poly"
-	case ChartTrendPower:
-		return "power"
-	case ChartTrendMovingAverage:
-		return "movingAvg"
-	}
-	return ""
-}
+type ChartTrendType = chartinternal.ChartTrendType
 
 // ChartTrendline 描述单个系列的趋line c:trendline。
-//   - Polynomial.Order ∈ [2,6]；
-//   - MovingAverage.Period ≥2；其余类型忽略；
-//   - SetIntercept=true 即写 <c:intercept val="Intercept"/>（exp/poly/
-//     power/linear 等可强制截距为某值）；
-//   - Name 为趋势线名称，空 = PowerPoint 默认 "Linear (Series n)"。
-type ChartTrendline struct {
-	Type         ChartTrendType // 必填
-	Period       int            // movingAvg 用，≥2
-	Order        int            // poly 用，∈[2,6]
-	DisplayEq    bool           // dispEq
-	DisplayRSq   bool           // dispRSqr
-	Name         string         // trendline 名称
-	Intercept    float64        // 强制截距
-	SetIntercept bool           // true 时写 Intercept
-}
+type ChartTrendline = chartinternal.ChartTrendline
 
-// ChartAxisOptions 描述轴扩展（R 档）。零值 = 不写任何扩展（向后兼容
-// CHART-01 默认 catAx+valAx）。
-//
-//   - CategoryAsDate=true → 图表组末以 <c:dateAx> 替代 <c:catAx>（要求
-//     类别为可解析日期字符串；语义误用由客户端判定）。
-//   - ValueLogBase=0 → 不写；∈ [2,32] → 在 <c:valAx>/<c:scaling> 中追加
-//     <c:logBase val="n"/>，实现对数轴。
-//   - Min/Max 为值轴上下界（Set=true 时写 <c:min>/<c:max>）。
-//   - Position 允许显式指定 axPos val（b/l/t/r）：空 = 由类型决定默认。
-type ChartAxisOptions struct {
-	CategoryAsDate bool
-	ValueLogBase   int
-	Min, Max       Optional[float64]
-	Position       string // b / l / t / r，空保留默认
-}
+// ChartAxisOptions 描述轴扩展（R 档）。
+type ChartAxisOptions = chartinternal.ChartAxisOptions
+
+// iota 枚举值别名（根包公共 API 保留 ChartErr*/ChartTrend* 名字）。
+const (
+	// ChartErrStandardDeviation 对应 c:errBarType val="stdDev"。
+	ChartErrStandardDeviation = chartinternal.ChartErrStandardDeviation
+	// ChartErrStandardError 对应 c:errBarType val="stdErr"。
+	ChartErrStandardError = chartinternal.ChartErrStandardError
+	// ChartErrFixed 对应 c:errBarType val="fixed" + val=Value。
+	ChartErrFixed = chartinternal.ChartErrFixed
+	// ChartErrPercentage 对应 c:errBarType val="percentage" + val=Value。
+	ChartErrPercentage = chartinternal.ChartErrPercentage
+
+	// ChartTrendLinear 对应 c:trendlineType val="linear"。
+	ChartTrendLinear = chartinternal.ChartTrendLinear
+	// ChartTrendLogarithmic 对应 c:trendlineType val="log"。
+	ChartTrendLogarithmic = chartinternal.ChartTrendLogarithmic
+	// ChartTrendExponential 对应 c:trendlineType val="exp"。
+	ChartTrendExponential = chartinternal.ChartTrendExponential
+	// ChartTrendPolynomial 对应 c:trendlineType val="poly"。
+	ChartTrendPolynomial = chartinternal.ChartTrendPolynomial
+	// ChartTrendPower 对应 c:trendlineType val="power"。
+	ChartTrendPower = chartinternal.ChartTrendPower
+	// ChartTrendMovingAverage 对应 c:trendlineType val="movingAvg"。
+	ChartTrendMovingAverage = chartinternal.ChartTrendMovingAverage
+)
+
+// String 方法已搬到 internal/chart 包（ADR-017 第二批：方法必须定义在
+// 类型所在包，alias 上不能定义新方法）。
+

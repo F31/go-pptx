@@ -635,14 +635,14 @@ func TestChartPlotElementMapping(t *testing.T) {
 		ChartLine: "lineChart",
 		ChartPie:  "pieChart",
 	} {
-		if got := typ.plotElement(); got != want {
+		if got := typ.PlotElement(); got != want {
 			t.Fatalf("plotElement(%d) = %q, want %q", typ, got, want)
 		}
 		if back, ok := chartTypeFromPlot(want); !ok || back != typ {
 			t.Fatalf("chartTypeFromPlot(%q) = %d %v, want %d", want, back, ok, typ)
 		}
 	}
-	if ChartType(99).plotElement() != "" {
+	if ChartType(99).PlotElement() != "" {
 		t.Fatal("unknown plotElement not empty")
 	}
 	if _, ok := chartTypeFromPlot("areaChart"); ok {

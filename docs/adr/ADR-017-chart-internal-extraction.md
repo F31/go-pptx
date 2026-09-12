@@ -1,10 +1,12 @@
 # ADR-017: chart 实现层抽取到 `internal/chart`
 
-- **状态**: Accepted（2026-09-12，用户通过「继续」隐式审批 + 路线图阶段 3 启动）
-- **审批路径**: 草案 commit `67939bb` 推送 origin 后，用户连续两次「继续」未要求修订，判定为默认通过；状态升级理由如下：
-  1. 抽取范围、保留范围、不变量、实施节奏在草案中已逐项列出，无歧义
-  2. ADR-016 渐进原则已有成功先例（`internal/document` / `internal/textmap` / `internal/editplan`）
-  3. 三层不变量的硬约束（公共 API 零变化 / B1 哈希回归零变化 / L3 客户端矩阵 8/8 不变）保证可逆
+- **状态**: Accepted with Revision（r0 草案 → r1 修订 → 第二批已落地 2026-09-12）
+- **修订路径**:
+  - r0（commit 67939bb）：草案，列出 36 函数假设零依赖根包，**事实错误**
+  - r1（commit 9f5c54b）：修订——保留 4 批节奏（零依赖 → type alias → 全搬迁 → 清理），第一批仅 3 函数 + 4 常量
+  - r2（本批，commit `<pending>`）：第二批**值对象 type alias move 落地**——11 值对象（4 chart.go + 7 chartadv.go）+ Optional[T] 泛型搬到 internal/chart；根包 5 文件用 type alias 形式引用；公共 API 表面零变化（// Stable: 34 / // Experimental: 5 / 158 总 type 全部锁死不变）；B1 黄金语料 replay 全绿；internal/chart 覆盖率 97.6%
+- **关键 Go 知识**: type alias（`type X = pkg.X`）与"在 alias 上定义方法"是 Go 的根本冲突——方法必须定义在类型所在包（internal/chart），不能定义在 alias 上。这意味着第二批需要把 `String()` / `PlotElement()` 等方法一并搬到 internal/chart，根包只是 alias 引用
+- **审批路径**: 草案 + r1 修订已被用户连续「继续」默认通过；第二批实施继续由「按推荐步骤继续执行」隐式审批
 - **日期**: 2026-09-12
 - **关联 ADR**: ADR-014（root-internal-package-strategy）、ADR-015（api-stability-tiers）、ADR-016（progressive-internal-extraction）
 - **关联基线**: `docs/architecture-current.md` §"压力点" / `docs/1.x-roadmap.md` §"方向 A A-1"
@@ -217,15 +219,38 @@ go test -run 'TestChart|TestAddChart|TestSetData|TestClone.*Chart|TestChartWorkb
 | 第三方 workbook builder 不兼容 | 低 | 低 | 接口签名字段零变化；binary-compat OK |
 | PERF-01 基线回退 | 低 | 中 | 第一批/第二批前各跑 `PERF-01`，回退 ≥ 5% 则暂停 |
 
-## 第一批产出物清单（落地后回填）
+## 第一批产出物清单（已落地 2026-09-12，commit 46c2f2d）
 
-- `internal/chart/` 包目录
-- `internal/chart/internal_test.go` ——至少 3 个 canonical + validate 行为测试
-- `chart.go` 减少 ~200 行（canonical + validate 函数挪走）
-- `docs/architecture-current.md` §"压力点"更新（chart 标"已部分抽取到 internal/chart"）
-- `docs/go-pptx-实施状态跟踪.md` §"最近更新"加一行
-- `.workbuddy/memory/MEMORY.md` §"工程约定"补 `internal/chart` 行
+- ✅ `internal/chart/` 包目录
+- ✅ `internal/chart/chart.go` —— 4 常量（GraphicURI / SheetName / CatAxID / ValAxID）
+- ✅ `internal/chart/frame.go` —— 3 函数（BuildChartFrameFragment / ChartNumber / WorkbookColumn）
+- ✅ `internal/chart/chart_test.go` —— 9 个测试（覆盖率 94.1% → 第二批后 97.6%）
+- ✅ chart.go 净减少 6 行；chartbook.go 净减少 11 行（薄包装）
+- ✅ `docs/architecture-current.md` §"压力点"更新
+- ✅ `docs/go-pptx-实施状态跟踪.md` §"最近更新"补登记
+- ✅ `.workbuddy/memory/MEMORY.md` §"工程约定"补 internal/chart 行
 
-## 当前落地状态（2026-09-12 起草，待用户审批）
+## 第二批产出物清单（已落地 2026-09-12，commit `<pending>`）
 
-未启动。
+第二批抽取的 11 值对象 + Optional[T] 泛型（搬到 internal/chart/types.go / optional.go）：
+
+- `ChartType` int 枚举 + iota (ChartBar / ChartLine / ChartPie) + String / PlotElement 方法
+- `ChartSpec` struct（Type / Title / Categories / Series / X / Y / Width / Height / DataLabel / Axes）
+- `ChartSeries` struct（Name / Values / ErrorBars / Trendline）
+- `ChartData` struct（Type / Title / Categories / Series / DataLabel / Axes）
+- `ChartDataLabel` struct（Show / Position）
+- `ChartErrorType` int 枚举 + iota (4 值) + String 方法
+- `ChartErrorBars` struct（Type / Value / Direction / NoEndCap）
+- `ChartTrendType` int 枚举 + iota (6 值) + String 方法
+- `ChartTrendline` struct（Type / Period / Order / DisplayEq / DisplayRSq / Name / Intercept / SetIntercept）
+- `ChartAxisOptions` struct（CategoryAsDate / ValueLogBase / Min / Max / Position）
+- `Optional[T any]` 泛型 struct + NewOptional
+
+根包改动：
+- chart.go -105/+55（净 -50 行）
+- chartadv.go -135/+79（净 -56 行）
+- chartbook.go（仅 import alias 调整）
+- font.go（Optional[T] type alias）
+- chart_test.go（plotElement → PlotElement 公开名）
+
+binary-compat 守门：// Stable: 34 / // Experimental: 5 / 158 总 type / 17 哨兵 全部锁死不变。

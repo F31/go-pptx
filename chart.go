@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/chart"
+	chartinternal "github.com/F31/go-pptx/internal/chart"
 	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -47,18 +47,18 @@ const (
 
 // chartGraphicURI 是 a:graphicData@uri 的图表标识（与 nsChartML 同值）。
 //
-// ADR-017 第一批：实现搬到 internal/chart.GraphicURI；调用方直接用 chart.GraphicURI。
+// ADR-017 第一批：实现搬到 internal/chart.GraphicURI；调用方直接用 chartinternal.GraphicURI。
 // 保留此文件级常量仅供本地文档/历史对照使用。
 const chartGraphicURI = nsChartML
 
 // chartSheetName 是工作簿数据表名（图表引用固定指向它）。
 //
-// ADR-017 第一批：实现搬到 internal/chart.SheetName；调用方直接用 chart.SheetName。
+// ADR-017 第一批：实现搬到 internal/chart.SheetName；调用方直接用 chartinternal.SheetName。
 const chartSheetName = "Sheet1"
 
 // 规范布局的轴 ID（chart Part 内部作用域，两值固定）。
 //
-// ADR-017 第一批：实现搬到 internal/chart.CatAxID / chart.ValAxID；调用方直接用之。
+// ADR-017 第一批：实现搬到 internal/chart.CatAxID / chartinternal.ValAxID；调用方直接用之。
 const (
 	chartCatAxID = 100000001
 	chartValAxID = 100000002
@@ -66,42 +66,32 @@ const (
 
 // ---------- 公共类型 ----------
 
-// ChartType 是受限图表类型（CHART-01 范围：柱/折/饼）。
-type ChartType int
+// ---------- 公共类型（type alias，ADR-017 第二批） ----------
 
+// ChartType 是受限图表类型（CHART-01 范围：柱/折/饼）。
+//
+// ADR-017 第二批：实现搬到 internal/chart.ChartType；本类型为 alias，
+// 调用方零修改，公共 API 表面零变化（field/method set 自动共享）。
+type ChartType = chartinternal.ChartType
+
+// ChartSpec 描述新增图表（单位：EMU）。Width/Height 必需（>0）。
+type ChartSpec = chartinternal.ChartSpec
+
+// ChartSeries 是一个数据系列（名称 + 与类别等长的数值）。
+type ChartSeries = chartinternal.ChartSeries
+
+// ChartData 是图表数据的读写快照。
+type ChartData = chartinternal.ChartData
+
+// iota 枚举值别名（根包公共 API 保留 ChartBar/ChartLine/ChartPie 名字）。
 const (
 	// ChartBar 是簇状柱状图（barDir=col，单值轴）。
-	ChartBar ChartType = iota
+	ChartBar = chartinternal.ChartBar
 	// ChartLine 是折线图（标准分组，无平滑）。
-	ChartLine
+	ChartLine = chartinternal.ChartLine
 	// ChartPie 是饼图。
-	ChartPie
+	ChartPie = chartinternal.ChartPie
 )
-
-func (t ChartType) String() string {
-	switch t {
-	case ChartBar:
-		return "bar"
-	case ChartLine:
-		return "line"
-	case ChartPie:
-		return "pie"
-	}
-	return fmt.Sprintf("ChartType(%d)", int(t))
-}
-
-// plotElement 返回类型对应的 c: 图表组元素名。
-func (t ChartType) plotElement() string {
-	switch t {
-	case ChartBar:
-		return "barChart"
-	case ChartLine:
-		return "lineChart"
-	case ChartPie:
-		return "pieChart"
-	}
-	return ""
-}
 
 // chartTypeFromPlot 由图表组元素名解析类型。
 func chartTypeFromPlot(local string) (ChartType, bool) {
@@ -114,53 +104,6 @@ func chartTypeFromPlot(local string) (ChartType, bool) {
 		return ChartPie, true
 	}
 	return 0, false
-}
-
-// ChartSpec 描述新增图表（单位：EMU）。Width/Height 必需（>0）。
-//
-// 扩展字段（CHART-02，R 档白名单）：
-//   - DataLabel：nil 或 Show=false 即不写图表级 <c:dLbls>（PowerPoint
-//     默认隐藏）；Show=true 时按 Position 白名单生成。
-//   - Axes：nil = 默认（categorical catAx + 线性 valAx）；非空可启用对
-//     数轴 / 日期类别轴 / 值轴 Min/Max。
-//
-// Series 内 ErrorBars/Trendline 由各 ChartSeries 自身携带，按 OOXML 序
-// 排在 c:tx 与 c:cat 之间。
-type ChartSpec struct {
-	Type       ChartType
-	Title      string
-	Categories []string
-	Series     []ChartSeries
-	X, Y       int64
-	Width      int64
-	Height     int64
-	DataLabel  *ChartDataLabel   // CHART-02：可选图表级数据标签
-	Axes       *ChartAxisOptions // CHART-02：可选轴扩展
-}
-
-// ChartSeries 是一个数据系列（名称 + 与类别等长的数值）。
-type ChartSeries struct {
-	// Name 是系列名（显示于图例与工作簿行 1）。
-	Name string
-	// Values 是数值（长度必须等于类别数）。
-	Values []float64
-	// ErrorBars：可选系列级误差线（CHART-02，CHART-01 不暴露）。
-	ErrorBars *ChartErrorBars
-	// Trendline：可选系列级趋势线（CHART-02，CHART-01 不暴露）。
-	Trendline *ChartTrendline
-}
-
-// ChartData 是图表数据的读写快照：Data() 的返回值与 SetData 的入参。
-//
-// 扩展字段（CHART-02）随读回的 Data()/SetData 往返：每条 Series 含指针
-// ErrorBars/Trendline，未设时为 nil；顶层 DataLabel/Axes 同理。
-type ChartData struct {
-	Type       ChartType
-	Title      string
-	Categories []string
-	Series     []ChartSeries
-	DataLabel  *ChartDataLabel
-	Axes       *ChartAxisOptions
 }
 
 // Stable: ChartShape 是页面图表（p:graphicFrame 引用 chart Part）的读侧
@@ -359,7 +302,7 @@ func (s *Slide) AddChart(ctx context.Context, spec ChartSpec) (*ChartShape, erro
 // buildChartFrameFragment 构造引用 chart Part 的 p:graphicFrame 片段
 // （c: 前缀内联声明；a:/r: 由页面根元素作用域解析）。
 func buildChartFrameFragment(id, x, y, cx, cy int64, rid string) string {
-	return chart.BuildChartFrameFragment(id, x, y, cx, cy, rid)
+	return chartinternal.BuildChartFrameFragment(id, x, y, cx, cy, rid)
 }
 
 // lastChartHandle 在提交后定位 spTree 末尾引用图表的 p:graphicFrame。
