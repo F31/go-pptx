@@ -268,6 +268,11 @@ func opTitle(op string) (string, string) {
 		return "保存·落盘原子替换（BenchmarkPerfSaveDisk）", "Save 到临时路径，含原子替换与文件系统开销。"
 	case "PerfPeakHeap":
 		return "全流程峰值内存（BenchmarkPerfPeakHeap）", "Open → 遍历 → Write 的堆分配峰值；采样会 STW，故不呈现 ns/op。"
+	case "SavePlanWriteCopyOriginal":
+		return "保存·未变 Part 复制（internal/opc，ADR-018）",
+			"空变更集保存，未变媒体 Part 全部走 CopyOriginal（媒体重文档的真实热点）。" +
+				"**分配总量/op 应与媒体体积解耦**——这是 ADR-018 Tier 1 的收益锚点；" +
+				"PeakHeap 行的 ns/op 含采样 STW，不具参考意义。"
 	default:
 		return op, ""
 	}
@@ -304,7 +309,8 @@ func writeReport(w io.Writer, hdr header, results []*result) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "> 性能数据与硬件/工具链强相关；跨机器比较须先固定平台与 Go 版本。")
 
-	groups := []string{"PerfOpen", "PerfTraverse", "PerfReplace", "PerfSaveMem", "PerfSaveDisk", "PerfPeakHeap"}
+	groups := []string{"PerfOpen", "PerfTraverse", "PerfReplace", "PerfSaveMem", "PerfSaveDisk",
+		"PerfPeakHeap", "SavePlanWriteCopyOriginal"}
 	for _, op := range groups {
 		var rows []*result
 		for _, r := range results {
@@ -336,6 +342,34 @@ func writeReport(w io.Writer, hdr header, results []*result) {
 				}
 				fmt.Fprintf(w, "| %s | %s | %s | %.2f× | %s | %.0f |\n",
 					deck, fmtBytes(pkgB), fmtBytes(peak), ratio, fmtBytes(bOp), allocs)
+			}
+			continue
+		}
+		// internal/opc 的 Save 复制基准：没有"输入包"概念（合成媒体），
+		// 故不呈现 pkg-bytes 列，改为呈现堆峰值增量。
+		if op == "SavePlanWriteCopyOriginal" {
+			fmt.Fprintln(w, "| 场景 | p50 | p95 | 分配总量/op | 分配次数/op | 堆峰值增量 |")
+			fmt.Fprintln(w, "|---|---:|---:|---:|---:|---:|")
+			for _, r := range rows {
+				_, deck := splitName(r.name)
+				bOp, _ := r.metricOr("B/op", true)
+				allocs, _ := r.metricOr("allocs/op", true)
+				peak, hasPeak := r.metricOr("peak_heap_B", false)
+				peakS := "—"
+				if hasPeak {
+					peakS = fmtBytes(peak)
+				}
+				p50S, p95S := "—", "—"
+				if deck != "PeakHeap" {
+					if m, ok := r.metrics["ns/op"]; ok && len(m.vals) > 0 {
+						s := append([]float64(nil), m.vals...)
+						sort.Float64s(s)
+						p50S = fmtDur(percentile(s, 0.50))
+						p95S = fmtDur(percentile(s, 0.95))
+					}
+				}
+				fmt.Fprintf(w, "| %s | %s | %s | %s | %.0f | %s |\n",
+					deck, p50S, p95S, fmtBytes(bOp), allocs, peakS)
 			}
 			continue
 		}

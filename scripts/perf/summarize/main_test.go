@@ -76,6 +76,33 @@ func TestRunWritesReport(t *testing.T) {
 	}
 }
 
+func TestRunWritesSavePlanSection(t *testing.T) {
+	input := strings.Join([]string{
+		"# timestamp: 2026-09-12T00:00:00Z",
+		"# count: 1",
+		"# go-version: go version go1.27.0 windows/amd64",
+		"goos: windows",
+		"goarch: amd64",
+		"pkg: github.com/F31/go-pptx/internal/opc",
+		"BenchmarkSavePlanWriteCopyOriginal/3x8MiB-24 20 6428050 ns/op 206296 B/op 148 allocs/op",
+		"BenchmarkSavePlanWriteCopyOriginal/PeakHeap-24 20 6974470 ns/op 3189984 peak_heap_B 319030 B/op 150 allocs/op",
+	}, "\n")
+	var out bytes.Buffer
+	if err := run(strings.NewReader(input), &out); err != nil {
+		t.Fatal(err)
+	}
+	report := out.String()
+	for _, want := range []string{
+		"## 保存·未变 Part 复制（internal/opc，ADR-018）",
+		"| 3x8MiB | 6.428 ms | 6.428 ms | 201.5 KiB | 148 | — |",
+		"| PeakHeap | — | — | 311.6 KiB | 150 | 3.04 MiB |",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q\n%s", want, report)
+		}
+	}
+}
+
 func TestRunNoBenchmarks(t *testing.T) {
 	var out bytes.Buffer
 	err := run(strings.NewReader("PASS\n"), &out)

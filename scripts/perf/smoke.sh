@@ -5,8 +5,9 @@
 # runner 的耗时抖动大，拿 ns/op 做门禁必然 flaky，故本脚本只验三类**确定性**
 # 事实：
 #
-#   1. 基准套件可编译，且 6 组基准 × 3 档语料全部实际执行（防基准被误删/
-#      改名/静默跳过）；
+#   1. 基准套件可编译，且 6 组基准 × 3 档语料、以及 internal/opc 的
+#      Save 复制锚点基准（4 个子基准）全部实际执行（防基准被误删/改名/
+#      静默跳过）；
 #   2. scripts/perf/summarize 能解析当前工具链的 `go test -bench` 输出
 #      （防未来 Go 版本变更 bench 行格式导致报告生成器静默失效）；
 #   3. 三档语料的输入包字节数（pkg-bytes）落在预期下界之上——其中
@@ -53,7 +54,27 @@ done
 if [ "$missing" -ne 0 ]; then
 	exit 1
 fi
-printf 'perf-smoke: 6 groups x 3 decks executed OK\n'
+# ①b ADR-018 收益锚点（internal/opc）：4 个子基准全部执行，且其输出一并喂给
+#     报告生成器（防 Save 复制基准被误删/改名，导致分配回归无人看守）。
+#     该组不依赖根包，独立一次 go test。
+status=0
+go test -run '^$' -bench 'BenchmarkSavePlanWriteCopyOriginal' -benchmem -benchtime=1x \
+	-timeout 10m ./internal/opc/ >>"$RAW" 2>&1 || status=$?
+if [ "$status" -ne 0 ]; then
+	printf 'perf-smoke: opc save-copy benchmark FAILED (exit %s); log: %s\n' "$status" "$RAW" >&2
+	tail -n 40 "$RAW" >&2 || true
+	exit "$status"
+fi
+for sub in 1x1MiB 4x1MiB 3x8MiB PeakHeap; do
+	if ! grep -q "^BenchmarkSavePlanWriteCopyOriginal/${sub}" "$RAW"; then
+		printf 'perf-smoke: missing benchmark SavePlanWriteCopyOriginal/%s\n' "$sub" >&2
+		missing=1
+	fi
+done
+if [ "$missing" -ne 0 ]; then
+	exit 1
+fi
+printf 'perf-smoke: 6 groups x 3 decks + opc save-copy 4 sub-benches executed OK\n'
 
 # ② 报告生成器可解析当前工具链输出（解析失败会非零退出）。
 report="$(mktemp "${TMPDIR:-/tmp}/go-pptx-perf-smoke.XXXXXX.md")"
@@ -70,6 +91,11 @@ grep -q '(UTC)' "$report" || {
 }
 grep -Eq '[0-9]+(\.[0-9]+)? (MiB|KiB|B)' "$report" || {
 	printf 'perf-smoke: report has no formatted byte cells: %s\n' "$report" >&2
+	exit 1
+}
+# ADR-018 锚点分组已渲染（ASCII 锚点，避免中文 locale 差异）。
+grep -q 'ADR-018' "$report" || {
+	printf 'perf-smoke: report missing ADR-018 save-copy section: %s\n' "$report" >&2
 	exit 1
 }
 printf 'perf-smoke: summarizer parsed current toolchain output OK\n'

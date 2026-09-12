@@ -104,14 +104,18 @@ func BenchmarkSavePlanWriteCopyOriginal(b *testing.B) {
 			}
 		})
 	}
+	// 峰值堆作为同组子基准（报告按 op 分组时与上面三档同表呈现）。
+	b.Run("PeakHeap", func(b *testing.B) {
+		benchPeakHeap(b)
+	})
 }
 
-// BenchmarkSavePlanWriteCopyOriginalPeakHeap 测量单次保存过程中的**堆峰值增量**
+// benchPeakHeap 测量单次保存过程中的**堆峰值增量**
 // （近似值：以 100µs 为间隔采样 HeapAlloc，取最大值减基线）。
 //
 // 这是比 B/op 更贴近「媒体重文档 OOM」痛点的指标——全缓冲路径会把
 // 最大单个 Part 完整驻留堆上，流式路径不会。
-func BenchmarkSavePlanWriteCopyOriginalPeakHeap(b *testing.B) {
+func benchPeakHeap(b *testing.B) {
 	const mediaSize = 8 << 20
 	const mediaCount = 3
 	pk, plan := benchLoadPlan(b, mediaSize, mediaCount)

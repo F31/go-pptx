@@ -93,7 +93,11 @@ pwsh -File scripts/perf/run.ps1
 | `BENCH` | `BenchmarkPerf` | 基准筛选正则 |
 | `BENCHTIME` | 空 | `-benchtime` 覆盖；留空由框架自动定标 |
 | `TIMEOUT` | `30m` | `go test -timeout`；`COUNT` 大或 runner 慢时上调（勿依赖 Go 默认 10m） |
-| `RAW` | `scripts/perf/raw-bench.log` | 原始日志（环境头 + `go test` 输出；本地运行日志，已 gitignore 不入库） |
+| `RAW` | `perf-out/raw-bench.log` | 原始日志（环境头 + `go test` 输出；本地运行日志，已 gitignore 不入库） |
+| `OPC_BENCH` | `BenchmarkSavePlanWriteCopyOriginal` | `internal/opc` 组的基准筛选（ADR-018 收益锚点） |
+| `OPC_BENCHTIME` | `20x` | 该组 `benchtime`（固定迭代数，便于跨机比较） |
+| `OPC_COUNT` | `3` | 该组采样次数 |
+| `SKIP_OPC` | `0` | 设为 `1` 跳过 `internal/opc` 组（根包暂不可编译等场合） |
 | `OUT` | `docs/PERF-01-benchmark-report.md` | 聚合报告输出 |
 
 快速冒烟（不用于基线，仅验证交付物完好）：
@@ -102,6 +106,22 @@ pwsh -File scripts/perf/run.ps1
 scripts/perf/smoke.sh          # 确定性守门，见 §9
 COUNT=1 BENCHTIME=1x scripts/perf/run.sh   # 端到端跑一遍并出报告
 ```
+
+### 5.1 `internal/opc` 组：Save 未变 Part 复制（ADR-018 收益锚点）
+
+末段报告中的「保存·未变 Part 复制」来自 `internal/opc/saveplan_bench_test.go`，与三档真实语料
+并列但**性质不同**——它是合成媒体包（1×1 MiB / 4×1 MiB / 3×8 MiB 未变媒体 + PeakHeap 行），
+测的是保存链路中「把未变 Part 从源包搬到输出包」这一段的分配与峰值堆。
+
+判读要点：
+
+- **分配总量应与媒体体积解耦**：Tier 1（流式 `io.Copy`）下 1×1 MiB 与 3×8 MiB 同为百 KiB 量级
+  （`OPC_BENCHTIME=20x` 实测：135.6 KiB / 234.4 KiB / 201.5 KiB）；若 3×8 MiB 行的
+  `分配总量/op` 涨到**与媒体体积同量级（数十 MiB）**，说明回退到了「整个 Part 读进内存」的
+  全缓冲路径。注意 `-benchtime=1x` 时一次性分配（构造包、zip writer 缓冲）被摊到单次迭代，
+  读数会显著偏高（实测 1.27 MiB）——**比较必须在同一 `OPC_BENCHTIME` 下进行**。
+- `PeakHeap` 行的 `ns/op` 含采样 STW，只解读**堆峰值增量**列。
+- 该组不依赖根包，根包暂不可编译时可用 `SKIP_OPC=1` 之外的组合单独观察。
 
 ## 6. 已知限制
 
@@ -123,6 +143,7 @@ COUNT=1 BENCHTIME=1x scripts/perf/run.sh   # 端到端跑一遍并出报告
 | 产物 | 性质 |
 |---|---|
 | `perf_bench_test.go` | 基准套件（三档语料 + 四类操作 + 峰值内存） |
+| `internal/opc/saveplan_bench_test.go` | Save「未变 Part 复制」基准（ADR-018 收益锚点：分配 / 峰值堆） |
 | `scripts/perf/summarize/` | 报告生成器（解析 `go test -bench` 原始日志 → markdown） |
 | `scripts/perf/run.sh` / `run.ps1` | 全量基线驱动脚本 |
 | `scripts/perf/smoke.sh` | 确定性冒烟守门（CI 每次 push/PR 调用，见 §9） |
