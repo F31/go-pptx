@@ -27,6 +27,12 @@
 - **跨实现比较 ZIP 产物的铁律**：必须**按条目名对齐**，不能按位置——不同实现的条目顺序可能不同（如 raw 直通保留源顺序 vs 按 Part 名排序输出）。
 - **基准测量坑**：`B/op` 随 `-benchtime` 变化（1x 时一次性分配摊到单次迭代会显著抬高），前后对比必须固定同一 benchtime。
 - **本机 gofmt 假阳性**：`core.autocrlf=true` 检出为 CRLF 的 .go 文件会被 `gofmt -l` 标记；git 内的 LF 版本是干净的，**不要整体重排**（用 `git diff --stat` 行数判断是否为行尾差异）。
+- **基准形状必须覆盖「多而小」（可复用铁律，ADR-018 血泪教训）**：任何改造 per-item 处理的优化，收益锚点**必须同时有「少而大」与「多而小」两档**。「少而大」的用例结构上不可能暴露 per-item **固定开销**——ADR-018 Tier 1 用 `io.Copy`（每次新分配 32 KiB，与 Part 大小无关）替换按体积分配的 `readAll`，微基准（3×8MiB 媒体）显示 B/op −99.7%，但真实正文型文档（十几个几 KB Part）付出 `nParts × 32 KiB` 净亏损，**保存分配量反向劣化 10.7×**，只有端到端 PERF-01 能抓到。修法是在循环外**复用同一缓冲**（`io.CopyBuffer`），固定开销 O(n)→O(1)，之后三档才全面优于改前。已补 `200x4KiB` 哨兵档（无复用 7.24MB vs 复用 231KB，31× 灵敏度）。**推论：在循环里对每个 item 调 `io.Copy` 就是 O(n) 次 32KiB 分配。**
+- **本机墙钟时间不可用于跨轮次比较**：Intel Core Ultra 9 275HX 是 **P/E 混合核**，Windows 线程调度漂移使**同一份代码**的 `ns/op` 在不同轮次可差 **3.5×**（实测 `Open/100p-media` 6.577ms vs 1.9ms）。回归判定**只能用 B/op / allocs / peak-heap 等确定性指标**（跨轮次稳定到小数点后 2 位）；需要墙钟结论须在同一进程内 A/B 或用 CI 的 Linux runner。已写入 PERF-01 §6。
+- **归因不要只比头尾**：中间夹了别的 commit 时，用**中间 commit 的独立 worktree** 跑同一命令隔离变量（本次用 `9bfe44d`=Tier 1 单独 commit，直接排除 chart 重构干扰）。
+- **断言绑在 CI 取不到的输入上 = 死断言**：B1「发布硬门槛」曾只挂在私有样本 ext-0024（源文件未入库 → CI 恒 Skip）与合成 fixture 上，等于从未在 CI 生效。已迁到库内可再分发的公开样本（`corpus_b1_test.go`）。**新增门禁前先确认输入在 CI 上可得。**
+- **B1 比对走 OPC Part 视角，不是 ZIP 条目**：用 `p.pk.PartNames() + partBytes()` 比解压内容 SHA256；条目级（压缩方式/顺序/时间戳）不在 B1 承诺范围。B1-AFTER 口径：只有 `SaveReport.ChangedParts` 声明的 Part 可变，且纯文本替换的变更集合应只落在 `/ppt/slides/` 下。
+- **`pwsh` 本机不可用**（PowerShell 工具是 5.1），但 `go` 在 bash/PowerShell 下均可用 → 跑 `scripts/perf/run.ps1` 请改用 `bash scripts/perf/run.sh`（完整一轮约 5 分钟）。
 - **状态跟踪**：docs/go-pptx-实施状态跟踪.md（负责人每 PR/里程碑后更新）；记忆日志按日追加。
 - **句柄身份约定（STALE-GUARD，M8 落地，三层已闭环）**：所有句柄身份 = 所属形状的 cNvPr@id（`shapeNode.idHint` / `textNode.shapeHint` / `Cell.shapeHint`），path 仅作"在哪个 spTree/grpSp 下查找"的父容器提示。locate 先按 path 解析出目标元素，再向上遍历找最近 p:sp/p:cxnSp/p:graphicFrame/p:grpSp 的 cNvPr@id 与 hint 比对——不等/找不到返回 ErrStaleHandle；hint=0 走纯路径判定（向后兼容 notes/老句柄）。语义：MoveShape / AddShape（兄弟增）/ 编辑文本后句柄仍有效（cNvPr@id 未变），只有 RemoveShape 让目标 cNvPr@id 消失时句柄才失效。三层覆盖：shapeNode（形状）、textNode（Paragraph/TextRun/TextFrame）、Cell（表格单元格）。
 - **opencode 协作分界**：`testdata/corpus/`（含 README.md、s00*、ext-*）与 `scripts/gen_corpus/` 由 opencode 维护，主代理提交不纳入这些路径。
