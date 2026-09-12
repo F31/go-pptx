@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/chart"
 	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -37,17 +38,28 @@ import (
 const (
 	// nsChartML 是 DrawingML 图表命名空间（c: 前缀）。
 	nsChartML = "http://schemas.openxmlformats.org/drawingml/2006/chart"
-	// chartGraphicURI 是 a:graphicData@uri 的图表标识（与 nsChartML 同值）。
-	chartGraphicURI = nsChartML
-	// chartSheetName 是工作簿数据表名（图表引用固定指向它）。
-	chartSheetName = "Sheet1"
 
 	relChart    = opc.RelTypePrefix + "chart"
 	relPackage  = opc.RelTypePrefix + "package"
 	ctChartPart = "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"
 	ctWorkbook  = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
-	// 规范布局的轴 ID（chart Part 内部作用域，两值固定）。
+// chartGraphicURI 是 a:graphicData@uri 的图表标识（与 nsChartML 同值）。
+//
+// ADR-017 第一批：实现搬到 internal/chart.GraphicURI；调用方直接用 chart.GraphicURI。
+// 保留此文件级常量仅供本地文档/历史对照使用。
+const chartGraphicURI = nsChartML
+
+// chartSheetName 是工作簿数据表名（图表引用固定指向它）。
+//
+// ADR-017 第一批：实现搬到 internal/chart.SheetName；调用方直接用 chart.SheetName。
+const chartSheetName = "Sheet1"
+
+// 规范布局的轴 ID（chart Part 内部作用域，两值固定）。
+//
+// ADR-017 第一批：实现搬到 internal/chart.CatAxID / chart.ValAxID；调用方直接用之。
+const (
 	chartCatAxID = 100000001
 	chartValAxID = 100000002
 )
@@ -347,15 +359,7 @@ func (s *Slide) AddChart(ctx context.Context, spec ChartSpec) (*ChartShape, erro
 // buildChartFrameFragment 构造引用 chart Part 的 p:graphicFrame 片段
 // （c: 前缀内联声明；a:/r: 由页面根元素作用域解析）。
 func buildChartFrameFragment(id, x, y, cx, cy int64, rid string) string {
-	return `<p:graphicFrame>` +
-		`<p:nvGraphicFramePr><p:cNvPr id="` + strconv.FormatInt(id, 10) + `" name="Chart ` +
-		strconv.FormatInt(id, 10) + `"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>` +
-		`<p:xfrm><a:off x="` + strconv.FormatInt(x, 10) + `" y="` + strconv.FormatInt(y, 10) +
-		`"/><a:ext cx="` + strconv.FormatInt(cx, 10) + `" cy="` + strconv.FormatInt(cy, 10) + `"/></p:xfrm>` +
-		`<a:graphic><a:graphicData uri="` + chartGraphicURI + `">` +
-		`<c:chart xmlns:c="` + nsChartML + `" r:id="` + rid + `"/>` +
-		`</a:graphicData></a:graphic>` +
-		`</p:graphicFrame>`
+	return chart.BuildChartFrameFragment(id, x, y, cx, cy, rid)
 }
 
 // lastChartHandle 在提交后定位 spTree 末尾引用图表的 p:graphicFrame。

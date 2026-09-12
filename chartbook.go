@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/chart"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -167,23 +168,19 @@ func buildChartSheetXML(book ChartDataBook) (string, error) {
 }
 
 // chartWorkbookColumn 把 1 基列号转为列字母（1→A，2→B，27→AA）。
+//
+// ADR-017 第一批已搬到 internal/chart.WorkbookColumn；保留薄包装以保持
+// 根包 chart 系列调用点零修改。
 func chartWorkbookColumn(n int) string {
-	if n < 1 {
-		return ""
-	}
-	var sb []byte
-	for n > 0 {
-		n-- // 1 基 → 0 基
-		sb = append([]byte{byte('A' + n%26)}, sb...)
-		n /= 26
-	}
-	return string(sb)
+	return chart.WorkbookColumn(n)
 }
 
 // chartNumber 输出数值的规范十进制文本（供图表缓存与工作簿共用，
 // 保证两侧字节一致；非有限值由上游校验拒绝）。
+//
+// ADR-017 第一批已搬到 internal/chart.ChartNumber；保留薄包装。
 func chartNumber(v float64) string {
-	return strconv.FormatFloat(v, 'g', -1, 64)
+	return chart.ChartNumber(v)
 }
 
 // chartWorkbookBytes 经当前适配器生成工作簿字节。

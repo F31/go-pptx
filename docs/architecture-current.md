@@ -77,7 +77,7 @@ The expected direct references to low-level transaction primitives are therefore
 | `Presentation` internals | Feature code touches transaction/cache details indirectly through root helpers | Introduce `internal/document` engine and `PartStore` facade |
 | Text replacement | High-risk logic combines text mapping, safety checks, patch construction, and public API result types | Extract implementation-only text map/plan logic to `internal/textmap` |
 | `Shape` interface | The interface has grown beyond identity into geometry/style/effect access | Add small capability interfaces before adding more methods |
-| Chart implementation | XML read/write/canonical validation/workbook logic is concentrated in large files | Move pure implementation into `internal/chart` behind root facade |
+| Chart implementation | XML read/write/canonical validation/workbook logic is concentrated in large files | **第一批已落地 (2026-09-12 ADR-017 r1)**：3 真零依赖函数 + 4 常量搬到 `internal/chart`（BuildChartFrameFragment / ChartNumber / WorkbookColumn / GraphicURI / SheetName / CatAxID / ValAxID），根包保留薄包装，binary-compat + B1 哈希 + L3 矩阵三重守门通过。第二批（值对象 type alias move）等用户二次审批后启动 |
 | Compatibility evidence | Corpus manifests and smoke reports exist but are not yet indexed into a matrix | Add corpus index/report generation |
 
 ## Refactoring Rules
