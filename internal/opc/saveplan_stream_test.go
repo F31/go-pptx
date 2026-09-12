@@ -74,7 +74,7 @@ func TestCopyPartErrors(t *testing.T) {
 
 	t.Run("missing source part", func(t *testing.T) {
 		var buf bytes.Buffer
-		err := copyPart(pk, &buf, "/ppt/missing.xml")
+		err := copyPart(pk, &buf, "/ppt/missing.xml", nil)
 		if err == nil {
 			t.Fatal("copyPart: want error for missing part, got nil")
 		}
@@ -85,7 +85,7 @@ func TestCopyPartErrors(t *testing.T) {
 
 	t.Run("write failure", func(t *testing.T) {
 		want := errors.New("boom")
-		err := copyPart(pk, errWriter{err: want}, "/ppt/slides/slide1.xml")
+		err := copyPart(pk, errWriter{err: want}, "/ppt/slides/slide1.xml", nil)
 		if err == nil {
 			t.Fatal("copyPart: want error for failing writer, got nil")
 		}

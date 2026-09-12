@@ -74,7 +74,7 @@ done
 if [ "$missing" -ne 0 ]; then
 	exit 1
 fi
-printf 'perf-smoke: 6 groups x 3 decks + opc save-copy 4 sub-benches executed OK\n'
+printf 'perf-smoke: 6 groups x 3 decks + opc save-copy 5 sub-benches executed OK\n'
 
 # ② 报告生成器可解析当前工具链输出（解析失败会非零退出）。
 report="$(mktemp "${TMPDIR:-/tmp}/go-pptx-perf-smoke.XXXXXX.md")"

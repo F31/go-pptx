@@ -252,6 +252,9 @@ func crossCheck(pk *Package, cs *ChangeSet) error {
 // 按 Part 名排序（确定性）。写入完成后输出仍可通过 Load 重新装配。
 func (plan *SavePlan) Write(pk *Package, w io.Writer) error {
 	zw := zip.NewWriter(w)
+	// 整轮写入复用同一个复制缓冲（首次遇到 CopyOriginal 时才分配）：
+	// 避免每个未变 Part 各分配 32 KiB 的固定开销（详见 copyPart 注释）。
+	var copyBuf []byte
 	for _, e := range plan.Entries {
 		if e.Action == Omit {
 			continue
@@ -279,7 +282,10 @@ func (plan *SavePlan) Write(pk *Package, w io.Writer) error {
 			// 因此输出字节流不变（B1 语义保持）。
 			//
 			// 预算仍在读取侧由 countedReadCloser 强制，超限行为不变。
-			if err := copyPart(pk, f, e.Name); err != nil {
+			if copyBuf == nil {
+				copyBuf = make([]byte, copyPartBufSize)
+			}
+			if err := copyPart(pk, f, e.Name, copyBuf); err != nil {
 				return err
 			}
 		default:
@@ -294,13 +300,23 @@ func (plan *SavePlan) Write(pk *Package, w io.Writer) error {
 
 // copyPart 把源包的未变 Part 流式复制到输出条目（ADR-018 Tier 1）。
 //
+// buf 是调用方提供的**复用缓冲**；为 nil 时本函数自行分配一个 32 KiB 缓冲。
+// SavePlan.Write 在整轮写入中复用同一个缓冲——这一点很关键：`io.Copy` 每次
+// 调用都会新分配 32 KiB，与 Part 实际大小无关，于是「Part 多且小」的文档
+// （典型：正文型 PPTX，十余个几 KB 的 Part）会付出 nParts × 32 KiB 的固定
+// 开销，反而比原先按体积分配的 readAll 更差（实测 10p-text 保存分配量
+// 98 KiB → 1.01 MiB）。复用缓冲后固定开销降为常数。
+//
 // 错误前缀沿用 "copy entry %s"（与旧 readAll 路径一致，避免改变错误契约）。
-func copyPart(pk *Package, dst io.Writer, name PartName) error {
+func copyPart(pk *Package, dst io.Writer, name PartName, buf []byte) error {
 	rc, err := pk.OpenPart(name)
 	if err != nil {
 		return fmt.Errorf("copy entry %s: %w", name, err)
 	}
-	if _, err := io.Copy(dst, rc); err != nil {
+	if buf == nil {
+		buf = make([]byte, copyPartBufSize)
+	}
+	if _, err := io.CopyBuffer(dst, rc, buf); err != nil {
 		rc.Close()
 		return fmt.Errorf("copy entry %s: %w", name, err)
 	}
@@ -309,6 +325,9 @@ func copyPart(pk *Package, dst io.Writer, name PartName) error {
 	}
 	return nil
 }
+
+// copyPartBufSize 是未变 Part 复制的复用缓冲大小（32 KiB，与 io.Copy 默认一致）。
+const copyPartBufSize = 32 * 1024
 
 // readAll 读取 Part 全部解压内容（受该 Part 的预算限制）。
 func (pk *Package) readAll(name PartName) ([]byte, error) {

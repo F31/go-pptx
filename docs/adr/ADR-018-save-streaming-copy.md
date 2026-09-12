@@ -1,7 +1,7 @@
 # ADR-018: Save 未变 Part 流式复制（去全缓冲 + 可选原始帧直通）
 
-- **状态**: **Tier 1 已实现 + 已量化（`internal/opc` 层）**；Tier 2 可行性验证已完成（见下），建议**不实施**
-- **Tier 1 进度**: 代码已落地 `internal/opc/saveplan.go`（`copyPart`）+ `saveplan_stream_test.go`（大 Part 字节一致 / 幂等 / 两类错误分支）+ `saveplan_bench_test.go`（收益锚点）；`internal/opc` 自身测试与 `-tags=corpus` 全绿、覆盖率 90.4%（守 90% 门槛）。**B1 全量语料与 PERF-01 端到端基线仍须等根包编译恢复（A-1 第三批 WIP 阻塞）后补做**
+- **状态**: **Tier 1 已实现 + 端到端已量化（含一次反向劣化的发现与修复）**；Tier 2 可行性验证已完成（见下），建议**不实施**
+- **Tier 1 进度**: 代码已落地 `internal/opc/saveplan.go`（`copyPart`，缓冲整轮复用）+ `saveplan_stream_test.go` + `saveplan_bench_test.go`（4 档收益锚点，含 `200x4KiB` 固定开销哨兵）。**端到端已验收**：`corpus_b1_test.go` 四份语料（含真实 WPS 样本 ext-0024 的 75 个 Part）空变更保存字节恒等、编辑后仅声明 Part 变化；PERF-01 基线报告已重生成；`internal/opc` 覆盖率 90.4%；`go test ./...` 与 `-tags=corpus ./...` 均 14/14 包全绿
 - **日期**: 2026-09-12
 - **关联 ADR**: ADR-016（progressive-internal-extraction）、ADR-014（root-internal-package-strategy）
 - **关联基线**: `docs/PERF-01-性能基线.md`（峰值内存 / p50 / p95）、B1 黄金语料逐 Part 哈希、`docs/1.x-roadmap.md`
@@ -80,6 +80,43 @@ case CopyOriginal:
 - 耗时意外地下降 40–45%（不只是持平）——省掉大对象分配与随之而来的 GC 压力，收益大于多出的 32 KiB 缓冲拷贝；
 - 峰值堆为 100 µs 间隔采样 `HeapAlloc` 的近似值，非精确水位；
 - 字节等价由 `TestSavePlanCopyOriginalLargePartIsByteExact`、`TestSavePlanWriteCopyOriginalStillByteExact` 锚定（1 MiB / 300 KiB / 512 KiB+1 MiB 混合三档）。
+
+> ⚠️ **上表已被下面的端到端实测修正**：该微基准只有「少而大」的 Part，看不到
+> **每 Part 固定开销**，据此得出的结论在真实文档形状上是错的。保留原表仅作过程留痕。
+
+### Tier 1 修正（2026-09-12 晚）：首版对小档语料反向劣化 10×，已修
+
+根包编译恢复后跑 PERF-01 端到端基准（三档真实语料），发现**与微基准矛盾的反向劣化**：
+
+| 语料（真实文档形状） | 改前 `readAll` | Tier 1 首版（每 Part 一次 `io.Copy`） | 修复后（缓冲整轮复用） |
+|---|---:|---:|---:|
+| `10p-text`（14 KB，Part 多而小） | 103.9 KB | **1.11 MB（劣化 10.7×）** | **77.9 KB（−25.0%）** |
+| `50p-image`（60 KB） | 413.3 KB | **3.94 MB（劣化 9.5×）** | **222.5 KB（−46.2%）** |
+| `100p-media`（33.9 MB） | 88.60 MB | 7.95 MB（−91.0%） | **390.4 KB（−99.6%）** |
+
+**根因**：`io.Copy` 每次调用都新分配一个 **32 KiB 缓冲，与 Part 实际大小无关**。
+原先的 `readAll` 是**按体积**分配（小 Part 只分配几 KB），改成流式后固定开销变成
+`nParts × 32 KiB`。媒体档 Part 少而大，省下的体积开销远大于固定开销故大赢；
+而正文型 PPTX 有十余个几 KB 的 Part，固定开销反而成了净亏损。
+
+**修复**：`SavePlan.Write` 在整轮写入中**复用同一个 32 KiB 缓冲**（首次遇到
+`CopyOriginal` 时分配，经 `io.CopyBuffer` 传给 `copyPart`）。固定开销从
+`O(nParts)` 降为 `O(1)`，于是三档**全面优于改前**。
+
+**漏检原因与补漏**：原收益锚点只有 `1x1MiB / 4x1MiB / 3x8MiB` 三档「少而大」
+用例，结构上不可能发现每 Part 固定开销。已补 `200x4KiB`（200 个 4 KiB Part）
+哨兵档——实测该档在「无复用」下 **7.24 MB**、「复用」下 **231 KB**，**31× 差异**，
+灵敏度充足。`scripts/perf/smoke.sh` 的 ①b 守门已同步为 5 个子基准。
+
+结论修正：
+
+- 原「耗时下降 40–45%」的推论不可采信——本机（P/E 混合核 + Windows 调度）
+  **同一份代码的墙钟时间在不同轮次可差 3.5×**（见 PERF-01 基线文档 §6），
+  只有 B/op 这类确定性指标可作结论；
+- 真正的收益是**分配量与文档形状解耦**：从「O(未变 Part 总体积)」变成
+  「O(1) 缓冲 + 少量常数」，媒体档 −99.6%，小档也不再劣化；
+- 端到端 B1 由 `corpus_b1_test.go` 锚定（4 份语料 118 个 Part 空变更保存后
+  字节恒等），本次修复后复跑全绿。
 
 ### Tier 2（中风险）：未变非 XML Part 走 `CreateRaw` / `OpenRaw` 直通 —— **已验证可行，本次不实施**
 

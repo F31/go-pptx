@@ -90,6 +90,13 @@ func BenchmarkSavePlanWriteCopyOriginal(b *testing.B) {
 		{"1x1MiB", 1 << 20, 1},
 		{"4x1MiB", 1 << 20, 4},
 		{"3x8MiB", 8 << 20, 3},
+		// 200x4KiB：**多而小**的 Part 形态（正文型 PPTX 的真实形状），用于
+		// 暴露「每个 Part 一份固定开销」的退化。若未变 Part 复制对每个 Part
+		// 各分配一个缓冲区或中间切片，本档的 B/op 会立刻涨到 nParts × 开销
+		// （200 × 32KiB ≈ 6.4 MiB），而上面三档「少而大」的用例完全看不出来
+		// ——这正是 Tier 1 首版（每 Part 一次 io.Copy）漏检的盲区：小档语料
+		// 保存分配量曾反向劣化 10 倍，只有本档能捕捉。
+		{"200x4KiB", 4 << 10, 200},
 	}
 	for _, tc := range cases {
 		b.Run(tc.name, func(b *testing.B) {
