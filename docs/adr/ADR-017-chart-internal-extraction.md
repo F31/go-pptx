@@ -5,7 +5,7 @@
   - r0（commit 67939bb）：草案，列出 36 函数假设零依赖根包，**事实错误**
   - r1（commit 9f5c54b）：修订——保留 4 批节奏（零依赖 → type alias → 全搬迁 → 清理），第一批仅 3 函数 + 4 常量
   - r2（commit ce3f66c）：第二批**值对象 type alias move 落地**——11 值对象（4 chart.go + 7 chartadv.go）+ Optional[T] 泛型搬到 internal/chart；根包 5 文件用 type alias 形式引用；公共 API 表面零变化（// Stable: 34 / // Experimental: 5 / 158 总 type 全部锁死不变）；B1 黄金语料 replay 全绿；internal/chart 覆盖率 97.6%
-  - r3（commit `<pending>`）：第三批**全实现搬迁 + 根包 facade 清理**——parse / build / canonical / validate / fragment / workbook 全部实现搬到 internal/chart；**同时删除 31 个已无生产调用方的根包私有 facade**（保留 `chartIsCanonical` / `parseChartSpace` / `buildChartSpaceXML` / `validateChartData` / `nodeText` 等仍有调用方的适配器），并把白盒测试迁入 internal/chart 恢复覆盖率归属
+  - r3（commit a3abfca）：第三批**全实现搬迁 + 根包 facade 清理**——parse / build / canonical / validate / fragment / workbook 全部实现搬到 internal/chart；**同时删除 31 个已无生产调用方的根包私有 facade**（保留 `chartIsCanonical` / `parseChartSpace` / `buildChartSpaceXML` / `validateChartData` / `nodeText` 等仍有调用方的适配器），并把白盒测试迁入 internal/chart 恢复覆盖率归属
 - **r3 关键发现（记录以免重蹈）**:
   1. **`c:v` / `a:t` 的值在标签之间，不在属性上**——搬迁时若写 `Attr("", "val")` 会永远读空（标题/系列名/类别/数值全空）。必须取 `Original()[OpenEnd:CloseStart]` 并做实体解码。
   2. **`CachePoints` 必须按 `pt@idx` 排序并补空位**，不是按文档顺序追加。
@@ -238,7 +238,7 @@ go test -run 'TestChart|TestAddChart|TestSetData|TestClone.*Chart|TestChartWorkb
 - ✅ `docs/go-pptx-实施状态跟踪.md` §"最近更新"补登记
 - ✅ `.workbuddy/memory/MEMORY.md` §"工程约定"补 internal/chart 行
 
-## 第二批产出物清单（已落地 2026-09-12，commit `<pending>`）
+## 第二批产出物清单（已落地 2026-09-12，commit ce3f66c）
 
 第二批抽取的 11 值对象 + Optional[T] 泛型（搬到 internal/chart/types.go / optional.go）：
 
