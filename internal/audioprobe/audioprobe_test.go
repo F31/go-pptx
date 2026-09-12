@@ -345,6 +345,134 @@ func TestProbeMP3VBRI(t *testing.T) {
 	}
 }
 
+// TestParseMP3FrameErrorBranches covers the four invalid-frame early-return
+// branches in parseMP3Frame (brIdx==0, brIdx>=14, srIdx>=3, lyr==0). These
+// were not exercised by the CBR 128kbps Layer III fixture. Each case builds
+// its header from scratch (cannot OR-mutate, since OR cannot clear bits).
+func TestParseMP3FrameErrorBranches(t *testing.T) {
+	// Base layout: 11 sync bits set; MPEG1; Layer III; no CRC.
+	// We rebuild the header for each case with one field mutated.
+	sync := uint32(0xFFE00000)
+	mpeg1 := uint32(0b11) << 19
+	layerIII := uint32(0b01) << 17
+	noCRC := uint32(1) << 16
+	defaultBR := uint32(9) << 12
+	defaultSR := uint32(0) << 10
+
+	cases := []struct {
+		name string
+		head uint32
+	}{
+		{"brIdx=0 (free)", sync | mpeg1 | layerIII | noCRC | (0 << 12) | defaultSR},
+		{"brIdx=15 (bad)", sync | mpeg1 | layerIII | noCRC | (15 << 12) | defaultSR},
+		{"srIdx=3 (reserved)", sync | mpeg1 | layerIII | noCRC | defaultBR | (3 << 10)},
+		{"lyr=0 (Layer I)", sync | mpeg1 | (0 << 17) | noCRC | defaultBR | defaultSR},
+	}
+	for _, tc := range cases {
+		buf := []byte{byte(tc.head >> 24), byte(tc.head >> 16), byte(tc.head >> 8), byte(tc.head)}
+		_, _, _, _, ok := parseMP3Frame(buf)
+		if ok {
+			t.Errorf("%s: parseMP3Frame returned ok=true; want false", tc.name)
+		}
+	}
+}
+
+// TestParseMP3FrameMPEG2 covers the MPEG2/2.5 Layer III success branch of
+// parseMP3Frame (ver != mp3MPEG1 → size uses 72*bitrate/sampleRate formula
+// instead of MPEG1's 144*bitrate/sampleRate).
+//
+// For MPEG2 Layer III, brIdx=9 maps to 80kbps (not 128kbps as in MPEG1), and
+// srIdx=0 maps to 22050 Hz. Frame size = 72*80000/22050 ≈ 261 bytes.
+func TestParseMP3FrameMPEG2(t *testing.T) {
+	sync := uint32(0xFFE00000)
+	mpeg2 := uint32(0b10) << 19
+	layerIII := uint32(0b01) << 17
+	noCRC := uint32(1) << 16
+	brIdx9 := uint32(9) << 12
+	srIdx0 := uint32(0) << 10
+	h := sync | mpeg2 | layerIII | noCRC | brIdx9 | srIdx0
+	buf := []byte{byte(h >> 24), byte(h >> 16), byte(h >> 8), byte(h)}
+	_, frameLen, version, layer, ok := parseMP3Frame(buf)
+	if !ok {
+		t.Fatalf("parseMP3Frame(MPEG2 L3) returned ok=false")
+	}
+	if version != 2 {
+		t.Errorf("version = %d, want 2 (MPEG2 raw bits)", version)
+	}
+	if layer != 1 {
+		t.Errorf("layer = %d, want 1 (mp3LayerIII constant)", layer)
+	}
+	// MPEG2 L3 @ 80kbps / 22050Hz = 72 * 80000 / 22050 ≈ 261 bytes.
+	if frameLen < 255 || frameLen > 270 {
+		t.Errorf("frameLen = %d, want ~261", frameLen)
+	}
+}
+
+// TestProbeMP3LayerIIWarning covers the warning-append branch in probeMP3
+// (layer != mp3LayerIII). Layer II frames are not decoded as such but probeMP3
+// still computes duration using the Layer II row of the bitrate/frame-samples
+// tables; the layer-not-supported warning is the observable contract for the
+// "Layer II not supported" stance.
+func TestProbeMP3LayerIIWarning(t *testing.T) {
+	// Layer II (raw bits 0b10), MPEG1 (raw bits 0b11), 128kbps, 44.1kHz.
+	// MPEG1 L2 frame size = 144 * 128000 / 44100 ≈ 417 bytes.
+	sync := uint32(0xFFE00000)
+	mpeg1 := uint32(0b11) << 19
+	layerII := uint32(0b10) << 17
+	noCRC := uint32(1) << 16
+	brIdx9 := uint32(9) << 12
+	srIdx0 := uint32(0) << 10
+	h := sync | mpeg1 | layerII | noCRC | brIdx9 | srIdx0
+	frameLen := 144 * 128000 / 44100
+	buf := make([]byte, frameLen)
+	binary.BigEndian.PutUint32(buf, h)
+
+	info, err := Probe(ProbeInput{Data: buf})
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if info.Container != "mp3" {
+		t.Errorf("container = %q, want mp3", info.Container)
+	}
+	warningFound := false
+	for _, w := range info.Warnings {
+		if strings.Contains(w, "layer=2") {
+			warningFound = true
+			break
+		}
+	}
+	if !warningFound {
+		t.Errorf("expected layer=2 warning, got %v", info.Warnings)
+	}
+}
+
+// TestProbeMP3InvalidBitrate covers the "no valid frame found" return path
+// in probeMP3. A header with brIdx=0 passes parseMP3Frame's sync/version/
+// layer checks but parseMP3Frame itself rejects brIdx=0 (free format
+// reserved) → ok=false → probeMP3 keeps searching, never finds a valid
+// frame, falls through to DurationUnknown at the bottom.
+func TestProbeMP3InvalidBitrate(t *testing.T) {
+	sync := uint32(0xFFE00000)
+	mpeg1 := uint32(0b11) << 19
+	layerIII := uint32(0b01) << 17
+	noCRC := uint32(1) << 16
+	brIdx0 := uint32(0) << 12
+	srIdx0 := uint32(0) << 10
+	h := sync | mpeg1 | layerIII | noCRC | brIdx0 | srIdx0
+	buf := make([]byte, 64)
+	binary.BigEndian.PutUint32(buf, h)
+	info, err := Probe(ProbeInput{Data: buf})
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if info.Container != "mp3" {
+		t.Errorf("container = %q, want mp3", info.Container)
+	}
+	if info.State != DurationUnknown {
+		t.Errorf("state = %v, want Unknown (free-format bitrate unsupported)", info.State)
+	}
+}
+
 func TestProbeMP3Broken(t *testing.T) {
 	// 损坏（不含 RIFF 且前两字节不是 0xFF）→ 未知。
 	info, err := Probe(ProbeInput{Data: []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}})
