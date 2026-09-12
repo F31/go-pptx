@@ -1,0 +1,75 @@
+name: fuzz
+
+# 模糊测试冒烟。
+#
+# 定位：常规 CI（ci.yml）跑 `go test ./...` 时已经会执行 fuzz 目标的种子语料
+# （seed corpus），但那只是“已知输入不回归”。本工作流做的是**真正的随机
+# 探索**：在有限时间内让 Go 的 fuzzing 引擎变异输入，覆盖打包/解析/编辑链路上
+# 的恶意包防御（zip bomb、路径穿越、XML 边界）。
+#
+# 触发：
+#   - 每周一 04:17 UTC 定时（低频、低成本，避免占用 PR 反馈时间）
+#   - workflow_dispatch 手动触发，可用 fuzztime 输入延长时长
+#
+# 失败处理：fuzzing 找到崩溃时，Go 会把最小复现输入写到 testdata/fuzz/<Target>/，
+# 本工作流无条件上传该目录为 artifact，便于本地 `go test -run=FuzzXxx` 复现。
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: '每目标 fuzzing 时长（Go duration，如 90s / 5m）'
+        required: false
+        default: '90s'
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: fuzz-${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pkg: './internal/opc', target: 'FuzzLoad' }
+          - { pkg: './internal/opc', target: 'FuzzScan' }
+          - { pkg: './internal/xmlstore', target: 'FuzzScanner' }
+          - { pkg: './internal/xmlstore', target: 'FuzzIndex' }
+          - { pkg: '.', target: 'FuzzOpenReader' }
+          - { pkg: '.', target: 'FuzzReplaceText' }
+          - { pkg: '.', target: 'FuzzSetPlainText' }
+          - { pkg: '.', target: 'FuzzBind' }
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+
+      - name: Seed corpus sanity (已知输入不回归)
+        run: go test -run "^${{ matrix.target }}$" "${{ matrix.pkg }}"
+
+      - name: Fuzz ${{ matrix.target }}
+        id: fuzz
+        run: |
+          go test -run '^$' \
+            -fuzz "^${{ matrix.target }}$" \
+            -fuzztime "${{ inputs.fuzztime || '90s' }}" \
+            "${{ matrix.pkg }}"
+
+      # 崩溃样本落在 testdata/fuzz/<target>/，失败时也要上传（if: always()）。
+      - name: Upload crashers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-${{ matrix.target }}-corpus
+          path: |
+            ${{ matrix.pkg }}/testdata/fuzz/**
+            testdata/fuzz/**
+          if-no-files-found: ignore
+          retention-days: 30

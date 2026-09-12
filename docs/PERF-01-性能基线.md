@@ -126,7 +126,7 @@ COUNT=1 BENCHTIME=1x scripts/perf/run.sh   # 端到端跑一遍并出报告
 | `scripts/perf/summarize/` | 报告生成器（解析 `go test -bench` 原始日志 → markdown） |
 | `scripts/perf/run.sh` / `run.ps1` | 全量基线驱动脚本 |
 | `scripts/perf/smoke.sh` | 确定性冒烟守门（CI 每次 push/PR 调用，见 §9） |
-| `scripts/perf/raw-bench.log` | 本地运行原始日志（gitignore，运行后再生；聚合证据以报告为准） |
+| `perf-out/raw-bench.log` | 本地运行原始日志（`RAW` 默认路径，gitignore，运行后再生；聚合证据以报告为准） |
 | `docs/PERF-01-benchmark-report.md` | 最近一次聚合报告（自动生成） |
 | `.github/workflows/ci.yml` → `perf-smoke` | 变更时确定性守门 |
 | `.github/workflows/perf.yml` → `baseline` | 每日定时全量基线（归档 + Job Summary） |

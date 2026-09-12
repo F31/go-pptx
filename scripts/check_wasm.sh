@@ -16,8 +16,19 @@ OUT="${OUT:-./wasm/site}"
 mkdir -p "$OUT"
 
 # 1) 编译 WASM。
-echo "[check_wasm] building cmd/pptx_check → $OUT/pptx_check.wasm"
-CGO_ENABLED=0 GOOS=js GOARCH=wasm go build -o "$OUT/pptx_check.wasm" ./cmd/pptx_check
+# 瘦身选项（体积敏感：浏览器需下载整个 .wasm）：
+#   -trimpath 去掉本地绝对路径（同时消除构建机路径泄漏）
+#   -ldflags="-s -w" 去掉符号表与 DWARF 调试信息
+# 仅用于发布/分发构建；本地排错时可加 SLIM=0 保留调试信息。
+SLIM="${SLIM:-1}"
+if [[ "$SLIM" == "1" ]]; then
+  LDFLAGS=(-trimpath -ldflags="-s -w")
+else
+  LDFLAGS=()
+fi
+
+echo "[check_wasm] building cmd/pptx_check → $OUT/pptx_check.wasm (slim=$SLIM)"
+CGO_ENABLED=0 GOOS=js GOARCH=wasm go build "${LDFLAGS[@]}" -o "$OUT/pptx_check.wasm" ./cmd/pptx_check
 
 # 2) 复制 wasm_exec.js 到站点目录。
 if [[ -z "${GOROOT:-}" ]]; then
@@ -40,6 +51,11 @@ cat <<EOF
 
 Serve the site directory with any static HTTP server:
   cd "$OUT" && python -m http.server 8080
+
+Tip: enable gzip/brotli on the server for pptx_check.wasm (~6 MB → ~1.5 MB
+over the wire; the -s -w strip above only saves ~2% of the raw size, transport
+compression is what actually matters).
+
 Then open http://localhost:8080/check.html in a modern browser.
 
 Note: file:// may block fetch(); use a static server for tests.

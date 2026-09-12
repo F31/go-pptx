@@ -9,11 +9,12 @@
 #   BENCH      基准筛选正则（默认 BenchmarkPerf）
 #   BENCHTIME  benchtime 覆盖（默认空，由框架自动定标）
 #   TIMEOUT    go test -timeout（默认 30m；COUNT 大或 runner 慢时上调）
-#   RAW        原始日志路径（默认 scripts/perf/raw-bench.log）
+#   RAW        原始日志路径（默认 perf-out/raw-bench.log，gitignore 不入库）
 #   OUT        报告输出路径（默认 docs/PERF-01-benchmark-report.md）
 #
 # 产物：
-#   - RAW：含环境头 + `go test -bench` 原始输出，作为证据留档；
+#   - RAW：含环境头 + `go test -bench` 原始输出，本地运行日志（perf-out/
+#     已 gitignore，避免每次重跑污染 git status；聚合证据以 OUT 报告为准）；
 #   - OUT：由 scripts/perf/summarize 聚合的 markdown 报告。
 set -eu
 
@@ -21,7 +22,7 @@ COUNT="${COUNT:-10}"
 BENCH="${BENCH:-BenchmarkPerf}"
 BENCHTIME="${BENCHTIME:-}"
 TIMEOUT="${TIMEOUT:-30m}"
-RAW="${RAW:-scripts/perf/raw-bench.log}"
+RAW="${RAW:-perf-out/raw-bench.log}"
 OUT="${OUT:-docs/PERF-01-benchmark-report.md}"
 
 mkdir -p "$(dirname "$RAW")" "$(dirname "$OUT")"

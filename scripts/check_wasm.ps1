@@ -9,7 +9,8 @@
 # 依赖：GOROOT 内的 wasm_exec.js（Go 标准库自带的浏览器 runtime）。
 [CmdletBinding()]
 param(
-    [string]$Out = "$PSScriptRoot\..\wasm\site"
+    [string]$Out = "$PSScriptRoot\..\wasm\site",
+    [switch]$Slim = $true
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,12 +19,18 @@ Set-Location (Join-Path $PSScriptRoot '..')
 New-Item -ItemType Directory -Path $Out -Force | Out-Null
 
 # 1) 编译 WASM。
-Write-Host "[check_wasm] building cmd/pptx_check -> $Out\pptx_check.wasm"
+Write-Host "[check_wasm] building cmd/pptx_check -> $Out\pptx_check.wasm (slim=$Slim)"
 $env:CGO_ENABLED = '0'
 $env:GOOS = 'js'
 $env:GOARCH = 'wasm'
 try {
-    go build -o (Join-Path $Out 'pptx_check.wasm') .\cmd\pptx_check
+    # -trimpath 去掉本地绝对路径（同时消除构建机路径泄漏）
+    # -ldflags="-s -w" 去掉符号表与 DWARF 调试信息
+    # 体积敏感（浏览器需下载整个 .wasm）；本地排错用 -Slim:$false 保留调试信息。
+    $ldflags = @()
+    if ($Slim) { $ldflags = @('-trimpath', '-ldflags=-s -w') }
+
+    go build @ldflags -o (Join-Path $Out 'pptx_check.wasm') .\cmd\pptx_check
 }
 finally {
     Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue
@@ -54,5 +61,10 @@ Write-Host ("  {0,-60} {1,12}" -f $execFile.FullName, $execFile.Length)
 Write-Host ""
 Write-Host "Serve the site directory with any static HTTP server:"
 Write-Host ("  cd {0}; python -m http.server 8080" -f $Out)
+Write-Host ""
+Write-Host "Tip: enable gzip/brotli on the server for pptx_check.wasm (~6 MB -> ~1.5 MB"
+Write-Host "over the wire; the -s -w strip above only saves ~2% of the raw size, transport"
+Write-Host "compression is what actually matters)."
+Write-Host ""
 Write-Host "Then open http://localhost:8080/check.html in a modern browser."
 Write-Host "Note: file:// may block fetch(); use a static server for tests."

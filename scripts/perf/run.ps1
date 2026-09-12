@@ -8,7 +8,7 @@
 #   BENCH      benchmark filter regex (default BenchmarkPerf)
 #   BENCHTIME  benchtime override (default empty = auto calibrate)
 #   TIMEOUT    go test -timeout (default 30m; raise for large COUNT / slow runners)
-#   RAW        raw log path (default scripts/perf/raw-bench.log)
+#   RAW        raw log path (default perf-out/raw-bench.log; gitignored, local-only)
 #   OUT        report path (default docs/PERF-01-benchmark-report.md)
 $ErrorActionPreference = 'Stop'
 
@@ -16,7 +16,7 @@ $Count = if ($env:COUNT) { $env:COUNT } else { '10' }
 $Bench = if ($env:BENCH) { $env:BENCH } else { 'BenchmarkPerf' }
 $Benchtime = if ($env:BENCHTIME) { $env:BENCHTIME } else { '' }
 $Timeout = if ($env:TIMEOUT) { $env:TIMEOUT } else { '30m' }
-$Raw = if ($env:RAW) { $env:RAW } else { 'scripts/perf/raw-bench.log' }
+$Raw = if ($env:RAW) { $env:RAW } else { 'perf-out/raw-bench.log' }
 $Out = if ($env:OUT) { $env:OUT } else { 'docs/PERF-01-benchmark-report.md' }
 
 foreach ($p in @($Raw, $Out)) {
