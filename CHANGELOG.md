@@ -9,6 +9,23 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 ## [Unreleased]
 
+### Changed
+
+- Consolidated production edit paths behind `SinglePartPatch` / `MultiPartPlan` helpers via `internal/document`, `internal/textmap`, and `internal/editplan`; low-level `stage*` / `commit` primitives are now confined to the transaction primitive and root adapter boundary.
+- Updated architecture/status documentation for ADR-016 and QA-01 corpus status: 36 sample indexes plus 3 public LibreOffice gold samples; L3 PowerPoint/WPS real-machine matrix remains outstanding and is tracked in `docs/client-compat-matrix.md`.
+- Added `docs/coverage-roadmap.md` to track the deferred 1.x coverage-improvement work toward the V2.6 90% target.
+- Reached COV-01 (full coverprofile total >= 80%) on 2026-09-11: expanded stable enum stringers/value-object tests and `Slide` public accessors (root 78.1%), `internal/xmlstore` scanner/node accessor edges (90.2%), `internal/opc` `PartNameFromEntry`/`EntryNames`/`ChangeSet.IsEmpty` (86.7%), and `ir` pure page-score/timing-helper/core-projection tests (81.4%).
+- COV-02 push on 2026-09-11: root moved to 81.5% and full total to 82.5% via capability standalone helpers, Save/Write/Open error guards, bind typed-value helpers, audio/video shape accessors and probe-error mapping, `SetFont` create/expand/replace-fill branches, `TimingTreeRaw` branches, chart `plotElement`/categories/values/canonical/`chartOfGraphic`, notes error branches, `mapOCError`/`parseUint32`, `appendSldIdPatch`, and table style helper edges. Removed never-called dead code (`findTiming`, `Field.pathToField`, `findAudioByShape`).
+- COV-02 reached on 2026-09-11 (root 82.0%, full total 82.9%): white-box predicate tests for chart canonical ser/trendline/errBars/title/rich-text/axes, bind patch helpers (`emptyParaPatch`/`deletePatch`/`childElems`), `resolve`/`resolveItems` branches, `scanShapes` traversal/depth, row-loop strict-mode and unsupported-marker rejections, `sourceRef.Open` failure paths, `lastAudioHandle` not-found, `recordAudioProfile` corrupted-reset, and `chartWorkbookPartOf`.
+- Closed the `ir` table-text projection gap on 2026-09-11 (`readTableText`/`cellText` were 0%) with a self-contained zip fixture deck via public `OpenReader`; `ir` moved to 86.2% and full total to 83.2%.
+- ADR-014 quarterly trigger-condition review on 2026-09-11: no trigger hit (incremental compile 0.56s < 5s, no third-party extension demand, no merge-conflict hotspot); `internal/edit` stays un-extracted.
+- COV-04 coverage-target review on 2026-09-11: a flat 90%-per-package target is abandoned; 90% applies only to low-level format packages (`opc`/`xmlstore`/`videoprobe`/`audioprobe`/`textmap`/`editplan`), root SDK target is 85%, command/helper stays 85%. L3 client-compat matrix samples are confirmed ready (`s001`/`s002`/`s003` include `.pptx/.edited.pptx/.odp/.actions.json`, `ext-0024` has manifest + smoke); actual PowerPoint/WPS runs remain blocked on a client-equipped environment.
+- L3 PowerPoint/WPS client-compat matrix executed on 2026-09-11 (Windows 11 host, WSL-triggered COM automation): **8/8 combinations passed** — PowerPoint 16.0.20326 and WPS 演示 12.1.0.28599 both opened `s001-text`/`s002-table`/`s003-image`/`ext-0024` edited samples with no repair prompt, resaved as `.pptx`, and every resaved file re-opened by go-pptx with `Validate` errorCount=0 and the edited content preserved. New reproducible tooling `scripts/l3/run_client.sh` + `scripts/l3/ppt_open_resave.ps1`; results recorded in `docs/client-compat-matrix.md` (evidence hashes in `.l3-output/`, gitignored).
+
+### Fixed
+
+- Added a docProps regression covering same-call creation of `core.xml` and `app.xml` root relationships so root rel patches are merged rather than overwritten.
+
 ## [1.0.0] - 2026-09-11
 
 The first stable release of go-pptx.

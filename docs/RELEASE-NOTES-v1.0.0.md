@@ -89,9 +89,11 @@ godoc 段落已注明演化边界与未来升档时间窗；详情见
 ## 已知限制（v1.0.0）
 
 - **L3 客户端矩阵未验证**：本机无 PowerPoint/WPS 真机环境，未跑"打开无修复提示 +
-  编辑后重存"端到端验证。按 V2.6 §26 P1 发布级硬缺口，单独跟踪。
+  编辑后重存"端到端验证。按 V2.6 §26 P1 发布级硬缺口，执行模板见
+  [`client-compat-matrix.md`](client-compat-matrix.md)。
 - **测试覆盖率 86.6%**（`cmd/pptx`）/ 77.1%（根包）：低于 V2.6 §15.3 90% 门槛
-  但**非硬性要求**——按 ADR-015 §4 覆盖率门槛待 1.x 收敛。
+  但**非硬性要求**——按 ADR-015 §4 覆盖率门槛待 1.x 收敛；后续路线图见
+  [`coverage-roadmap.md`](coverage-roadmap.md)。
 - **公开样本语料 3 份**：LibreOffice 生成（可再分发）；私有 `ext-*` 33 份仅索引
   未入库（WPS 源 / 受限许可）。
 
@@ -132,6 +134,8 @@ v1.0.0 是首个稳定版本，无破坏性变更路径：
 - [`adr/ADR-015-api-stability-tiers.md`](adr/ADR-015-api-stability-tiers.md)
   —— 三级稳定性模型
 - [`corpus-入库指南.md`](corpus-入库指南.md) —— 公开样本语料入库指南
+- [`client-compat-matrix.md`](client-compat-matrix.md) —— L3 PowerPoint/WPS 客户端兼容矩阵
+- [`coverage-roadmap.md`](coverage-roadmap.md) —— 1.x 覆盖率收敛路线图
 - [`../CHANGELOG.md`](../CHANGELOG.md) —— 完整变更记录
 - [`go-pptx-实施状态跟踪.md`](go-pptx-实施状态跟踪.md) —— 项目实施状态跟踪
 - [`M8-里程碑总结.md`](M8-里程碑总结.md) —— M8 里程碑总结

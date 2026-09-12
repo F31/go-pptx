@@ -30,3 +30,8 @@ corpus-replay.log
 # WASM 站点（脚本构建时再生成；CI 与本地一致）
 /wasm/site/pptx_check.wasm
 /wasm/site/wasm_exec.js
+.l3-output/
+
+# Python 工具缓存
+__pycache__/
+*.pyc

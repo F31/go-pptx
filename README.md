@@ -6,6 +6,7 @@
 - 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》（`docs/go-pptx_完整设计方案_V2_6_开发实施版.md`）
 - 实施计划：《go-pptx 项目实施计划》（`docs/go-pptx-项目实施计划.md`）
 - 状态跟踪：`docs/go-pptx-实施状态跟踪.md`
+- 覆盖率路线图：`docs/coverage-roadmap.md`
 
 ## 仓库基线记录（CORE-01，建仓提交）
 
@@ -19,7 +20,7 @@
 
 > 模块名、正式许可、工具链与客户端版本应在仓库初始化提交中记录（方案 §27）。
 
-## 当前状态（M2 已收口，M3 推进中）
+## 当前状态（M8 已收口，v1.0 后架构收敛进行中）
 
 - [x] CORE-01：module/目录/许可/CI 骨架（含 `GOOS=js GOARCH=wasm` 编译验证 job）
 - [x] OPC-01 首批：ZIP 条目索引、PartName 校验、资源预算、实际字节计数读取（`internal/opc`）
@@ -28,7 +29,7 @@
 - [x] OPC-02：关系图、Content Types（Override 优先）、主 Part 发现（非固定名称）、循环安全遍历（`internal/opc`）
 - [x] SAVE-01：保存计划（PlannedEntry 四动作）、未变 Part 复制、CT 同源再生成、B1 哈希回归全绿（`internal/opc`）
 - [x] SAVE-02：原子落盘（临时文件→Close+校验→原子替换）、失败保留旧目标、WithOverwrite/WithDurability（`internal/opc`）
-- [ ] M0 垂直验证：真实语料 B1 哈希比对（**阻塞于语料收集**）
+- [x] M0 垂直验证：合成语料 + 真实语料 ext-0024 B1 哈希比对与未知区字节保留
 - [x] MODEL-01：Presentation 骨架（New/Open/OpenReader/Save/Write/Close/Validate）、Slide 受控句柄、revision 事务骨架、库内最小合法模板
 - [x] TEXT-01：DocumentStore 增删/文档缓存扩展、Optional/FontStyle/ColorSpec、TextFrame/Paragraph/TextRun（SetPlainText/SetText/AddRun/SetFont/ResetFontProperty）、备注四 API（SpeakerNotes*）
 - [x] TEXT-02：Paragraph/TextFrame.ReplaceText（跨 Run 字面替换、三格式策略、br/fld/链接边界、字素簇保护、ReplaceResult 报告、整批单事务提交）
@@ -37,7 +38,7 @@
 - [x] docProps(5.1)：CoreProperties/CustomProperties 读写（Optional patch 语义、Modified 保存时自动更新、core/custom.xml 缺失按需建 Part/CT/根关系、lpwstr/i4/bool/filetime 四变体）
 - [x] 页面 API 收口（M2 收口）：Slide(index)/Slides()（读视图）、Layouts/LayoutRef（绑定文档，跨文档 AddSlide 返回 ErrForeignReference）、AddSlide（新建 slide Part+rId+sldId 注册、最小空闲 id、含自闭合/缺失 sldIdLst 展开）、MoveSlide（index=最终位置语义、整元素字节搬移保真）、RemoveSlide（连带 notesSlide、未知依赖 ErrUnsupportedEdit 阻止、notesMaster 保留）
 - [x] 形状枚举与 AltText(8.1)（M2 收口）：Slide.Shapes()/Placeholders()（z-order 枚举，nvGrpSpPr/grpSpPr 跳过；Shape 公共面 ID/Name/Kind/AltText/IsDecorative）、AutoShape 句柄（TextBox/AutoShape 判别、TextFrame 读写、占位符 Type/Index 规范化 obj/0）、OpaqueShape 只读回退、AutoShape/PictureShape §8.1 读写（装饰标记与空串语义互斥区分，共用 shapeNode 基元）、保存往返保真
-- [x] M2 代码项全部收口（QA-01 语料冒烟与真实客户端验证待语料/环境到位）
+- [x] M2 代码项全部收口（QA-01 语料硬阻塞已解除；发布级 PowerPoint/WPS L3 客户端矩阵 2026-09-11 真机执行 8/8 通过，见 `docs/client-compat-matrix.md`）
 
 ## 当前状态（M3 格式与表格，GEOM-01/TABLE-01/格式深度子集已完成）
 
@@ -62,7 +63,7 @@
 - [x] **TPL-01（M7 第四项）**：模板数据绑定引擎（方案 §2.4 / ADR 013）——`Presentation.Bind(data, opts...)` 按数据源渲染模板标记：**内联占位符** `{{path}}`（点分路径，支持嵌套 map 与切片下标；跨 Run 保真替换，占位符被拆到多个 Run 也能命中）、**条件段落** `{{#if path}}…{{/if}}`（标记独占段落；条件为假删除标记与块内段落，支持嵌套）、**表格行循环** `{{#each path}}…{{/each}}`（标记位于表格行单元格内；模板行按数据条数复制，块内 `{{field}}` 以条目为作用域、`{{.}}` 为标量条目；空数据删除模板行）、**图表数据绑定**（数据源中值为 `pptx.ChartData` 且键等于图表形状名 → 走 CHART-01 SetData）。**原子性**：plan 阶段纯读取校验（缺键/类型不符/标记不配对/不支持构造一律显式报错、不落任何补丁），apply 阶段按 Part 聚合补丁、单事务 commit——**绑定失败无部分写入**；`WithBindStrict(false)` 可关闭严格模式（未解析占位符保留原文并记 Warning 诊断）。`pptx bind --data data.json --output out.pptx` CLI 子命令（写命令，支持 `--overwrite` / `--loose`）。已知限制：不覆盖备注页与母版/版式文本；行循环内不支持嵌套条件段落；图表绑定无法由 JSON 表达（需 SDK 传 ChartData）
 
 - [x] **DIFF-01（M8 首项）**：语义 diff 与审计报告（方案 §18.3 / §24）——`ir.Diff(a, b *Document, opts...)` 以 IR 为输入视图比较两份文档，返回 `DiffReport`（schemaVersion="go-pptx.diff/1.0"，与 IR/SDK 版本独立）。**页面对齐**：加权 LCS（SlideID 相同为强匹配；无 SlideID 时按形状 ID 集合 Jaccard 相似度 ≥0.5 配对为"同一页的两次修订"——纯文本改动不会被误判为删页+加页），顺序对齐后的乱序残留（如两页互换）以 ≥0.8 高阈值二次配对并标移动；超百万格退化线性对齐防超大文档失控。**页内比较**：形状按 ShapeID 配对，逐字段比较文本（可忽略空白）、几何 Box、类型、名称、替代文本、装饰标记、表格行列数、图表类型，组形状递归；备注与动画时序（TIMIR-01 摘要：节点数/估计数/媒体节点/opaque 数）单独成项。**opaque diff**：未识别/未投影区域聚合为 OpaqueRegion 列表，带 Part + NodePath 定位可回溯（§24 验收），不猜测内部变化。每条 DiffEntry 含 Part/NodePath/SlideID/ShapeID/From/To/Detail；MaxEntries 截断保护（EntriesTruncated 标记）。`WithIgnoreGeometry/WithIgnoreWhitespace/WithIgnoreNotes/WithMaxEntries`。`pptx diff [--output|--stdout] [--ignore-*] [--max-entries n] old.pptx new.pptx` CLI 子命令（只读）。已知限制：复杂重排可能报为删页+加页；图表/媒体仅比较存在性与文件级摘要
-- [x] **SHAPE-CREATE（设计 §20.2 缺口补齐）**：形状创建与管理 API——`Slide.AddTextBox(spec TextBoxSpec)`（无背景矩形文本框）、`Slide.AddAutoShape(spec AutoShapeSpec)`（a:prstGeom 预设自选图形，Geometry 字段为 preset 名）、`Slide.RemoveShape(id ShapeID)`（删除顶层 sp；拒绝删除被 p:timing @spid 引用的形状，ErrForeignReference）、`Slide.MoveShape(id ShapeID, zIndex int)`（z-order 重排：zIndex<当前 → 前移；zIndex>当前 → 后移；越界与未知 id 报错）、`TextFrame.AddParagraph(spec ParagraphSpec)`（段落创建；Run 已有 `Paragraph.AddRun`）。全部走同一套「Part 级 stagePatch + 单事务 commit」路径，不引入第二套编辑机制（ADR 013 续）。capability Create 维度 AppliesTo 回填：`AddTextBox / AddAutoShape / RemoveShape / MoveShape / AddParagraph`；Limits 三条：AutoShape Geometry 由调用方自担拼写、组内子形状不暴露独立创建 API、RemoveShape 拒绝删除 p:timing 引用
+- [x] **SHAPE-CREATE（设计 §20.2 缺口补齐）**：形状创建与管理 API——`Slide.AddTextBox(spec TextBoxSpec)`（无背景矩形文本框）、`Slide.AddAutoShape(spec AutoShapeSpec)`（a:prstGeom 预设自选图形，Geometry 字段为 preset 名）、`Slide.RemoveShape(id ShapeID)`（删除顶层 sp；拒绝删除被 p:timing @spid 引用的形状，ErrForeignReference）、`Slide.MoveShape(id ShapeID, zIndex int)`（z-order 重排：zIndex<当前 → 前移；zIndex>当前 → 后移；越界与未知 id 报错）、`TextFrame.AddParagraph(spec ParagraphSpec)`（段落创建；Run 已有 `Paragraph.AddRun`）。全部走同一套 `SinglePartPatch` / `MultiPartPlan` 写入边界，不引入第二套编辑机制（ADR-016 续）。capability Create 维度 AppliesTo 回填：`AddTextBox / AddAutoShape / RemoveShape / MoveShape / AddParagraph`；Limits 三条：AutoShape Geometry 由调用方自担拼写、组内子形状不暴露独立创建 API、RemoveShape 拒绝删除 p:timing 引用
 - [x] **STALE-GUARD（句柄失效语义修复）**：`shapeNode` 句柄以 `cNvPr@id` 为主身份、path 仅作"在哪个 spTree/grpSp 下查找"的父容器提示。locate 先按父路径解析出 spTree/grpSp（跨兄弟操作稳定），再在子元素中按 `cNvPr@id` 线性查找——彻底解决"原元素被删/移后 path 错配到相邻兄弟"导致的 ID/Name 错位（SHAPE-CREATE 暴露的 bug）。**关键不变量**：句柄身份 = `cNvPr@id`，只要 cNvPr@id 仍在文档中句柄就有效（`MoveShape` 后句柄仍可用）；只有 `RemoveShape` 让 cNvPr@id 消失时句柄才失效（返回 ErrStaleHandle）。文本节点（paragraph/run）仍按 path 解析——因为没有等价稳定标识符、内容指纹会随正常编辑变化。capability 不变（这是 fix 而非新功能）
 
 详情见 `docs/go-pptx-实施状态跟踪.md`。
@@ -74,9 +75,10 @@ go-pptx/
   *.go                 # 公共对象层（根包 pptx）
   internal/opc/        # ZIP 条目、Part URI、Content Types、关系图、流式媒体
   internal/xmlstore/   # 原始字节、token/节点跨度、命名空间环境
-  internal/edit/       # 变更集、冲突检测、事务提交（后续）
+  internal/document/   # PartStore / patch store 契约
+  internal/editplan/   # SinglePartPatch / MultiPartPlan
   internal/style/      # 属性继承、颜色变换、表格样式（后续）
-  internal/textmap/    # 文本逻辑位置与 XML 节点映射（后续）
+  internal/textmap/    # 文本逻辑位置与 XML 节点映射
   internal/geom/       # 单位、矩阵、边界计算（后续）
   internal/validate/   # 结构与语义规则（后续）
   render/              # 渲染接口，适配实现按需拆分（后续）

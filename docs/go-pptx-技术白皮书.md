@@ -188,14 +188,14 @@ PPTX 的实际内容是大量带命名空间前缀的 XML。`internal/xmlstore` 
 修改操作遵循统一事务模型，杜绝"两个可独立修改的文档真相"（V2.6 §3）：
 
 ```go
-// 高层公共 API 内部走以下流程
-staged := pres.stagePatch(patch)        // 收集变更到 ChangeSet
-err    := pres.commit(staged, revision) // 应用变更并更新 Revision
+// 高层公共 API 内部构造编辑计划，再由根包 adapter 应用。
+err := applySinglePartPatch(pres, part, bytes)
+err := applyMultiPartPlan(pres, plan)
 ```
 
 - **ChangeSet**：聚合所有"尚未提交"的修改
 - **Revision**：每次成功提交单调递增；任何旧 Revision 持有的句柄后续再写会触发 `ErrConcurrentModification`
-- **stagePatch / commit 分层**：所有 `replace.go` / `clone.go` / `bind.go` / `presentation.go` 都遵循同一契约
+- **EditPlan 分层**：业务路径通过 `SinglePartPatch` / `MultiPartPlan` 提交；低层 `stage*` / `commit` primitive 收敛在 `presentation.go` 与 `document_store.go` adapter 边界
 
 ### 3.6 句柄身份体系（STALE-GUARD）
 
