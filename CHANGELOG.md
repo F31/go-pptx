@@ -11,20 +11,40 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 ### Changed
 
-- Consolidated production edit paths behind `SinglePartPatch` / `MultiPartPlan` helpers via `internal/document`, `internal/textmap`, and `internal/editplan`; low-level `stage*` / `commit` primitives are now confined to the transaction primitive and root adapter boundary.
-- Updated architecture/status documentation for ADR-016 and QA-01 corpus status: 36 sample indexes plus 3 public LibreOffice gold samples; L3 PowerPoint/WPS real-machine matrix remains outstanding and is tracked in `docs/client-compat-matrix.md`.
-- Added `docs/coverage-roadmap.md` to track the deferred 1.x coverage-improvement work toward the V2.6 90% target.
-- Reached COV-01 (full coverprofile total >= 80%) on 2026-09-11: expanded stable enum stringers/value-object tests and `Slide` public accessors (root 78.1%), `internal/xmlstore` scanner/node accessor edges (90.2%), `internal/opc` `PartNameFromEntry`/`EntryNames`/`ChangeSet.IsEmpty` (86.7%), and `ir` pure page-score/timing-helper/core-projection tests (81.4%).
-- COV-02 push on 2026-09-11: root moved to 81.5% and full total to 82.5% via capability standalone helpers, Save/Write/Open error guards, bind typed-value helpers, audio/video shape accessors and probe-error mapping, `SetFont` create/expand/replace-fill branches, `TimingTreeRaw` branches, chart `plotElement`/categories/values/canonical/`chartOfGraphic`, notes error branches, `mapOCError`/`parseUint32`, `appendSldIdPatch`, and table style helper edges. Removed never-called dead code (`findTiming`, `Field.pathToField`, `findAudioByShape`).
-- COV-02 reached on 2026-09-11 (root 82.0%, full total 82.9%): white-box predicate tests for chart canonical ser/trendline/errBars/title/rich-text/axes, bind patch helpers (`emptyParaPatch`/`deletePatch`/`childElems`), `resolve`/`resolveItems` branches, `scanShapes` traversal/depth, row-loop strict-mode and unsupported-marker rejections, `sourceRef.Open` failure paths, `lastAudioHandle` not-found, `recordAudioProfile` corrupted-reset, and `chartWorkbookPartOf`.
-- Closed the `ir` table-text projection gap on 2026-09-11 (`readTableText`/`cellText` were 0%) with a self-contained zip fixture deck via public `OpenReader`; `ir` moved to 86.2% and full total to 83.2%.
-- ADR-014 quarterly trigger-condition review on 2026-09-11: no trigger hit (incremental compile 0.56s < 5s, no third-party extension demand, no merge-conflict hotspot); `internal/edit` stays un-extracted.
-- COV-04 coverage-target review on 2026-09-11: a flat 90%-per-package target is abandoned; 90% applies only to low-level format packages (`opc`/`xmlstore`/`videoprobe`/`audioprobe`/`textmap`/`editplan`), root SDK target is 85%, command/helper stays 85%. L3 client-compat matrix samples are confirmed ready (`s001`/`s002`/`s003` include `.pptx/.edited.pptx/.odp/.actions.json`, `ext-0024` has manifest + smoke); actual PowerPoint/WPS runs remain blocked on a client-equipped environment.
-- L3 PowerPoint/WPS client-compat matrix executed on 2026-09-11 (Windows 11 host, WSL-triggered COM automation): **8/8 combinations passed** — PowerPoint 16.0.20326 and WPS 演示 12.1.0.28599 both opened `s001-text`/`s002-table`/`s003-image`/`ext-0024` edited samples with no repair prompt, resaved as `.pptx`, and every resaved file re-opened by go-pptx with `Validate` errorCount=0 and the edited content preserved. New reproducible tooling `scripts/l3/run_client.sh` + `scripts/l3/ppt_open_resave.ps1`; results recorded in `docs/client-compat-matrix.md` (evidence hashes in `.l3-output/`, gitignored).
+（自 v1.0.1 发布起的进一步变更将登记于此）
+
+## [1.0.1] - 2026-09-12
+
+**v1.0.0 后的首个 patch release**——公共 API 零变化（binary-compat with v1.0.0），主要工作是内部实现层重构、bug 修复、覆盖率收敛、客户端矩阵真机执行与文档体系完善。
+
+关键不变量：`// Stable:` 段落 34（不变）/ Stable 符号 50（不变）/ `// Experimental:` 段 5（不变）/ 公共 type 总数 158（不变）/ 错误哨兵语义锁死（不变）/ 黄金语料 B1 哈希 PASS（不变）。
+
+### Changed
+
+- **ADR-016 渐进式 internal 抽取完成首轮收敛**（commit 76a630f）：新增 `internal/document`（PartStore / ReadStore / PatchStore 契约）、`internal/textmap`（rune 映射）、`internal/editplan`（`SinglePartPatch` / `MultiPartPlan`）；生产业务写入路径全部收敛到 `applySinglePartPatch` / `applyMultiPartPlan`，直接 `stage*/commit` 调用仅保留在 `presentation.go` 与 `document_store.go` adapter 边界内；公开 API 零变化。
+- **ir 包表格文本投影闭环**（commit def9140）：`ir.readTableText` / `ir.cellText` 由 0% 覆盖补齐，新增 `ir/table_ir_test.go` 自建最小 zip fixture deck 覆盖 2×2 文本、空单元格、零行表格、非正维度四场景；副作用 `ir.Diff` 现在能更准确地报告表格单元格文本变化，公开 API 签名零变化。
+- **覆盖率收敛（COV-01 / 02 / 04）**：
+  - COV-01 达成（full total ≥ 80%）：full 78.3% → 80.0%（2026-09-11）
+  - COV-02 达成（root ≥ 82%）：root 81.5% → 82.0%，full total 82.5% → 82.9%（2026-09-11）
+  - COV-04 评估：放弃统一 90% per-package 口径——90% 仅适用于低层格式包（opc / xmlstore / videoprobe / audioprobe / textmap / editplan），root SDK 目标 85%，command/helper 目标 85%
+  - 5 包行为优先补测（2026-09-12）：`internal/editplan` 81.8% → **100.0%** / `internal/textmap` 82.2% → **100.0%** / `internal/opc` 86.6% → 88.9% / `internal/audioprobe` 84.9% → 88.4% / root 82.7% → 82.8%
+  - **full-repo 加权 total 83.2% → 84.4%**，4/6 低层格式包 ≥ 90%（`videoprobe` 92.6% / `xmlstore` 90.8% / `editplan` 100% / `textmap` 100%）
+- **L3 文档同步收口**（commit dfc27c3）：testdata/corpus/README.md / 实施状态跟踪 / MEMORY.md 共 3 处 L3 客户端矩阵完成事实登记，新增"已登记客户端版本与平台"段。
 
 ### Fixed
 
-- Added a docProps regression covering same-call creation of `core.xml` and `app.xml` root relationships so root rel patches are merged rather than overwritten.
+- **MediaSource nil 流保护**（commit d087aff）：`MediaSource.Reader()` / `MediaSource.Length()` / `MediaSource.MediaType()` 三个公共访问器对 nil receiver 显式返回错误（之前 panic 在 nil deref）。按"由 panic 改为 error"算只加防御不减能力，严格 PATCH。
+- **Stable 计数 off-by-one 口径修正**（commit ae48794）：33 独立 type + 17 哨兵 = 50 符号 / 34 段落 / 5 Experimental / 120 API / 158 总；勘误前 6 处文档（CHANGELOG / RELEASE-NOTES-v1.0.0 / v1.0-freeze-list / 实施状态跟踪 / 技术白皮书 / MEMORY.md）数字统一。
+- **ADR-014 三处缺陷修正**（commit ae48794）：① "因…而…"悬空残句补全；② 依赖清单补充 `internal/document` / `internal/editplan` / `internal/textmap`；③ 目录树补 `internal/document`。
+- **CI corpus-replay 鲁棒性**（commit 6361bdd）：公开样本源缺席从 `Fatalf` 改为 `Skipf`，新克隆优雅跳过，真样本到位自动转真跑。
+- **VideoShape 公开访问器与 probe 错误映射覆盖**（commit 6361bdd）。
+
+### Added (documentation-only)
+
+- [`docs/go-pptx-技术白皮书.md`](docs/go-pptx-技术白皮书.md)（commit 0218b29，746 行 / 12 章）—— 综合性技术披露，覆盖产品定位、技术架构、应用场景、对比矩阵、7 项技术创新点详解。
+- [`docs/1.x-roadmap.md`](docs/1.x-roadmap.md)（commit 24d4fa6，213 行 / 8 章）—— 1.x 演化窗口路线图：5 候选方向 + 5 阶段路线 + 6 风险 + 5 推荐决策点。
+- [`docs/client-compat-matrix.md`](docs/client-compat-matrix.md) L3 真机执行记录（commit a103484 + 5f99d80）—— PowerPoint 16.0.20326 + WPS 演示 12.1.0.28599 × 4 样本 8/8 通过。
+- [`docs/RELEASE-NOTES-v1.0.1.md`](docs/RELEASE-NOTES-v1.0.1.md) —— 本版本完整 release notes。
 
 ## [1.0.0] - 2026-09-11
 
