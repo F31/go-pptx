@@ -2,9 +2,9 @@ package pptx
 
 import (
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
+	"github.com/F31/go-pptx/internal/textmap"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -42,7 +42,7 @@ import (
 //
 // 整批变更：段内所有命中先按"占用 Run 区间"贪心调度（先到先得，
 // 保证补丁区间互不重叠），同一 Run 的多个原地文本变更合并为单次
-// t 内容替换，随后一次 ApplyPatches + 单次 stagePatch + commit。
+// t 内容替换，随后一次 ApplyPatches + SinglePartPatch。
 
 // ReplaceMode 是替换片段的格式策略（方案 §7.2 三种格式策略）。
 //
@@ -270,10 +270,9 @@ func (p *Paragraph) ReplaceText(old, replacement string, opts ...ReplaceOption) 
 	if err != nil {
 		return res, Annotate(mapXMLError(err), "Paragraph.ReplaceText")
 	}
-	if err := p.p.stagePatch(p.part, out); err != nil {
+	if err := applySinglePartPatch(p.p, p.part, out); err != nil {
 		return res, Annotate(err, "Paragraph.ReplaceText")
 	}
-	p.p.commit()
 	return res, nil
 }
 
@@ -297,7 +296,7 @@ func replacePatches(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord, old, r
 		blk := &blocks[b]
 		from := 0
 		for {
-			rel := indexRunes(blk.runes[from:], oldRunes)
+			rel := textmap.IndexRunes(blk.runes[from:], oldRunes)
 			if rel < 0 {
 				break
 			}
@@ -306,7 +305,7 @@ func replacePatches(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord, old, r
 			res.Matches++
 			var occ matchOcc
 			occ.blk, occ.gsi, occ.gei = blk, gsi, gei
-			if !graphemeSafe(blk.runes, gsi, gei) {
+			if !textmap.GraphemeSafe(blk.runes, gsi, gei) {
 				res.Skipped++
 				res.Hits = append(res.Hits, ReplaceHit{
 					StartRune: blk.viewStart + gsi, EndRune: blk.viewStart + gei,
@@ -572,70 +571,17 @@ func rPrBytes(doc *xmlstore.XMLDocument, rPr *xmlstore.NodeRecord) string {
 // locateBlockSpan 把块内 rune 区间映射到命中的首/末 Run 及各自内部
 // rune 偏移；命中完全落在块文本内时返回 true。
 func locateBlockSpan(blk *segBlock, gsi, gei int, occ *matchOcc) bool {
-	pos := 0
-	occ.ri, occ.rj = -1, -1
+	texts := make([]string, len(blk.runs))
 	for i := range blk.runs {
-		n := utf8.RuneCountInString(blk.runs[i].text)
-		lo, hi := pos, pos+n
-		if occ.ri < 0 && gsi < hi && gei > lo {
-			occ.ri = i
-			occ.rsi = maxInt(gsi-lo, 0)
-		}
-		if occ.ri >= 0 && gei <= hi {
-			occ.rj = i
-			occ.rej = minInt(gei-lo, n)
-			return true
-		}
-		pos = hi
+		texts[i] = blk.runs[i].text
 	}
-	return false
-}
-
-// graphemeSafe 粗检查 rune 区间 [si,ei) 不切开组合字符或 ZWJ 序列。
-func graphemeSafe(r []rune, si, ei int) bool {
-	n := len(r)
-	if si < 0 || ei < si || ei > n {
+	span, ok := textmap.LocateSpan(texts, gsi, gei)
+	if !ok {
 		return false
 	}
-	if si < ei && isCombiningRune(r[si]) {
-		return false // 起点是组合序列中的标记
-	}
-	if ei < n && isCombiningRune(r[ei]) {
-		return false // 终点后紧跟组合标记（原字素簇被切开）
-	}
-	if si > 0 && r[si-1] == zwj {
-		return false // 切在 ZWJ 序列中间
-	}
-	if ei > 0 && r[ei-1] == zwj {
-		return false
-	}
+	occ.ri, occ.rj = span.RunStart, span.RunEnd
+	occ.rsi, occ.rej = span.StartInRun, span.EndInRun
 	return true
-}
-
-const zwj = '\u200d'
-
-func isCombiningRune(r rune) bool {
-	return unicode.Is(unicode.Mn, r) || unicode.Is(unicode.Mc, r) || unicode.Is(unicode.Me, r)
-}
-
-// indexRunes 返回 needle 在 hay 中首次出现的下标；未找到返回 -1。
-func indexRunes(hay, needle []rune) int {
-	if len(needle) == 0 {
-		return 0
-	}
-	for i := 0; i+len(needle) <= len(hay); i++ {
-		match := true
-		for j := range needle {
-			if hay[i+j] != needle[j] {
-				match = false
-				break
-			}
-		}
-		if match {
-			return i
-		}
-	}
-	return -1
 }
 
 func maxInt(a, b int) int {

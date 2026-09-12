@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -218,12 +219,12 @@ func (s *Slide) AddPicture(ctx context.Context, src MediaSource, spec PictureSpe
 	}
 	id := nextShapeID(doc, tree)
 
-	// 媒体去重/暂存 + 关系分配（同事务内与 slide XML 一并提交）。
-	mediaName, err := p.stageMedia(data, kind)
+	// 媒体去重/规划 + 关系分配（同事务内与 slide XML 一并提交）。
+	mediaName, mediaOp, err := p.planMedia(data, kind)
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddPicture")
 	}
-	rid, err := relForMedia(p, s.part, mediaName)
+	rid, relOp, err := relForMediaPlan(p, s.part, mediaName)
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddPicture")
 	}
@@ -240,10 +241,17 @@ func (s *Slide) AddPicture(ctx context.Context, src MediaSource, spec PictureSpe
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Slide.AddPicture")
 	}
-	if err := p.stagePatch(s.part, out); err != nil {
+	ops := make([]editplan.Operation, 0, 3)
+	if mediaOp != nil {
+		ops = append(ops, *mediaOp)
+	}
+	if relOp != nil {
+		ops = append(ops, *relOp)
+	}
+	ops = append(ops, editplan.Patch(s.part, out))
+	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 		return nil, Annotate(err, "Slide.AddPicture")
 	}
-	p.commit()
 	return s.lastPicHandle(), nil
 }
 
@@ -390,7 +398,7 @@ func (s *PictureShape) ReplaceImage(ctx context.Context, src MediaSource) error 
 	}
 
 	p := s.p
-	newPart, err := p.stageMedia(data, kind)
+	newPart, mediaOp, err := p.planMedia(data, kind)
 	if err != nil {
 		return Annotate(err, "PictureShape.ReplaceImage")
 	}
@@ -430,17 +438,17 @@ func (s *PictureShape) ReplaceImage(ctx context.Context, src MediaSource) error 
 		relsOut = removeRelEntry(relsOut, oldRID)
 		oldRelRemoved = !bytes.Equal(relsOut, prev)
 	}
+	ops := make([]editplan.Operation, 0, 4)
+	if mediaOp != nil {
+		ops = append(ops, *mediaOp)
+	}
 	if !bytes.Equal(relsOut, relBase) {
-		if err := stageRelsBytes(p, s.part, relsOut); err != nil {
-			return Annotate(err, "PictureShape.ReplaceImage")
-		}
+		ops = append(ops, relsPlanOp(p, s.part, relsOut))
 	}
 	// 旧媒体删除：仅当关系条目被移除且全局归零（保守口径：关系条目仍
 	// 指向即保留，不解析未知 Part 的消费方，绝不破坏共享引用）。
 	if oldRelRemoved && p.mediaTargetRefs(oldPart) == 1 {
-		if err := p.stageDelete(oldPart); err != nil {
-			return Annotate(err, "PictureShape.ReplaceImage")
-		}
+		ops = append(ops, editplan.Delete(oldPart))
 	}
 
 	// blip r:embed → newRID；清除旧裁剪（换图按当前框拉伸，见方法注释）。
@@ -459,10 +467,10 @@ func (s *PictureShape) ReplaceImage(ctx context.Context, src MediaSource) error 
 	if err != nil {
 		return Annotate(mapXMLError(err), "PictureShape.ReplaceImage")
 	}
-	if err := p.stagePatch(s.part, out); err != nil {
+	ops = append(ops, editplan.Patch(s.part, out))
+	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 		return Annotate(err, "PictureShape.ReplaceImage")
 	}
-	p.commit()
 	return nil
 }
 
@@ -578,19 +586,14 @@ func removeRelEntry(rels []byte, id string) []byte {
 
 // ---------- 媒体暂存与去重 ----------
 
-// stageMedia 把图片字节暂存为媒体 Part：先按内容哈希（SHA-256）+ 类型
-// 去重复用既有 Part，否则分配 /ppt/media/imageN.ext 新增。字节在暂存时
-// 拷贝（修改事务完成前固化，§21.1）。
-func (p *Presentation) stageMedia(data []byte, kind imageKind) (opc.PartName, error) {
+func (p *Presentation) planMedia(data []byte, kind imageKind) (opc.PartName, *editplan.Operation, error) {
 	sum := sha256.Sum256(data)
 	if name, ok := p.findExistingMedia(sum, kind.ct); ok {
-		return name, nil
+		return name, nil, nil
 	}
 	name := p.newMediaName(kind.ext)
-	if err := p.stageAdd(name, data, kind.ct); err != nil {
-		return "", err
-	}
-	return name, nil
+	op := editplan.Add(name, data, kind.ct)
+	return name, &op, nil
 }
 
 // findExistingMedia 在包内与已提交新增 Part 中查找同哈希同类型媒体。
@@ -661,41 +664,26 @@ func (p *Presentation) newMediaName(ext string) opc.PartName {
 	return opc.PartName("/ppt/media/image" + strconv.Itoa(max+1) + "." + ext)
 }
 
-// stageRelsBytes 写入 Part 的关系流：关系流 Part 已存在（包内或会话内
-// 新增）走补丁；不存在则按新增注册（扩展名 .rels 由 Default 覆盖）。
-func stageRelsBytes(p *Presentation, part opc.PartName, content []byte) error {
-	rp := relsPart(part)
-	if p.pk.HasPart(rp) || p.addedParts[rp].Content != nil {
-		return p.stagePatch(rp, content)
-	}
-	return p.stageAdd(rp, content, "")
-}
-
-// relForMedia 返回 slide 关系流中指向 media 的 rId：已有同类型同目标
-// 关系直接复用（同页多图共享一个媒体引用），否则新增关系条目并暂存
-// 补丁。返回的 rId 在调用方同一事务提交后生效。
-func relForMedia(p *Presentation, slide, media opc.PartName) (string, error) {
+func relForMediaPlan(p *Presentation, slide, media opc.PartName) (string, *editplan.Operation, error) {
 	rels, ok, err := p.relsOf(slide)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if ok {
 		for _, rel := range rels {
 			if rel.Mode == opc.TargetInternal && rel.Type == relImage && rel.TargetPart == media {
-				return rel.ID, nil
+				return rel.ID, nil, nil
 			}
 		}
 	}
 	xml, err := relsXML(p, slide)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	rid := nextRID(xml)
 	entry := `<Relationship Id="` + rid + `" Type="` + relImage +
 		`" Target="../media/` + slideName(media) + `"/>`
 	updated := insertRel(xml, entry)
-	if err := stageRelsBytes(p, slide, updated); err != nil {
-		return "", err
-	}
-	return rid, nil
+	op := relsPlanOp(p, slide, updated)
+	return rid, &op, nil
 }

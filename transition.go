@@ -240,10 +240,9 @@ func (s *Slide) SetTransition(spec TransitionSpec) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "Slide.SetTransition")
 	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
+	if err := applySinglePartPatch(s.p, s.part, out); err != nil {
 		return Annotate(err, "Slide.SetTransition")
 	}
-	s.p.commit()
 	return nil
 }
 
@@ -275,10 +274,9 @@ func (s *Slide) RemoveTransition() error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "Slide.RemoveTransition")
 	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
+	if err := applySinglePartPatch(s.p, s.part, out); err != nil {
 		return Annotate(err, "Slide.RemoveTransition")
 	}
-	s.p.commit()
 	return nil
 }
 
@@ -289,17 +287,6 @@ func findTransition(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) *xmlst
 	for _, cid := range root.Children {
 		c := doc.Node(cid)
 		if c != nil && c.Namespace == nsPresentationML && c.Local() == "transition" {
-			return c
-		}
-	}
-	return nil
-}
-
-// findTiming 定位 p:sld 的 p:timing 直接子元素（若存在）。
-func findTiming(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) *xmlstore.NodeRecord {
-	for _, cid := range root.Children {
-		c := doc.Node(cid)
-		if c != nil && c.Namespace == nsPresentationML && c.Local() == "timing" {
 			return c
 		}
 	}

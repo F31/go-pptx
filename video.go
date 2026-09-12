@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/videoprobe"
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -305,30 +306,42 @@ func (s *Slide) AddVideo(ctx context.Context, src MediaSource, spec VideoSpec) (
 		posterKind = kind
 	}
 
-	// 1) 视频媒体 Part 暂存（SHA-256 去重，content type 决定扩展）。
+	// 1) 视频媒体 Part 规划（SHA-256 去重，content type 决定扩展）。
 	sum := sha256.Sum256(data)
-	mediaName, err := p.stageVideoMedia(data, sum, ext, ct)
+	mediaName, mediaOp, err := p.planVideoMedia(data, sum, ext, ct)
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddVideo")
 	}
-	// 2) poster 媒体 Part 暂存。
+	// 2) poster 媒体 Part 规划。
 	var posterName opc.PartName
+	var posterOp *editplan.Operation
 	if len(posterData) > 0 {
-		posterName, err = p.stageMedia(posterData, posterKind)
+		posterName, posterOp, err = p.planMedia(posterData, posterKind)
 		if err != nil {
 			return nil, Annotate(err, "Slide.AddVideo poster")
 		}
 	}
-	// 3) slide 关系分配：视频 + 可选 poster（两条独立 rel）。
-	rid, err := p.addVideoRel(s.part, mediaName)
+	// 3) slide 关系分配：视频 + 可选 poster（同一份 rels 字节顺序合并）。
+	relsOut, err := relsXML(p, s.part)
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddVideo")
 	}
+	relsBase := relsOut
+	curRels, ok, err := p.relsOf(s.part)
+	if err != nil {
+		return nil, Annotate(err, "Slide.AddVideo")
+	}
+	rid := findInternalRelID(curRels, ok, opc.RelTypePrefix+"video", mediaName)
+	if rid == "" {
+		rid = nextRID(relsOut)
+		relsOut = insertRel(relsOut, `<Relationship Id="`+rid+`" Type="`+opc.RelTypePrefix+"video"+`" Target="../media/`+slideName(mediaName)+`"/>`)
+	}
 	var posterRID string
 	if posterName != "" {
-		posterRID, err = relForMedia(p, s.part, posterName)
-		if err != nil {
-			return nil, Annotate(err, "Slide.AddVideo poster")
+		posterRID = findInternalRelID(curRels, ok, relImage, posterName)
+		if posterRID == "" {
+			posterRID = nextRID(relsOut)
+			relsOut = insertRel(relsOut, `<Relationship Id="`+posterRID+`" Type="`+relImage+`" Target="../media/`+slideName(posterName)+`"/>`)
 		}
 	}
 	// 4) 插入 p:pic 形视频片段（紧随其后可能插入 poster p:pic）。
@@ -365,10 +378,20 @@ func (s *Slide) AddVideo(ctx context.Context, src MediaSource, spec VideoSpec) (
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Slide.AddVideo")
 	}
-	if err := p.stagePatch(s.part, out); err != nil {
+	ops := make([]editplan.Operation, 0, 5)
+	if mediaOp != nil {
+		ops = append(ops, *mediaOp)
+	}
+	if posterOp != nil {
+		ops = append(ops, *posterOp)
+	}
+	if !bytes.Equal(relsOut, relsBase) {
+		ops = append(ops, relsPlanOp(p, s.part, relsOut))
+	}
+	ops = append(ops, editplan.Patch(s.part, out))
+	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 		return nil, Annotate(err, "Slide.AddVideo")
 	}
-	p.commit()
 
 	// 5) 落 VideoProfile 元数据。
 	vp := VideoProfile{
@@ -519,8 +542,7 @@ func videoExt(container string) string {
 	return "bin"
 }
 
-// stageVideoMedia 把视频字节暂存为媒体 Part：同 SHA-256 + ContentType 复用。
-func (p *Presentation) stageVideoMedia(data []byte, sum [32]byte, ext, ct string) (opc.PartName, error) {
+func (p *Presentation) planVideoMedia(data []byte, sum [32]byte, ext, ct string) (opc.PartName, *editplan.Operation, error) {
 	for _, name := range p.pk.PartNames() {
 		s := string(name)
 		if !strings.HasPrefix(s, "/ppt/media/") {
@@ -538,7 +560,7 @@ func (p *Presentation) stageVideoMedia(data []byte, sum [32]byte, ext, ct string
 			continue
 		}
 		if sha256.Sum256(b) == sum {
-			return name, nil
+			return name, nil, nil
 		}
 	}
 	for name, ap0 := range p.addedParts {
@@ -557,7 +579,7 @@ func (p *Presentation) stageVideoMedia(data []byte, sum [32]byte, ext, ct string
 			continue
 		}
 		if sha256.Sum256(b) == sum {
-			return name, nil
+			return name, nil, nil
 		}
 	}
 	base := "/ppt/media/video"
@@ -565,41 +587,23 @@ func (p *Presentation) stageVideoMedia(data []byte, sum [32]byte, ext, ct string
 	for {
 		candidate := opc.PartName(base + strconv.Itoa(n) + "." + ext)
 		if !p.pk.HasPart(candidate) && p.addedParts[candidate].Content == nil {
-			if err := p.stageAdd(candidate, data, ct); err != nil {
-				return "", err
-			}
-			return candidate, nil
+			op := editplan.Add(candidate, data, ct)
+			return candidate, &op, nil
 		}
 		n++
 	}
 }
 
-// addVideoRel 为 slide 创建指向 video media 的关系（ECMA relType video）。
-func (p *Presentation) addVideoRel(slide, media opc.PartName) (string, error) {
-	relType := opc.RelTypePrefix + "video"
-	rels, ok, err := p.relsOf(slide)
-	if err != nil {
-		return "", err
+func findInternalRelID(rels []*opc.Relationship, ok bool, relType string, target opc.PartName) string {
+	if !ok {
+		return ""
 	}
-	if ok {
-		for _, rel := range rels {
-			if rel.Mode == opc.TargetInternal && rel.Type == relType && rel.TargetPart == media {
-				return rel.ID, nil
-			}
+	for _, rel := range rels {
+		if rel.Mode == opc.TargetInternal && rel.Type == relType && rel.TargetPart == target {
+			return rel.ID
 		}
 	}
-	xml, err := relsXML(p, slide)
-	if err != nil {
-		return "", err
-	}
-	rid := nextRID(xml)
-	entry := `<Relationship Id="` + rid + `" Type="` + relType +
-		`" Target="../media/` + slideName(media) + `"/>`
-	updated := insertRel(xml, entry)
-	if err := stageRelsBytes(p, slide, updated); err != nil {
-		return "", err
-	}
-	return rid, nil
+	return ""
 }
 
 // ---------- p:pic 形视频片段 ----------
@@ -769,10 +773,10 @@ func (p *Presentation) recordVideoProfile(prof VideoProfile) error {
 				`</VideoProfiles>`,
 			xmlns, videoProfileXMLAttrs(prof),
 		)
-		if err := p.stageAdd(partName, buf.Bytes(), "application/xml"); err != nil {
+		plan := editplan.NewMultiPartPlan(editplan.Add(partName, buf.Bytes(), "application/xml"))
+		if err := applyMultiPartPlan(p, plan); err != nil {
 			return Annotate(err, "recordVideoProfile")
 		}
-		p.commit()
 		return nil
 	}
 	closeTag := []byte("</VideoProfiles>")
@@ -786,19 +790,17 @@ func (p *Presentation) recordVideoProfile(prof VideoProfile) error {
 				`</VideoProfiles>`,
 			xmlns, videoProfileXMLAttrs(prof),
 		)
-		if err := p.stagePatch(partName, buf.Bytes()); err != nil {
+		if err := applySinglePartPatch(p, partName, buf.Bytes()); err != nil {
 			return Annotate(err, "recordVideoProfile")
 		}
-		p.commit()
 		return nil
 	}
 	ins := append([]byte(nil), existing[:idx]...)
 	ins = append(ins, []byte("<Profile "+videoProfileXMLAttrs(prof)+"/>")...)
 	ins = append(ins, existing[idx:]...)
-	if err := p.stagePatch(partName, ins); err != nil {
+	if err := applySinglePartPatch(p, partName, ins); err != nil {
 		return Annotate(err, "recordVideoProfile")
 	}
-	p.commit()
 	return nil
 }
 

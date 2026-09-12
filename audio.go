@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/F31/go-pptx/internal/audioprobe"
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -201,16 +202,27 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 		}
 	}
 
-	// 3) 媒体 Part 暂存（含 SHA-256 去重，content type 决定扩展）。
+	// 3) 媒体 Part 规划（含 SHA-256 去重，content type 决定扩展）。
 	sum := sha256.Sum256(data)
-	mediaName, err := p.stageAudioMedia(data, sum, ext, ct)
+	mediaName, mediaOp, err := p.planAudioMedia(data, sum, ext, ct)
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddAudio")
 	}
 	// 4) slide 关系指向媒体。
-	rid, err := p.addAudioRel(s.part, mediaName, ext, ct)
+	relsOut, err := relsXML(p, s.part)
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddAudio")
+	}
+	relsBase := relsOut
+	curRels, ok, err := p.relsOf(s.part)
+	if err != nil {
+		return nil, Annotate(err, "Slide.AddAudio")
+	}
+	relType := opc.RelTypePrefix + "audio"
+	rid := findInternalRelID(curRels, ok, relType, mediaName)
+	if rid == "" {
+		rid = nextRID(relsOut)
+		relsOut = insertRel(relsOut, `<Relationship Id="`+rid+`" Type="`+relType+`" Target="../media/`+slideName(mediaName)+`"/>`)
 	}
 	// 5) 插入 p:pic 形式的音频形状。
 	doc, tree, err := s.slideTree()
@@ -228,10 +240,17 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Slide.AddAudio")
 	}
-	if err := p.stagePatch(s.part, out); err != nil {
+	ops := make([]editplan.Operation, 0, 3)
+	if mediaOp != nil {
+		ops = append(ops, *mediaOp)
+	}
+	if !bytes.Equal(relsOut, relsBase) {
+		ops = append(ops, relsPlanOp(p, s.part, relsOut))
+	}
+	ops = append(ops, editplan.Patch(s.part, out))
+	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 		return nil, Annotate(err, "Slide.AddAudio")
 	}
-	p.commit()
 
 	// 6) 落 AudioProfile 元数据（私有 Part + custom.xml 引用）。
 	ap0 := AudioProfile{
@@ -388,8 +407,7 @@ func slideMediaName(key string) string {
 	return "/ppt/media/" + key + ".tmp"
 }
 
-// stageAudioMedia 把音频字节暂存为媒体 Part；同 SHA-256 + ContentType 复用。
-func (p *Presentation) stageAudioMedia(data []byte, sum [32]byte, ext, ct string) (opc.PartName, error) {
+func (p *Presentation) planAudioMedia(data []byte, sum [32]byte, ext, ct string) (opc.PartName, *editplan.Operation, error) {
 	for _, name := range p.pk.PartNames() {
 		s := string(name)
 		if !strings.HasPrefix(s, "/ppt/media/") {
@@ -407,7 +425,7 @@ func (p *Presentation) stageAudioMedia(data []byte, sum [32]byte, ext, ct string
 			continue
 		}
 		if sha256.Sum256(b) == sum {
-			return name, nil
+			return name, nil, nil
 		}
 	}
 	for name, ap0 := range p.addedParts {
@@ -426,7 +444,7 @@ func (p *Presentation) stageAudioMedia(data []byte, sum [32]byte, ext, ct string
 			continue
 		}
 		if sha256.Sum256(b) == sum {
-			return name, nil
+			return name, nil, nil
 		}
 	}
 	base := "/ppt/media/audio"
@@ -434,42 +452,11 @@ func (p *Presentation) stageAudioMedia(data []byte, sum [32]byte, ext, ct string
 	for {
 		candidate := opc.PartName(base + strconv.Itoa(n) + "." + ext)
 		if !p.pk.HasPart(candidate) && p.addedParts[candidate].Content == nil {
-			if err := p.stageAdd(candidate, data, ct); err != nil {
-				return "", err
-			}
-			return candidate, nil
+			op := editplan.Add(candidate, data, ct)
+			return candidate, &op, nil
 		}
 		n++
 	}
-}
-
-// addAudioRel 为 slide 创建指向 audio media 的关系，遵循现有图片逻辑（rId
-// 复用同目标同类型）。复用现有的 relsXML/insertRel/nextRID 助手。
-func (p *Presentation) addAudioRel(slide, media opc.PartName, ext, ct string) (string, error) {
-	relType := opc.RelTypePrefix + "audio"
-	rels, ok, err := p.relsOf(slide)
-	if err != nil {
-		return "", err
-	}
-	if ok {
-		for _, rel := range rels {
-			if rel.Mode == opc.TargetInternal && rel.Type == relType && rel.TargetPart == media {
-				return rel.ID, nil
-			}
-		}
-	}
-	xml, err := relsXML(p, slide)
-	if err != nil {
-		return "", err
-	}
-	rid := nextRID(xml)
-	entry := `<Relationship Id="` + rid + `" Type="` + relType +
-		`" Target="../media/` + slideName(media) + `"/>`
-	updated := insertRel(xml, entry)
-	if err := stageRelsBytes(p, slide, updated); err != nil {
-		return "", err
-	}
-	return rid, nil
 }
 
 // ---------- p:pic 形音频片段 ----------
@@ -604,13 +591,13 @@ func parseAudioProfile(n *xmlstore.NodeRecord) (AudioProfile, bool) {
 //
 // 设计要点：每次重写整 Part（读 → 修改 → 全量写入）。多 Profile 累积
 // 通过扫描现有 Profile 元素后追加新元素实现。Part 首次创建时插入骨架
-// 单 Profile；后续每次 stagePatch+commit 把完整内容提交。
+// 单 Profile；后续每次通过 MultiPartPlan 把完整内容提交。
 func (p *Presentation) recordAudioProfile(prof AudioProfile) error {
 	const partName opc.PartName = "/docProps/audio.xml"
 	xmlns := `https://schemas.example.org/F31/go-pptx/audio/2026`
 	existing, err := p.partBytes(partName)
 	if err != nil {
-		// Part 不存在 → 直接 stageAdd 全量内容。
+		// Part 不存在 → 直接 add 全量内容。
 		buf := bytes.NewBuffer(nil)
 		fmt.Fprintf(buf,
 			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
@@ -619,13 +606,13 @@ func (p *Presentation) recordAudioProfile(prof AudioProfile) error {
 				`</AudioProfiles>`,
 			xmlns, profileXMLAttrs(prof),
 		)
-		if err := p.stageAdd(partName, buf.Bytes(), "application/xml"); err != nil {
+		plan := editplan.NewMultiPartPlan(editplan.Add(partName, buf.Bytes(), "application/xml"))
+		if err := applyMultiPartPlan(p, plan); err != nil {
 			return Annotate(err, "recordAudioProfile")
 		}
-		p.commit()
 		return nil
 	}
-	// 既有 → 在 </AudioProfiles> 前插入新 Profile，再 stagePatch 整 Part。
+	// 既有 → 在 </AudioProfiles> 前插入新 Profile，再 patch 整 Part。
 	closeTag := []byte("</AudioProfiles>")
 	idx := bytes.Index(existing, closeTag)
 	if idx < 0 {
@@ -638,19 +625,17 @@ func (p *Presentation) recordAudioProfile(prof AudioProfile) error {
 				`</AudioProfiles>`,
 			xmlns, profileXMLAttrs(prof),
 		)
-		if err := p.stagePatch(partName, buf.Bytes()); err != nil {
+		if err := applySinglePartPatch(p, partName, buf.Bytes()); err != nil {
 			return Annotate(err, "recordAudioProfile")
 		}
-		p.commit()
 		return nil
 	}
 	ins := append([]byte(nil), existing[:idx]...)
 	ins = append(ins, []byte("<Profile "+profileXMLAttrs(prof)+"/>")...)
 	ins = append(ins, existing[idx:]...)
-	if err := p.stagePatch(partName, ins); err != nil {
+	if err := applySinglePartPatch(p, partName, ins); err != nil {
 		return Annotate(err, "recordAudioProfile")
 	}
-	p.commit()
 	return nil
 }
 
@@ -690,10 +675,9 @@ func (p *Presentation) updateAudioProfile(trackKey string, mutate func(*AudioPro
 	if !found {
 		return Annotate(ErrNotFound, "updateAudioProfile")
 	}
-	if err := p.stagePatch(partName, out.Bytes()); err != nil {
+	if err := applySinglePartPatch(p, partName, out.Bytes()); err != nil {
 		return Annotate(err, "updateAudioProfile")
 	}
-	p.commit()
 	return nil
 }
 
@@ -757,14 +741,6 @@ func roleFromString(s string) AudioRole {
 		return AudioRoleEffect
 	}
 	return AudioRoleNarration
-}
-
-// findAudioByShape 简单实现预留（已使用 AudioShape.profile 字段）。
-// 该函数保留是为后续多形状索引做准备。
-func (p *Presentation) findAudioByShape(slide opc.PartName, path []nodeStep) *AudioProfile {
-	_ = slide
-	_ = path
-	return nil
 }
 
 // ---------- 错误映射 ----------

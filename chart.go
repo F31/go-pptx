@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -300,19 +301,15 @@ func (s *Slide) AddChart(ctx context.Context, spec ChartSpec) (*ChartShape, erro
 		return nil, Annotate(err, "Slide.AddChart")
 	}
 
-	// 3) 暂存 chart Part、工作簿与 chart 关系流（package → 工作簿）。
-	if err := p.stageAdd(chartPart, []byte(xmlDecl+chartXML), ctChartPart); err != nil {
-		return nil, Annotate(err, "Slide.AddChart")
-	}
-	if err := p.stageAdd(wbPart, wb, ctWorkbook); err != nil {
-		return nil, Annotate(err, "Slide.AddChart")
-	}
+	// 3) 规划 chart Part、工作簿与 chart 关系流（package → 工作簿）。
 	chartRels := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\r\n" +
 		`<Relationships xmlns="` + nsPkgRels + `">` +
 		`<Relationship Id="rId1" Type="` + relPackage + `" Target="../embeddings/` + slideName(wbPart) + `"/>` +
 		`</Relationships>`
-	if err := stageRelsBytes(p, chartPart, []byte(chartRels)); err != nil {
-		return nil, Annotate(err, "Slide.AddChart")
+	ops := []editplan.Operation{
+		editplan.Add(chartPart, []byte(xmlDecl+chartXML), ctChartPart),
+		editplan.Add(wbPart, wb, ctWorkbook),
+		relsPlanOp(p, chartPart, []byte(chartRels)),
 	}
 
 	// 4) slide 关系 → chart Part。
@@ -323,9 +320,7 @@ func (s *Slide) AddChart(ctx context.Context, spec ChartSpec) (*ChartShape, erro
 	rid := nextRID(rels)
 	rels = insertRel(rels, `<Relationship Id="`+rid+`" Type="`+relChart+
 		`" Target="../charts/`+slideName(chartPart)+`"/>`)
-	if err := stageRelsBytes(p, s.part, rels); err != nil {
-		return nil, Annotate(err, "Slide.AddChart")
-	}
+	ops = append(ops, relsPlanOp(p, s.part, rels))
 
 	// 5) spTree 末尾追加 p:graphicFrame。
 	doc, tree, err := s.slideTree()
@@ -342,10 +337,10 @@ func (s *Slide) AddChart(ctx context.Context, spec ChartSpec) (*ChartShape, erro
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Slide.AddChart")
 	}
-	if err := p.stagePatch(s.part, out); err != nil {
+	ops = append(ops, editplan.Patch(s.part, out))
+	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 		return nil, Annotate(err, "Slide.AddChart")
 	}
-	p.commit()
 	return s.lastChartHandle(), nil
 }
 
@@ -1053,13 +1048,13 @@ func (c *ChartShape) SetData(cd ChartData) error {
 	if err != nil {
 		return Annotate(err, op)
 	}
-	if err := p.stagePatch(part, []byte(xmlDecl+chartXML)); err != nil {
+	plan := editplan.NewMultiPartPlan(
+		editplan.Patch(part, []byte(xmlDecl+chartXML)),
+		editplan.Patch(wbPart, wb),
+	)
+	if err := applyMultiPartPlan(p, plan); err != nil {
 		return Annotate(err, op)
 	}
-	if err := p.stagePatch(wbPart, wb); err != nil {
-		return Annotate(err, op)
-	}
-	p.commit()
 	return nil
 }
 

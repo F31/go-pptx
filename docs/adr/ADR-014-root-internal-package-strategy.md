@@ -4,7 +4,7 @@
 - **日期**: 2026-09-10
 - **关联设计**: 《go-pptx 完整设计方案 V2.6 开发实施版》§3、§4
 - **替代/废止**: 无
-- **关联 ADR**: ADR-013（编辑路径必须经 stagePatch + commit）
+- **关联 ADR**: ADR-013（编辑路径必须经统一事务层）、ADR-016（渐进式 internal 实现层抽取）
 
 ## 上下文
 
@@ -13,9 +13,9 @@ go-pptx 根包 `package pptx` 当前承载全部公共 API（**74 个 .go 文件
 ```
 internal/opc/        # ✅ 已落地
 internal/xmlstore/   # ✅ 已落地
-internal/edit/       # ❌ 根包内（语义服务层）
+internal/editplan/   # ✅ 已落地（ADR-016，编辑计划层）
 internal/style/      # ❌ 根包内
-internal/textmap/    # ❌ 根包内
+internal/textmap/    # ✅ 已落地（ADR-016）
 internal/geom/       # ❌ 根包内
 internal/validate/   # ❌ 根包内
 ```
@@ -37,23 +37,25 @@ internal/validate/   # ❌ 根包内
 
 **结论：拆出去只有两条路——改公开 API（破坏性）或 type alias re-export（纯搬运），都不是好交易。**
 
-### 2. 暂不拆、择机拆：`internal/edit`（变更集 · 冲突检测 · 事务提交）
+### 2. 已部分收敛、暂不深拆：`internal/editplan` / 低层事务 primitive
 
-**理由：唯一有"依赖方向强制"价值的拆分。** 该包承载设计 §3 关键不变量——"不维护两个可独立修改的文档真相"——目前靠 ADR 013 的纪律维持（所有编辑走 `stagePatch` + `commit`），而非编译器强制。把变更集/事务机制隔离到 `internal/edit` 后，对象层从编译期就无法绕过它。
+**ADR-016 后的状态。** 该层承载设计 §3 关键不变量——"不维护两个可独立修改的文档真相"。生产业务路径已收敛到 `internal/editplan.SinglePartPatch` / `MultiPartPlan`，根包通过未导出 `document_store.go` adapter 应用计划；直接 `stageAdd` / `stagePatch` / `stageDelete` / `commit` 调用仅保留在 `presentation.go` 低层 primitive 与 adapter/helper 边界。
+
+仍然**暂不深拆**完整 `internal/edit`，因为：
 
 但**当前不拆**，因为：
 
-- 拆分收益是"强制力"而非"正确性"——35k 行搬迁的回归风险大于"未来可能被绕"的风险；
+- 深拆收益是"进一步强制力"而非"正确性"——大规模搬迁的回归风险仍高于收益；
 - go-pptx 核心价值是"字节级保真"，真实语料垂直验证（`vertical_corpus_test.go` ext-0024 单 Run 替换差异区间收敛到 1 字节）是产品最强证据，发布前**不希望让核心编辑路径抖动**；
-- 编辑路径在 `replace.go` / `clone.go` / `bind.go` / `presentation.go` 中各自构造 ChangeSet + 走 commit，接口契约已稳定（`stagePatch` / `commit` / `Revision`），拆分属于"代码组织"而非"功能边界"。
+- 业务路径已经通过计划 helper 统一，剩余 primitive 深拆属于"代码组织"而非"功能边界"。
 
 **触发拆分的条件**（任一出现即启动）：
 
-1. **合并冲突热点**：多人并行开发时 `stagePatch` / `ChangeSet` / `commit` 周边出现持续性合并冲突（>3 次/月），意味着对象层与事务层耦合度过高；
+1. **合并冲突热点**：多人并行开发时 `presentation.go` / `document_store.go` / `internal/editplan` 周边出现持续性合并冲突（>3 次/月），意味着对象层与事务层耦合度仍过高；
 2. **第三方扩展需求**：有外部团队需要实现自定义语义服务（例如私有模板引擎 / 行业定制格式转换器），需要把 `internal/edit` 升级为 `pkg/edit` 公开 API；
 3. **编译时间瓶颈**：根包增量编译超过 5s（当前 < 1.5s），且定位到 `replace.go`/`clone.go`/`bind.go` 三处热路径。
 
-触发任一条件后，迁移范围仅约 500–1000 行（`ChangeSet` 结构 + `stagePatch`/`commit` 骨架 + 冲突检测），可单 PR 完成。
+触发任一条件后，迁移范围限定为低层 primitive、`ChangeSet` 操作与冲突检测，不再包含已迁移的业务写入路径。
 
 ### 3. 已落地：`internal/opc`、`internal/xmlstore`
 
@@ -77,7 +79,7 @@ internal/validate/   # ❌ 根包内
 
 - 跟踪文档 `docs/go-pptx-实施状态跟踪.md` 移除"目录分歧（非阻塞）"待议项；
 - 仓库根目录文件级整理（`options.go` / `save.go` / `shape.go` 命名对齐）于 2026-09-10 完成，**不属本 ADR 范围**——是降低观感成本，零 API 变更；
-- v1.0 之后每季度审视一次本 ADR 的触发条件是否命中。
+- 季度审视记录：2026-09-11 首次审视——三项触发条件均未命中（增量编译 0.56s < 5s；无第三方扩展迹象；无合并冲突热点），维持暂不深拆。
 
 ## 参考
 

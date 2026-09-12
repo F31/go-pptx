@@ -315,10 +315,9 @@ func (t *TextFrame) SetPlainText(text string) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "TextFrame.SetPlainText")
 	}
-	if err := t.p.stagePatch(t.part, out); err != nil {
+	if err := applySinglePartPatch(t.p, t.part, out); err != nil {
 		return Annotate(err, "TextFrame.SetPlainText")
 	}
-	t.p.commit()
 	return nil
 }
 
@@ -453,10 +452,9 @@ func (p *Paragraph) AddRun(text string, style FontStyle) (*TextRun, error) {
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Paragraph.AddRun")
 	}
-	if err := p.p.stagePatch(p.part, out); err != nil {
+	if err := applySinglePartPatch(p.p, p.part, out); err != nil {
 		return nil, Annotate(err, "Paragraph.AddRun")
 	}
-	p.p.commit()
 	return p.lastRun(), nil
 }
 
@@ -573,10 +571,9 @@ func (r *TextRun) SetText(text string) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "TextRun.SetText")
 	}
-	if err := r.p.stagePatch(r.part, out); err != nil {
+	if err := applySinglePartPatch(r.p, r.part, out); err != nil {
 		return Annotate(err, "TextRun.SetText")
 	}
-	r.p.commit()
 	return nil
 }
 
@@ -619,10 +616,9 @@ func (r *TextRun) SetFont(style FontStyle) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "TextRun.SetFont")
 	}
-	if err := r.p.stagePatch(r.part, out); err != nil {
+	if err := applySinglePartPatch(r.p, r.part, out); err != nil {
 		return Annotate(err, "TextRun.SetFont")
 	}
-	r.p.commit()
 	return nil
 }
 
@@ -678,10 +674,9 @@ func (r *TextRun) ResetFontProperty(prop FontProperty) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "TextRun.ResetFontProperty")
 	}
-	if err := r.p.stagePatch(r.part, out); err != nil {
+	if err := applySinglePartPatch(r.p, r.part, out); err != nil {
 		return Annotate(err, "TextRun.ResetFontProperty")
 	}
-	r.p.commit()
 	return nil
 }
 

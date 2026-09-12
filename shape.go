@@ -440,10 +440,9 @@ func (s *shapeNode) setAltText(op, text string) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), op)
 	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
+	if err := applySinglePartPatch(s.p, s.part, out); err != nil {
 		return Annotate(err, op)
 	}
-	s.p.commit()
 	return nil
 }
 
@@ -486,10 +485,9 @@ func (s *shapeNode) setDecorative(op string, decorative bool) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), op)
 	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
+	if err := applySinglePartPatch(s.p, s.part, out); err != nil {
 		return Annotate(err, op)
 	}
-	s.p.commit()
 	return nil
 }
 

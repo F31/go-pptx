@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -38,9 +39,9 @@ import (
 // 原子性（"绑定失败显式报错且无部分写入"）：
 //   - 阶段 1 plan：纯读取——扫描全文档、解析数据、校验图表可写性，
 //     任何语义错误在此返回，不产生任何补丁；
-//   - 阶段 2 apply：补丁按 Part 聚合，每 Part 一次 ApplyPatches +
-//     stagePatch，末尾一次 commit（无部分写入）；图表绑定在 plan 阶段
-//     已预检，随后逐图提交。
+//   - 阶段 2 apply：补丁按 Part 聚合，每 Part 一次 ApplyPatches 后通过
+//     MultiPartPlan 单次提交（无部分写入）；图表绑定在 plan 阶段已预检，
+//     随后逐图提交。
 //
 // 严格模式（默认开启 WithBindStrict(true)）：数据源缺键或值类型不可
 // 呈现时显式报错（ErrInvalidArgument）；关闭时未解析占位符保留原文并
@@ -116,18 +117,19 @@ func (p *Presentation) Bind(data map[string]any, opts ...BindOption) (BindReport
 		names = append(names, name)
 	}
 	sort.Slice(names, func(i, j int) bool { return string(names[i]) < string(names[j]) })
+	ops := make([]editplan.Operation, 0, len(names))
 	for _, name := range names {
 		out, err := s.applyPart(name, s.parts[name])
 		if err != nil {
 			return BindReport{}, err
 		}
-		if err := p.stagePatch(name, out); err != nil {
-			return BindReport{}, err
-		}
+		ops = append(ops, editplan.Patch(name, out))
 		s.rep.Parts = append(s.rep.Parts, string(name))
 	}
-	if len(names) > 0 {
-		p.commit()
+	if len(ops) > 0 {
+		if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
+			return BindReport{}, err
+		}
 	}
 
 	// 图表数据绑定（plan 阶段已预检，此处仅执行；每个图表自身事务）。

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -211,17 +212,11 @@ func (s *Slide) createNotes() error {
 		`<Relationship Id="rId2" Type="` + opc.RelSlideMaster + `" Target="` + smTarget + `"/>` +
 		`</Relationships>`
 
-	if err := p.stageAdd(notes, []byte(notesXML), ctNotesSlide); err != nil {
-		return err
-	}
-	if err := p.stageAdd(master, []byte(masterXML), ctNotesMaster); err != nil {
-		return err
-	}
-	if err := p.stageAdd(notesRels, []byte(notesRelsXML), ""); err != nil {
-		return err
-	}
-	if err := p.stageAdd(masterRels, []byte(masterRelsXML), ""); err != nil {
-		return err
+	ops := []editplan.Operation{
+		editplan.Add(notes, []byte(notesXML), ctNotesSlide),
+		editplan.Add(master, []byte(masterXML), ctNotesMaster),
+		editplan.Add(notesRels, []byte(notesRelsXML), ""),
+		editplan.Add(masterRels, []byte(masterRelsXML), ""),
 	}
 
 	// 2) slide 关系补 notesSlide（rId 按当前关系流分配）。
@@ -233,9 +228,7 @@ func (s *Slide) createNotes() error {
 	entry := `<Relationship Id="` + slideRID + `" Type="` + opc.RelNotesSlide +
 		`" Target="../notesSlides/` + slideName(notes) + `"/>`
 	newRels := insertRel(slideRels, entry)
-	if err := p.stagePatch(relsPart(slide), []byte(newRels)); err != nil {
-		return err
-	}
+	ops = append(ops, relsPlanOp(p, slide, []byte(newRels)))
 
 	// 3) presentation.xml 补 notesMasterIdLst + 关系。
 	presDoc, err := p.docOf(main)
@@ -257,17 +250,14 @@ func (s *Slide) createNotes() error {
 		if err != nil {
 			return err
 		}
-		if err := p.stagePatch(main, out); err != nil {
-			return err
-		}
+		ops = append(ops, editplan.Patch(main, out))
 	}
 	presRels2 := insertRel(presRels,
 		`<Relationship Id="`+rid+`" Type="`+relNotesMaster+`" Target="notesMasters/notesMaster`+strconv.Itoa(masterIdx)+`.xml"/>`)
-	if err := p.stagePatch(relsPart(main), []byte(presRels2)); err != nil {
+	ops = append(ops, relsPlanOp(p, main, []byte(presRels2)))
+	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 		return err
 	}
-
-	p.commit()
 	return nil
 }
 

@@ -112,7 +112,7 @@
 // Office 客户端播放帧一致，且不得作为 AdvanceAfter 计算输入（§21.5）。
 // 形状创建与管理（SHAPE-CREATE，设计 §20.2 缺口补齐）——
 // Slide.AddTextBox / AddAutoShape / RemoveShape / MoveShape +
-// TextFrame.AddParagraph；走 Part 级 stagePatch + 单事务 commit，
+// TextFrame.AddParagraph；走 Part 级 SinglePartPatch 单事务提交，
 // 不引入第二套编辑机制（ADR 013 续）。
 // 句柄失效语义（STALE-GUARD，M8 修复）——shapeNode 以 cNvPr@id 为主
 // 身份、path 仅作"在哪个 spTree/grpSp 下查找"的父容器提示；locate

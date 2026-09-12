@@ -565,7 +565,7 @@ func (t *TableShape) colNode(col int) (*xmlstore.XMLDocument, *xmlstore.NodeReco
 	return doc, g.gcols[col], nil
 }
 
-// apply 以一次事务提交补丁（stagePatch + commit）。
+// apply 以一次事务提交补丁。
 func (t *TableShape) apply(patches []xmlstore.SpanPatch, op string) error {
 	if len(patches) == 0 {
 		return nil
@@ -578,10 +578,9 @@ func (t *TableShape) apply(patches []xmlstore.SpanPatch, op string) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), op)
 	}
-	if err := t.p.stagePatch(t.part, out); err != nil {
+	if err := applySinglePartPatch(t.p, t.part, out); err != nil {
 		return Annotate(err, op)
 	}
-	t.p.commit()
 	return nil
 }
 

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -176,17 +177,11 @@ func (p *Presentation) AddSlide(layout *LayoutRef) (*Slide, error) {
 	slide := opc.PartName("/ppt/slides/slide" + strconv.Itoa(idx) + ".xml")
 	slideRels := relsPart(slide)
 
-	// 1) slide Part 与自身关系流（stageAdd；ContentType 走 Override 计划）。
+	// 1) 构造 slide Part 与自身关系流（ContentType 走 Override 计划）。
 	slideXML := xmlDecl + buildSlideXML()
-	if err := p.stageAdd(slide, []byte(slideXML), ctSlide); err != nil {
-		return nil, Annotate(err, "Presentation.AddSlide")
-	}
 	relsXMLBody := xmlDecl + `<Relationships xmlns="` + nsPkgRels + `">` +
 		`<Relationship Id="rId1" Type="` + opc.RelSlideLayout + `" Target="../slideLayouts/` + slideName(layout.part) + `"/>` +
 		`</Relationships>`
-	if err := p.stageAdd(slideRels, []byte(relsXMLBody), ""); err != nil {
-		return nil, Annotate(err, "Presentation.AddSlide")
-	}
 
 	// 2) presentation.xml 追加 p:sldId。
 	mainRels, err := relsXML(p, p.main)
@@ -203,19 +198,20 @@ func (p *Presentation) AddSlide(layout *LayoutRef) (*Slide, error) {
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Presentation.AddSlide")
 	}
-	if err := p.stagePatch(p.main, out); err != nil {
-		return nil, Annotate(err, "Presentation.AddSlide")
-	}
 
 	// 3) 主关系流新增 rId（part 存在走补丁；缺失按新增注册）。
 	entry := `<Relationship Id="` + rid + `" Type="` + opc.RelSlide +
 		`" Target="slides/` + slideName(slide) + `"/>`
 	updated := insertRel(mainRels, entry)
-	if err := stageRelsBytes(p, p.main, updated); err != nil {
+	plan := editplan.NewMultiPartPlan(
+		editplan.Add(slide, []byte(slideXML), ctSlide),
+		editplan.Add(slideRels, []byte(relsXMLBody), ""),
+		editplan.Patch(p.main, out),
+		relsPlanOp(p, p.main, updated),
+	)
+	if err := applyMultiPartPlan(p, plan); err != nil {
 		return nil, Annotate(err, "Presentation.AddSlide")
 	}
-
-	p.commit()
 	return &Slide{p: p, id: id, part: slide, rev: p.rev}, nil
 }
 
@@ -447,10 +443,9 @@ func (p *Presentation) MoveSlide(id SlideID, index int) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "Presentation.MoveSlide")
 	}
-	if err := p.stagePatch(p.main, out); err != nil {
+	if err := applySinglePartPatch(p, p.main, out); err != nil {
 		return Annotate(err, "Presentation.MoveSlide")
 	}
-	p.commit()
 	return nil
 }
 
@@ -536,38 +531,28 @@ func (p *Presentation) RemoveSlide(id SlideID) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "Presentation.RemoveSlide")
 	}
-	if err := p.stagePatch(p.main, out); err != nil {
-		return Annotate(err, "Presentation.RemoveSlide")
-	}
+	ops := []editplan.Operation{editplan.Patch(p.main, out)}
 	relsBytes, err := relsXML(p, p.main)
 	if err != nil {
 		return Annotate(err, "Presentation.RemoveSlide")
 	}
 	if r := removeRelEntry(relsBytes, ent.rid); !bytes.Equal(r, relsBytes) {
-		if err := stageRelsBytes(p, p.main, r); err != nil {
-			return Annotate(err, "Presentation.RemoveSlide")
-		}
+		ops = append(ops, relsPlanOp(p, p.main, r))
 	}
-	if err := p.stageDelete(slidePart); err != nil {
-		return Annotate(err, "Presentation.RemoveSlide")
-	}
+	ops = append(ops, editplan.Delete(slidePart))
 	if p.pk.HasPart(relsPart(slidePart)) || p.addedParts[relsPart(slidePart)].Content != nil {
-		if err := p.stageDelete(relsPart(slidePart)); err != nil {
-			return Annotate(err, "Presentation.RemoveSlide")
-		}
+		ops = append(ops, editplan.Delete(relsPart(slidePart)))
 	}
 	if notesPart != "" {
-		if err := p.stageDelete(notesPart); err != nil {
-			return Annotate(err, "Presentation.RemoveSlide")
-		}
+		ops = append(ops, editplan.Delete(notesPart))
 		np := relsPart(notesPart)
 		if p.pk.HasPart(np) || p.addedParts[np].Content != nil {
-			if err := p.stageDelete(np); err != nil {
-				return Annotate(err, "Presentation.RemoveSlide")
-			}
+			ops = append(ops, editplan.Delete(np))
 		}
 	}
-	p.commit()
+	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
+		return Annotate(err, "Presentation.RemoveSlide")
+	}
 	return nil
 }
 

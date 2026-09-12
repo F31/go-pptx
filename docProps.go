@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -240,16 +241,47 @@ func (p *Presentation) SetCoreProperties(patch CorePropertiesPatch) error {
 		})
 	}
 
-	// 2) Company 写 app.xml（与本事务一起提交；独立 Part）。
-	if patch.Company.Set {
-		if err := p.writeCompany(patch.Company.Value); err != nil {
-			return Annotate(err, "Presentation.SetCoreProperties")
+	var ops []editplan.Operation
+	var rootRels []byte
+	rootRelsChanged := false
+	addRootRel := func(relType, target string) error {
+		if rootRels == nil {
+			b, err := relsXML(p, "/")
+			if err != nil {
+				return err
+			}
+			rootRels = b
 		}
+		if strings.Contains(string(rootRels), `Type="`+relType+`" Target="`+target+`"`) {
+			return nil
+		}
+		rid := nextRID(rootRels)
+		entry := `<Relationship Id="` + rid + `" Type="` + relType + `" Target="` + target + `"/>`
+		rootRels = insertRel(rootRels, entry)
+		rootRelsChanged = true
+		return nil
 	}
 
-	// 3) 更新 autoModified 状态：本次是否显式传入 Modified。
-	//    （即使只写 Company 也会置位——core.xml 存在时保存将刷新。）
-	p.coreAutoModified = !patch.Modified.Set
+	// 2) Company 写 app.xml（与本事务一起提交；独立 Part）。
+	if patch.Company.Set {
+		appPart, ok, err := p.rootRelTarget(relExtProps)
+		if err != nil {
+			return Annotate(err, "Presentation.SetCoreProperties")
+		}
+		if !ok {
+			appPart = opc.PartName("/docProps/app.xml")
+			if err := addRootRel(relExtProps, "docProps/app.xml"); err != nil {
+				return Annotate(err, "Presentation.SetCoreProperties")
+			}
+		}
+		op, err := p.coreFieldsOperation(appPart, []corePropertyValue{{
+			ns: nsExtendedProps, local: "Company", text: patch.Company.Value, rank: -1,
+		}})
+		if err != nil {
+			return Annotate(err, "Presentation.SetCoreProperties")
+		}
+		ops = append(ops, op)
+	}
 
 	// 4) 核心字段落盘（一次事务）。
 	if len(coreFields) > 0 {
@@ -259,15 +291,27 @@ func (p *Presentation) SetCoreProperties(patch CorePropertiesPatch) error {
 		}
 		if !ok {
 			corePart = opc.PartName("/docProps/core.xml")
-			if err := p.ensureRootRel(relCoreProps, "docProps/core.xml"); err != nil {
+			if err := addRootRel(relCoreProps, "docProps/core.xml"); err != nil {
 				return Annotate(err, "Presentation.SetCoreProperties")
 			}
 		}
-		if err := p.applyCoreFields(corePart, coreFields); err != nil {
+		op, err := p.coreFieldsOperation(corePart, coreFields)
+		if err != nil {
+			return Annotate(err, "Presentation.SetCoreProperties")
+		}
+		ops = append(ops, op)
+	}
+	if rootRelsChanged {
+		ops = append([]editplan.Operation{relsPlanOp(p, "/", rootRels)}, ops...)
+	}
+	if len(ops) > 0 {
+		if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 			return Annotate(err, "Presentation.SetCoreProperties")
 		}
 	}
-	p.commit()
+	// 3) 更新 autoModified 状态：本次是否显式传入 Modified。
+	//    （即使只写 Company 也会置位——core.xml 存在时保存将刷新。）
+	p.coreAutoModified = !patch.Modified.Set
 	return nil
 }
 
@@ -281,50 +325,30 @@ func coreNSFor(local string) string {
 	}
 }
 
-// writeCompany 把 Company 写入 app.xml（缺失时创建 Part + 根关系）。
-// 当前事务内调用；错误返回时由调用方包装。
-func (p *Presentation) writeCompany(value string) error {
-	appPart, ok, err := p.rootRelTarget(relExtProps)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		appPart = opc.PartName("/docProps/app.xml")
-		if err := p.ensureRootRel(relExtProps, "docProps/app.xml"); err != nil {
-			return err
-		}
-	}
-	// 复用 applyCoreFields：把 Company 当作 app.xml Properties 下的
-	// nsExtendedProps/Company 叶元素处理。
-	return p.applyCoreFields(appPart, []corePropertyValue{{
-		ns: nsExtendedProps, local: "Company", text: value, rank: -1,
-	}})
-}
-
-// applyCoreFields 把字段集合写入 part（核心属性链）：已存在元素更新
+// coreFieldsOperation 把字段集合写入 part（核心属性链）：已存在元素更新
 // 文本；缺失元素按其 schema 字母序位次合并为单个片段插入，保持与
 // 既有元素的相对顺序且不触碰未知子元素。part 缺失时以对应骨架创建
-// （stageAdd），否则 stagePatch。
-func (p *Presentation) applyCoreFields(part opc.PartName, fields []corePropertyValue) error {
+// Add operation，否则 Patch operation。
+func (p *Presentation) coreFieldsOperation(part opc.PartName, fields []corePropertyValue) (editplan.Operation, error) {
 	base, err := p.partBytes(part)
 	creating := false
 	if err != nil {
 		if !errors.Is(err, ErrNotFound) {
-			return err
+			return editplan.Operation{}, err
 		}
 		creating = true
 		base = []byte(xmlDecl + partShell(part))
 	}
 	doc, err := xmlstore.Index(base)
 	if err != nil {
-		return &OperationError{
+		return editplan.Operation{}, &OperationError{
 			Op: "docProps write", Part: string(part),
 			Message: "existing part is not well-formed XML", Err: mapXMLError(err),
 		}
 	}
 	root := doc.Root()
 	if root == nil {
-		return &OperationError{Op: "docProps write", Part: string(part), Err: ErrMalformedPackage}
+		return editplan.Operation{}, &OperationError{Op: "docProps write", Part: string(part), Err: ErrMalformedPackage}
 	}
 
 	// 已存在元素文本更新补丁 + 缺失字段清单。
@@ -341,7 +365,7 @@ func (p *Presentation) applyCoreFields(part opc.PartName, fields []corePropertyV
 			continue
 		}
 		if len(n.Children) > 0 {
-			return &OperationError{
+			return editplan.Operation{}, &OperationError{
 				Op: "docProps write", Part: string(part),
 				Message: fmt.Sprintf("element %s unexpectedly has children", n.Name()),
 				Err:     ErrMalformedPackage,
@@ -349,7 +373,7 @@ func (p *Presentation) applyCoreFields(part opc.PartName, fields []corePropertyV
 		}
 		patch, perr := leafTextPatch(doc, n, f.text)
 		if perr != nil {
-			return perr
+			return editplan.Operation{}, perr
 		}
 		patches = append(patches, patch)
 	}
@@ -404,7 +428,7 @@ func (p *Presentation) applyCoreFields(part opc.PartName, fields []corePropertyV
 			f := missingF[i]
 			esc, e := xmlstore.EscapeText(f.text)
 			if e != nil {
-				return &OperationError{
+				return editplan.Operation{}, &OperationError{
 					Op: "docProps write", Part: string(part),
 					Message: "text not representable in XML 1.0", Err: ErrInvalidArgument,
 				}
@@ -421,7 +445,7 @@ func (p *Presentation) applyCoreFields(part opc.PartName, fields []corePropertyV
 			if g.anchor != xmlstore.NoNode {
 				an := doc.Node(g.anchor)
 				if an == nil {
-					return &OperationError{Op: "docProps write", Part: string(part), Err: ErrMalformedPackage}
+					return editplan.Operation{}, &OperationError{Op: "docProps write", Part: string(part), Err: ErrMalformedPackage}
 				}
 				start = an.Source.Start
 			}
@@ -433,15 +457,15 @@ func (p *Presentation) applyCoreFields(part opc.PartName, fields []corePropertyV
 
 	out, err := xmlstore.ApplyPatches(base, patches)
 	if err != nil {
-		return &OperationError{
+		return editplan.Operation{}, &OperationError{
 			Op: "docProps write", Part: string(part),
 			Message: "cannot apply property patch", Err: mapXMLError(err),
 		}
 	}
 	if creating {
-		return p.stageAdd(part, out, partCT(part))
+		return editplan.Add(part, out, partCT(part)), nil
 	}
-	return p.stagePatch(part, out)
+	return editplan.Patch(part, out), nil
 }
 
 // partShell 返回缺失 Part 的骨架（去掉 xmlDecl 的根元素部分）。
@@ -703,10 +727,15 @@ func (p *Presentation) SetCustomProperty(name string, value CustomPropertyValue)
 	if err != nil {
 		return Annotate(err, "Presentation.SetCustomProperty")
 	}
+	var ops []editplan.Operation
 	if !ok {
 		part = opc.PartName("/docProps/custom.xml")
-		if err := p.ensureRootRel(relCustomProps, "docProps/custom.xml"); err != nil {
+		op, err := p.rootRelOperation(relCustomProps, "docProps/custom.xml")
+		if err != nil {
 			return Annotate(err, "Presentation.SetCustomProperty")
+		}
+		if op != nil {
+			ops = append(ops, *op)
 		}
 	}
 	base, err := p.partBytes(part)
@@ -777,13 +806,13 @@ func (p *Presentation) SetCustomProperty(name string, value CustomPropertyValue)
 		return Annotate(mapXMLError(err), "Presentation.SetCustomProperty")
 	}
 	if creating {
-		if err := p.stageAdd(part, out, ctCustomProps); err != nil {
-			return Annotate(err, "Presentation.SetCustomProperty")
-		}
-	} else if err := p.stagePatch(part, out); err != nil {
+		ops = append(ops, editplan.Add(part, out, ctCustomProps))
+	} else {
+		ops = append(ops, editplan.Patch(part, out))
+	}
+	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 		return Annotate(err, "Presentation.SetCustomProperty")
 	}
-	p.commit()
 	return nil
 }
 
@@ -868,15 +897,14 @@ func (p *Presentation) flushAutoModified() error {
 		string(doc.ContentSlice(n)) == now {
 		return nil
 	}
-	err = p.applyCoreFields(corePart, []corePropertyValue{{
+	op, err := p.coreFieldsOperation(corePart, []corePropertyValue{{
 		ns: nsDCTerms, local: "modified", text: now,
 		rank: corePropRanks()["modified"],
 	}})
 	if err != nil {
 		return err
 	}
-	p.commit()
-	return nil
+	return applyMultiPartPlan(p, editplan.NewMultiPartPlan(op))
 }
 
 // rootRelTarget 返回包根 rels 中 relType 的首个内部关系目标 Part。
@@ -896,20 +924,19 @@ func (p *Presentation) rootRelTarget(relType string) (opc.PartName, bool, error)
 	return "", false, nil
 }
 
-// ensureRootRel 确保包根 rels 存在指向 target 的 relType 关系；缺失则
-// 追加（rId 自动分配）并 stagePatch（与调用方同事务提交）。
-func (p *Presentation) ensureRootRel(relType, target string) error {
+func (p *Presentation) rootRelOperation(relType, target string) (*editplan.Operation, error) {
 	relsBytes, err := relsXML(p, "/")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if strings.Contains(string(relsBytes), `Type="`+relType+`" Target="`+target+`"`) {
-		return nil // 已存在（含读视图内新增）
+		return nil, nil
 	}
 	rid := nextRID(relsBytes)
 	entry := `<Relationship Id="` + rid + `" Type="` + relType + `" Target="` + target + `"/>`
 	updated := insertRel(relsBytes, entry)
-	return p.stagePatch(relsPart("/"), updated)
+	op := relsPlanOp(p, "/", updated)
+	return &op, nil
 }
 
 // formatW3CDTF 把时间格式化为 W3CDTF（UTC）。

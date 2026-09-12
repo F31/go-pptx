@@ -118,10 +118,9 @@ func (t *TextFrame) SetBodyProps(p BodyProps) error {
 		if err != nil {
 			return Annotate(mapXMLError(err), "TextFrame.SetBodyProps")
 		}
-		if err := t.p.stagePatch(t.part, out); err != nil {
+		if err := applySinglePartPatch(t.p, t.part, out); err != nil {
 			return Annotate(err, "TextFrame.SetBodyProps")
 		}
-		t.p.commit()
 		return nil
 	}
 	patches, err := applyBodyPropsPatch(doc, bp, "a", p)
@@ -135,10 +134,9 @@ func (t *TextFrame) SetBodyProps(p BodyProps) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "TextFrame.SetBodyProps")
 	}
-	if err := t.p.stagePatch(t.part, out); err != nil {
+	if err := applySinglePartPatch(t.p, t.part, out); err != nil {
 		return Annotate(err, "TextFrame.SetBodyProps")
 	}
-	t.p.commit()
 	return nil
 }
 
@@ -357,17 +355,6 @@ func (f *Field) locateField() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, erro
 	return doc, fld, nil
 }
 
-// pathToField 返回从根到本 fld 的完整路径：句柄路径 + p 序号 + fld 序号。
-func (f *Field) pathToField() []nodeStep {
-	steps := make([]nodeStep, 0, len(f.path)+2)
-	steps = append(steps, f.path...)
-	steps = append(steps,
-		nodeStep{ns: nsDrawingML, local: "p", nth: f.paraIdx},
-		nodeStep{ns: nsDrawingML, local: "fld", nth: f.fldIdx},
-	)
-	return steps
-}
-
 // Text 返回字段缓存显示文本（a:t 内容解码）。
 func (f *Field) Text() (string, error) {
 	doc, fld, err := f.locateField()
@@ -449,10 +436,9 @@ func (f *Field) SetText(text string) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "Field.SetText")
 	}
-	if err := f.p.stagePatch(f.part, out); err != nil {
+	if err := applySinglePartPatch(f.p, f.part, out); err != nil {
 		return Annotate(err, "Field.SetText")
 	}
-	f.p.commit()
 	return nil
 }
 
@@ -467,11 +453,10 @@ func (f *Field) Remove() error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "Field.Remove")
 	}
-	if err := f.p.stagePatch(f.part, out); err != nil {
+	if err := applySinglePartPatch(f.p, f.part, out); err != nil {
 		return Annotate(err, "Field.Remove")
 	}
 	f.fldIdx = -1 // 句柄标为无效
-	f.p.commit()
 	return nil
 }
 
@@ -523,10 +508,9 @@ func (p *Paragraph) AppendField(spec FieldSpec) (*Field, error) {
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Paragraph.AppendField")
 	}
-	if err := p.p.stagePatch(p.part, out); err != nil {
+	if err := applySinglePartPatch(p.p, p.part, out); err != nil {
 		return nil, Annotate(err, "Paragraph.AppendField")
 	}
-	p.p.commit()
 	return p.lastField(), nil
 }
 
@@ -564,10 +548,9 @@ func (p *Paragraph) InsertField(at *TextRun, spec FieldSpec) (*Field, error) {
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Paragraph.InsertField")
 	}
-	if err := p.p.stagePatch(p.part, out); err != nil {
+	if err := applySinglePartPatch(p.p, p.part, out); err != nil {
 		return nil, Annotate(err, "Paragraph.InsertField")
 	}
-	p.p.commit()
 	return p.lastField(), nil
 }
 

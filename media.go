@@ -130,6 +130,9 @@ func readMedia(ctx context.Context, src MediaSource) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if rc == nil {
+		return nil, Annotate(ErrInvalidArgument, "media source open")
+	}
 	defer rc.Close()
 	return readBounded(ctx, rc, maxStagingBytes)
 }

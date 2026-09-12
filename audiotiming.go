@@ -146,10 +146,9 @@ func (a *AudioShape) SetPlayback(spec PlaybackSpec) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "AudioShape.SetPlayback")
 	}
-	if err := a.p.stagePatch(a.part, out); err != nil {
+	if err := applySinglePartPatch(a.p, a.part, out); err != nil {
 		return Annotate(err, "AudioShape.SetPlayback")
 	}
-	a.p.commit()
 	_ = root
 	return nil
 }
@@ -300,10 +299,9 @@ func (s *Slide) SetAdvanceAfter(d time.Duration) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), "Slide.SetAdvanceAfter")
 	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
+	if err := applySinglePartPatch(s.p, s.part, out); err != nil {
 		return Annotate(err, "Slide.SetAdvanceAfter")
 	}
-	s.p.commit()
 	return nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -565,18 +566,11 @@ func splitTrailingDigits(base string) (stem, ext string, digits int, ok bool) {
 
 // ---------- 应用（单事务，失败恢复暂存区） ----------
 
-// applyClonePlan 把计划落为一次提交。暂存阶段的任何失败都会恢复
-// pending 快照（本方法之前库内公共方法依赖"暂存即成功"的顺序约定，
-// 这里因为暂存步骤多而显式回滚）。
+// applyClonePlan 把计划落为一次提交。MultiPartPlan 负责暂存失败时恢复
+// pending 快照，避免复杂克隆出现半暂存状态。
 func (p *Presentation) applyClonePlan(plan *clonePlan) error {
 	const op = "clone.apply"
-	saved := snapshotPending(p)
-	committed := false
-	defer func() {
-		if !committed {
-			p.pending = saved
-		}
-	}()
+	ops := make([]editplan.Operation, 0, 4+len(plan.cloned)*2)
 
 	// 1) 目标页 Part（源字节级复制）与其关系流。
 	// 跨文档复制时源 Part 只在 srcDoc 里可读，plan.src 由 srcDoc 持有。
@@ -585,13 +579,9 @@ func (p *Presentation) applyClonePlan(plan *clonePlan) error {
 	if err != nil {
 		return &OperationError{Op: op, Part: string(plan.src), Message: "cannot read source slide", Err: err}
 	}
-	if err := p.stageAdd(plan.dst, slideBytes, ctSlide); err != nil {
-		return err
-	}
+	ops = append(ops, editplan.Add(plan.dst, slideBytes, ctSlide))
 	if rp := plan.rels[plan.src]; rp != nil && rp.exists {
-		if err := p.stageAdd(relsPart(plan.dst), rp.bytes, ""); err != nil {
-			return err
-		}
+		ops = append(ops, editplan.Add(relsPart(plan.dst), rp.bytes, ""))
 	}
 	// 2) 附属 Part（notes/chart/workbook/media）与其关系流。
 	for _, cp := range plan.cloned {
@@ -599,13 +589,9 @@ func (p *Presentation) applyClonePlan(plan *clonePlan) error {
 		if err != nil {
 			return &OperationError{Op: op, Part: string(cp.src), Message: "cannot read cloned part", Err: err}
 		}
-		if err := p.stageAdd(cp.dst, b, fallbackCloneCT(cp)); err != nil {
-			return err
-		}
+		ops = append(ops, editplan.Add(cp.dst, b, fallbackCloneCT(cp)))
 		if rp := plan.rels[cp.src]; rp != nil && rp.exists {
-			if err := p.stageAdd(relsPart(cp.dst), rp.bytes, ""); err != nil {
-				return err
-			}
+			ops = append(ops, editplan.Add(relsPart(cp.dst), rp.bytes, ""))
 		}
 	}
 	// 3) presentation.xml 追加 p:sldId + 主关系新增 rId。
@@ -623,33 +609,31 @@ func (p *Presentation) applyClonePlan(plan *clonePlan) error {
 		return &OperationError{Op: op, Part: string(p.main),
 			Message: "cannot append sldId", Err: mapXMLError(err)}
 	}
-	if err := p.stagePatch(p.main, out); err != nil {
-		return err
-	}
+	ops = append(ops, editplan.Patch(p.main, out))
 	mainRels, err := relsXML(p, p.main)
 	if err != nil {
 		return err
 	}
 	entry := `<Relationship Id="` + plan.mainRID + `" Type="` + opc.RelSlide +
 		`" Target="slides/` + slideName(plan.dst) + `"/>`
-	if err := stageRelsBytes(p, p.main, insertRel(mainRels, entry)); err != nil {
-		return err
-	}
+	ops = append(ops, relsPlanOp(p, p.main, insertRel(mainRels, entry)))
 	// 4) 库创建音轨的 Profile 追加（同一事务）。
 	if len(plan.profileAdds) > 0 {
-		if err := p.stageAppendAudioProfiles(plan.profileAdds); err != nil {
+		profileOp, err := p.appendAudioProfilesOperation(plan.profileAdds)
+		if err != nil {
 			return err
 		}
+		ops = append(ops, profileOp)
 	}
 	// 5) 库创建视频的 Profile 追加（同一事务）。
 	if len(plan.profileAddsV) > 0 {
-		if err := p.stageAppendVideoProfiles(plan.profileAddsV); err != nil {
+		profileOp, err := p.appendVideoProfilesOperation(plan.profileAddsV)
+		if err != nil {
 			return err
 		}
+		ops = append(ops, profileOp)
 	}
-	committed = true
-	p.commit()
-	return nil
+	return applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...))
 }
 
 // fallbackCloneCT 给克隆 Part 的内容类型兜底（源读不到时按类型常量）。
@@ -679,40 +663,16 @@ func (p *Presentation) contentTypeOf(name opc.PartName) string {
 	return ""
 }
 
-// snapshotPending 深拷贝当前暂存区（事务回滚用）。
-func snapshotPending(p *Presentation) *opc.ChangeSet {
-	if p.pending == nil {
-		return nil
-	}
-	cp := &opc.ChangeSet{
-		Patched: make(map[opc.PartName][]byte, len(p.pending.Patched)),
-		Added:   make(map[opc.PartName]opc.AddedPart, len(p.pending.Added)),
-		Deleted: make(map[opc.PartName]bool, len(p.pending.Deleted)),
-	}
-	for k, v := range p.pending.Patched {
-		cp.Patched[k] = append([]byte(nil), v...)
-	}
-	for k, v := range p.pending.Added {
-		cp.Added[k] = v
-	}
-	for k := range p.pending.Deleted {
-		cp.Deleted[k] = true
-	}
-	return cp
-}
-
-// stageAppendAudioProfiles 在当前事务中把 Profile 条目追加到
-// /docProps/audio.xml（不单独提交；与页面复制同一事务生效）。
-func (p *Presentation) stageAppendAudioProfiles(adds []AudioProfile) error {
+func (p *Presentation) appendAudioProfilesOperation(adds []AudioProfile) (editplan.Operation, error) {
 	const partName opc.PartName = "/docProps/audio.xml"
 	b, err := p.partBytes(partName)
 	if err != nil {
-		return &OperationError{Op: "clone.profiles", Part: string(partName),
+		return editplan.Operation{}, &OperationError{Op: "clone.profiles", Part: string(partName),
 			Message: "audio profile part disappeared", Err: err}
 	}
 	idx := bytes.Index(b, []byte("</AudioProfiles>"))
 	if idx < 0 {
-		return &OperationError{Op: "clone.profiles", Part: string(partName),
+		return editplan.Operation{}, &OperationError{Op: "clone.profiles", Part: string(partName),
 			Message: "audio profile part is malformed (no closing root)", Err: ErrMalformedPackage}
 	}
 	var buf bytes.Buffer
@@ -721,7 +681,7 @@ func (p *Presentation) stageAppendAudioProfiles(adds []AudioProfile) error {
 		buf.WriteString("<Profile " + profileXMLAttrs(prof) + "/>")
 	}
 	buf.Write(b[idx:])
-	return p.stagePatch(partName, buf.Bytes())
+	return editplan.Patch(partName, buf.Bytes()), nil
 }
 
 // allAudioTrackKeys 返回文档内全部已用 TrackKey（克隆派生键去重用）。
@@ -752,17 +712,16 @@ func (p *Presentation) allAudioTrackKeys() map[string]bool {
 	return taken
 }
 
-// stageAppendVideoProfiles 把派生 Profile 追加到 /docProps/video.xml（同事务生效）。
-func (p *Presentation) stageAppendVideoProfiles(adds []VideoProfile) error {
+func (p *Presentation) appendVideoProfilesOperation(adds []VideoProfile) (editplan.Operation, error) {
 	const partName opc.PartName = "/docProps/video.xml"
 	b, err := p.partBytes(partName)
 	if err != nil {
-		return &OperationError{Op: "clone.profiles", Part: string(partName),
+		return editplan.Operation{}, &OperationError{Op: "clone.profiles", Part: string(partName),
 			Message: "video profile part disappeared", Err: err}
 	}
 	idx := bytes.Index(b, []byte("</VideoProfiles>"))
 	if idx < 0 {
-		return &OperationError{Op: "clone.profiles", Part: string(partName),
+		return editplan.Operation{}, &OperationError{Op: "clone.profiles", Part: string(partName),
 			Message: "video profile part is malformed (no closing root)", Err: ErrMalformedPackage}
 	}
 	var buf bytes.Buffer
@@ -771,7 +730,7 @@ func (p *Presentation) stageAppendVideoProfiles(adds []VideoProfile) error {
 		buf.WriteString("<Profile " + videoProfileXMLAttrs(prof) + "/>")
 	}
 	buf.Write(b[idx:])
-	return p.stagePatch(partName, buf.Bytes())
+	return editplan.Patch(partName, buf.Bytes()), nil
 }
 
 // allVideoTrackKeys 返回文档内全部已用 TrackKey（视频 Profile 派生键去重用）。

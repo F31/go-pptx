@@ -11,7 +11,7 @@ import (
 // RemoveShape / MoveShape 与 TextFrame.AddParagraph。
 //
 // 创建路径复用既有保真补丁机制（AppendChild/InsertBefore + ApplyPatches +
-// stagePatch + commit），不引入第二套写路径；移除与移动参照 MoveSlide 的
+// SinglePartPatch），不引入第二套写路径；移除与移动参照 MoveSlide 的
 // "提取字节 + 双补丁升序提交"模式。
 
 // Stable: TextShape 是文本框句柄，是 AutoShape 的类型别名——不引入第二
@@ -107,10 +107,9 @@ func (s *Slide) appendSpFragment(op string, frag string) (*AutoShape, error) {
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), op)
 	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
+	if err := applySinglePartPatch(s.p, s.part, out); err != nil {
 		return nil, Annotate(err, op)
 	}
-	s.p.commit()
 	return s.spHandleByID(id), nil
 }
 
@@ -181,10 +180,9 @@ func (s *Slide) RemoveShape(id ShapeID) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), op)
 	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
+	if err := applySinglePartPatch(s.p, s.part, out); err != nil {
 		return Annotate(err, op)
 	}
-	s.p.commit()
 	return nil
 }
 
@@ -249,10 +247,9 @@ func (s *Slide) MoveShape(id ShapeID, zIndex int) error {
 	if err != nil {
 		return Annotate(mapXMLError(err), op)
 	}
-	if err := s.p.stagePatch(s.part, out); err != nil {
+	if err := applySinglePartPatch(s.p, s.part, out); err != nil {
 		return Annotate(err, op)
 	}
-	s.p.commit()
 	return nil
 }
 
@@ -309,10 +306,9 @@ func (t *TextFrame) AddParagraph(spec ParagraphSpec) (*Paragraph, error) {
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), op)
 	}
-	if err := t.p.stagePatch(t.part, out); err != nil {
+	if err := applySinglePartPatch(t.p, t.part, out); err != nil {
 		return nil, Annotate(err, op)
 	}
-	t.p.commit()
 	n := countKind(doc, body, nsDrawingML, "p")
 	return &Paragraph{textNode: textNode{p: t.p, part: t.part, path: t.path}, idx: n}, nil
 }
