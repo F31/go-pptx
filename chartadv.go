@@ -68,4 +68,3 @@ const (
 
 // String 方法已搬到 internal/chart 包（ADR-017 第二批：方法必须定义在
 // 类型所在包，alias 上不能定义新方法）。
-

@@ -210,3 +210,25 @@ type ChartAxisOptions struct {
 	Min, Max       Optional[float64]
 	Position       string // b / l / t / r，空保留默认
 }
+
+// =============== Workbook Adapter (私有类型) ===============
+
+// ChartDataBook 是传递给工作簿适配器的数据快照。
+//
+// 稳定性档位由根包的同名 type alias 声明（根包 chartbook.go 上的
+// `// Experimental:` 段）——internal 侧不再重复标记，避免被公共 API
+// 表面统计（freeze list 的 grep 口径）二次计入。
+// 1.0 内可能新增字段（多 sheet / 公式 / 数据透视等）。当前形态适配
+// DefaultWorkbookBuilder 的最小 xlsx 输出；ChartSeries 数组内的顺序与
+// Categories 对应关系视为 v1.0 契约的一部分。
+//
+// ADR-017 第三批：定义在 internal/chart；根包用同名 type alias 引用，
+// 保证 DefaultWorkbookBuilder.Build(book ChartDataBook) 公共 API 表面零变化。
+type ChartDataBook struct {
+	// SheetName 是数据工作表名（默认 "Sheet1"）；空串按默认处理。
+	SheetName string
+	// Categories 是类别标签（A 列，行 2..n+1）。
+	Categories []string
+	// Series 是数据系列（行 1 系列名，行 2..n+1 数值）。
+	Series []ChartSeries
+}

@@ -1,14 +1,9 @@
 package pptx
 
 import (
-	"archive/zip"
-	"bytes"
-	"strconv"
 	"strings"
 
 	chartinternal "github.com/F31/go-pptx/internal/chart"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // 本文件实现 CHART-01 的嵌入工作簿适配（方案 §9.2）：
@@ -45,14 +40,10 @@ type ChartWorkbookBuilder interface {
 // Experimental: 1.0 内可能新增字段（多 sheet / 公式 / 数据透视等）。
 // 当前形态适配 DefaultWorkbookBuilder 的最小 xlsx 输出。ChartSeries 数组
 // 内的顺序与 Categories 对应关系视为 v1.0 契约的一部分。
-type ChartDataBook struct {
-	// SheetName 是数据工作表名（默认 "Sheet1"）；空串按默认处理。
-	SheetName string
-	// Categories 是类别标签（A 列，行 2..n+1）。
-	Categories []string
-	// Series 是数据系列（行 1 系列名，行 2..n+1 数值）。
-	Series []ChartSeries
-}
+//
+// ADR-017 第三批：定义搬到 internal/chart；根包用同名 type alias 引用，
+// 保证 DefaultWorkbookBuilder.Build(book ChartDataBook) 公共 API 表面零变化。
+type ChartDataBook = chartinternal.ChartDataBook
 
 // DefaultWorkbookBuilder 是默认工作簿适配器：纯标准库生成最小 xlsx。
 //
@@ -71,116 +62,20 @@ func (DefaultWorkbookBuilder) Build(book ChartDataBook) ([]byte, error) {
 		sheet = chartSheetName
 	}
 	if sheet != chartSheetName {
-		// 非默认表名会破坏与图表引用（Sheet1!$..）的一致性约定。
 		return nil, &OperationError{
 			Op:      "DefaultWorkbookBuilder.Build",
 			Message: "sheet name must be " + chartSheetName + " (chart references are fixed to it)",
 			Err:     ErrInvalidArgument,
 		}
 	}
-	return buildChartWorkbookXML(book)
-}
-
-// buildChartWorkbookXML 组装 xlsx 包（内存 ZIP，条目固定顺序）。
-func buildChartWorkbookXML(book ChartDataBook) ([]byte, error) {
-	sheetXML, err := buildChartSheetXML(book)
+	out, err := chartinternal.BuildChartWorkbookXML(book, chartSheetName)
 	if err != nil {
-		return nil, err
-	}
-	parts := []struct {
-		name    string
-		content string
-	}{
-		{"[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\r\n" +
-			`<Types xmlns="` + nsContentTypes + `">` +
-			`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
-			`<Default Extension="xml" ContentType="application/xml"/>` +
-			`<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
-			`<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
-			`</Types>`},
-		{"_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\r\n" +
-			`<Relationships xmlns="` + nsPkgRels + `">` +
-			`<Relationship Id="rId1" Type="` + opc.RelOfficeDocument + `" Target="xl/workbook.xml"/>` +
-			`</Relationships>`},
-		{"xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\r\n" +
-			`<workbook xmlns="` + nsSpreadsheetML + `" xmlns:r="` + nsOfficeDocument + `">` +
-			`<sheets><sheet name="` + chartSheetName + `" sheetId="1" r:id="rId1"/></sheets>` +
-			`</workbook>`},
-		{"xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\r\n" +
-			`<Relationships xmlns="` + nsPkgRels + `">` +
-			`<Relationship Id="rId1" Type="` + opc.RelTypePrefix + `worksheet" Target="worksheets/sheet1.xml"/>` +
-			`</Relationships>`},
-		{"xl/worksheets/sheet1.xml", sheetXML},
-	}
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	for _, part := range parts {
-		f, err := zw.Create(part.name)
-		if err != nil {
-			return nil, &OperationError{Op: "DefaultWorkbookBuilder.Build", Message: err.Error(), Err: ErrMalformedPackage}
+		if be, ok := err.(*chartinternal.BuildError); ok {
+			return nil, &OperationError{Op: be.Op, Message: be.Message, Err: be.Sentinel}
 		}
-		if _, err := f.Write([]byte(part.content)); err != nil {
-			return nil, &OperationError{Op: "DefaultWorkbookBuilder.Build", Message: err.Error(), Err: ErrMalformedPackage}
-		}
+		return nil, Annotate(err, "DefaultWorkbookBuilder.Build")
 	}
-	if err := zw.Close(); err != nil {
-		return nil, &OperationError{Op: "DefaultWorkbookBuilder.Build", Message: err.Error(), Err: ErrMalformedPackage}
-	}
-	return buf.Bytes(), nil
-}
-
-// buildChartSheetXML 生成数据工作表（行 1 系列名，行 2.. 类别 + 数值）。
-func buildChartSheetXML(book ChartDataBook) (string, error) {
-	esc := func(s string) (string, error) {
-		return xmlstore.EscapeText(s)
-	}
-	var sb strings.Builder
-	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\r\n")
-	sb.WriteString(`<worksheet xmlns="` + nsSpreadsheetML + `"><sheetData>`)
-	// 行 1：B1.. = 系列名（A1 留空，省略单元格）。
-	sb.WriteString(`<row r="1">`)
-	for i, ser := range book.Series {
-		name, err := esc(ser.Name)
-		if err != nil {
-			return "", &OperationError{Op: "DefaultWorkbookBuilder.Build", Message: "series name: " + err.Error(), Err: ErrInvalidArgument}
-		}
-		sb.WriteString(`<c r="` + chartWorkbookColumn(i+2) + `1" t="inlineStr"><is><t xml:space="preserve">` + name + `</t></is></c>`)
-	}
-	sb.WriteString(`</row>`)
-	// 行 2..n+1：A = 类别，B.. = 数值。
-	for r, cat := range book.Categories {
-		row := r + 2
-		catEsc, err := esc(cat)
-		if err != nil {
-			return "", &OperationError{Op: "DefaultWorkbookBuilder.Build", Message: "category: " + err.Error(), Err: ErrInvalidArgument}
-		}
-		sb.WriteString(`<row r="` + strconv.Itoa(row) + `">`)
-		sb.WriteString(`<c r="A` + strconv.Itoa(row) + `" t="inlineStr"><is><t xml:space="preserve">` + catEsc + `</t></is></c>`)
-		for i, ser := range book.Series {
-			if r < len(ser.Values) {
-				sb.WriteString(`<c r="` + chartWorkbookColumn(i+2) + strconv.Itoa(row) + `"><v>` + chartNumber(ser.Values[r]) + `</v></c>`)
-			}
-		}
-		sb.WriteString(`</row>`)
-	}
-	sb.WriteString(`</sheetData></worksheet>`)
-	return sb.String(), nil
-}
-
-// chartWorkbookColumn 把 1 基列号转为列字母（1→A，2→B，27→AA）。
-//
-// ADR-017 第一批已搬到 internal/chart.WorkbookColumn；保留薄包装以保持
-// 根包 chart 系列调用点零修改。
-func chartWorkbookColumn(n int) string {
-	return chartinternal.WorkbookColumn(n)
-}
-
-// chartNumber 输出数值的规范十进制文本（供图表缓存与工作簿共用，
-// 保证两侧字节一致；非有限值由上游校验拒绝）。
-//
-// ADR-017 第一批已搬到 internal/chart.ChartNumber；保留薄包装。
-func chartNumber(v float64) string {
-	return chartinternal.ChartNumber(v)
+	return out, nil
 }
 
 // chartWorkbookBytes 经当前适配器生成工作簿字节。

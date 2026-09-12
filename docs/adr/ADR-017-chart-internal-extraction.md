@@ -1,10 +1,18 @@
 # ADR-017: chart 实现层抽取到 `internal/chart`
 
-- **状态**: Accepted with Revision（r0 草案 → r1 修订 → 第二批已落地 2026-09-12）
+- **状态**: **Implemented（r0 → r1 → r2 → r3 第三批已落地 2026-09-12）**
 - **修订路径**:
   - r0（commit 67939bb）：草案，列出 36 函数假设零依赖根包，**事实错误**
   - r1（commit 9f5c54b）：修订——保留 4 批节奏（零依赖 → type alias → 全搬迁 → 清理），第一批仅 3 函数 + 4 常量
-  - r2（本批，commit `<pending>`）：第二批**值对象 type alias move 落地**——11 值对象（4 chart.go + 7 chartadv.go）+ Optional[T] 泛型搬到 internal/chart；根包 5 文件用 type alias 形式引用；公共 API 表面零变化（// Stable: 34 / // Experimental: 5 / 158 总 type 全部锁死不变）；B1 黄金语料 replay 全绿；internal/chart 覆盖率 97.6%
+  - r2（commit ce3f66c）：第二批**值对象 type alias move 落地**——11 值对象（4 chart.go + 7 chartadv.go）+ Optional[T] 泛型搬到 internal/chart；根包 5 文件用 type alias 形式引用；公共 API 表面零变化（// Stable: 34 / // Experimental: 5 / 158 总 type 全部锁死不变）；B1 黄金语料 replay 全绿；internal/chart 覆盖率 97.6%
+  - r3（commit `<pending>`）：第三批**全实现搬迁 + 根包 facade 清理**——parse / build / canonical / validate / fragment / workbook 全部实现搬到 internal/chart；**同时删除 31 个已无生产调用方的根包私有 facade**（保留 `chartIsCanonical` / `parseChartSpace` / `buildChartSpaceXML` / `validateChartData` / `nodeText` 等仍有调用方的适配器），并把白盒测试迁入 internal/chart 恢复覆盖率归属
+- **r3 关键发现（记录以免重蹈）**:
+  1. **`c:v` / `a:t` 的值在标签之间，不在属性上**——搬迁时若写 `Attr("", "val")` 会永远读空（标题/系列名/类别/数值全空）。必须取 `Original()[OpenEnd:CloseStart]` 并做实体解码。
+  2. **`CachePoints` 必须按 `pt@idx` 排序并补空位**，不是按文档顺序追加。
+  3. **`dLbls` 是图表组（barChart/lineChart/pieChart）的子元素**，不是 `c:plotArea` 的直接子元素——读侧必须从 plot 取，与 build 侧对称。
+  4. **`xl/workbook.xml` 的 `xmlns:r` 不能漏**——`<sheet r:id="..."/>` 依赖该前缀；缺失会产出未定义前缀的非法 XML 并改变 xlsx 字节（B1 金样比对失败）。
+  5. **覆盖率按包归属**：实现搬走后若测试留在根包，per-package 覆盖率不再归属，全仓 total 会跌破 COV-01 的 80% 里程碑（本次实测 84.4% → 79.4%）。必须同步迁测试，或删除无调用方的 facade，二者都不做则两边都掉。
+  6. **迁测试的前提是先删死 facade**：否则测试留在根包保 facade、或迁走 tests 让 facade 变 0% 覆盖，两种都掉分。
 - **关键 Go 知识**: type alias（`type X = pkg.X`）与"在 alias 上定义方法"是 Go 的根本冲突——方法必须定义在类型所在包（internal/chart），不能定义在 alias 上。这意味着第二批需要把 `String()` / `PlotElement()` 等方法一并搬到 internal/chart，根包只是 alias 引用
 - **审批路径**: 草案 + r1 修订已被用户连续「继续」默认通过；第二批实施继续由「按推荐步骤继续执行」隐式审批
 - **日期**: 2026-09-12
@@ -254,3 +262,49 @@ go test -run 'TestChart|TestAddChart|TestSetData|TestClone.*Chart|TestChartWorkb
 - chart_test.go（plotElement → PlotElement 公开名）
 
 binary-compat 守门：// Stable: 34 / // Experimental: 5 / 158 总 type / 17 哨兵 全部锁死不变。
+
+## 第三批落地结果（r3，2026-09-12）
+
+### 搬到 `internal/chart` 的实现
+
+| 文件 | 内容 |
+|---|---|
+| `parse.go` | `ParseChartSpace` / `ParseChartDLbls` / `ParseChartTrendline` / `ParseChartErrBars` / `ParseChartAxes` / `SerName` / `SerCategories` / `SerValues` / `CachePoints` / `NodeText` / `childOfKind` / `childText` / `strIn` / `ChartTypeFromPlot` / `TrendTypeFromName` / `ErrorTypeFromName` |
+| `build.go` | `BuildChartSpaceXML` + 命名空间常量（`nsChartML` / `nsDrawingML` / `nsOfficeDocument` / …） |
+| `canonical.go` | `IsCanonical` / `CanonicalAxExtensions` / `CanonicalSer` / `CanonicalTrendline` / `CanonicalErrBars` / `CanonicalTitleSubtree` / `CanonicalRichText` |
+| `frag.go` | `ValidateChartData` + 4 个子校验器 + `BuildChartDataLabelFragment` / `BuildErrBarsFragment` / `BuildTrendlineFragment` / `BuildCatOrDateAxFragment` / `BuildValAxFragment` |
+| `workbook.go` | `BuildChartWorkbookXML` / `BuildChartSheetXML` + xlsx 关系/内容类型常量 |
+| `errors.go` | `ValidationError` / `BuildError` + 本包哨兵（经字符串映射回根包哨兵） |
+| `escape.go` | `xmlUnescape` / `parseHexRune` / `parseDecRune`（与根包 `text.go` 同源，注明双向同步） |
+
+### 根包 facade 清理（本次的关键决定）
+
+第三批落地后，根包一度保留 31 个"薄包装"，其中**多数已无任何生产调用方**（只有测试引用）。薄包装的原意是"调用方零修改"，但调用方本身已被搬走，facade 遂成死代码——既虚增根包行数（与「缩小 chart.go」目标相悖），又让覆盖率只落在根包一侧。
+
+**处置**：删除 17 个已无调用方的私有 facade + chartfrag.go 的 9 个 builder/validator 包装 + chartbook.go 的 4 个 builder/column/number 包装；**保留**仍有生产调用方的 `chartIsCanonical` / `parseChartSpace`（bind.go 与 chart.go 的 SetData/Data 路径）/ `buildChartSpaceXML` / `validateChartData` / `nodeText`（xlsx 单元格测试读取器）。
+
+### 测试归属迁移
+
+以下白盒用例从根包 `chart_test.go` 迁到 `internal/chart`（`migrated_test.go`），断言目标改为本包导出名：
+
+- `TestChartPlotElementMapping` → `TestChartTypeFromPlotMapping`
+- `TestChartSerCategoriesAllPaths` / `TestChartSerValuesAndName`
+- `TestChartIsCanonicalBranches`
+- `TestCanonicalPredicates` → `TestCanonicalPredicatesMigrated`
+
+新增 `codec_test.go`（build→parse 往返 / CHART-02 扩展往返 / 校验分支 / fragment 构造器 / xlsx 包装配 / 实体解码），把本包覆盖率从 33.0% 提到 **91.4%**。
+
+### 结果
+
+| 指标 | 值 |
+|---|---|
+| 根包 chart 系列行数 | chart.go 1319 → **481**；chartfrag.go 262 → **74**；chartbook.go 215 → **107** |
+| `internal/chart` | 10 文件 ≈ 1000 行实现 + 1090 行测试，覆盖率 **91.4%** |
+| 公共 API | `// Stable:` **34** / `// Experimental:` **5** / root type **158** / 哨兵 **17** 全部锁死不变 |
+| 全仓覆盖率 | **84.4%**（与迁移前一致——归属迁移后回到基线） |
+| 守门 | `go test ./...` 全绿；`go test -tags=corpus ./...` 全绿；`corpus.py validate` 36/36；`scripts/perf/smoke.sh` PASS（含 ADR-018 ①b） |
+
+### 第四批（可选，未做）
+
+- 归并 `build.go` / `frag.go` 与命名空间常量到更少的文件；
+- 评估 `DefaultWorkbookBuilder` 实现是否也抽到 `internal/chart`（当前根包保留实现，仅把纯算法下沉）。
