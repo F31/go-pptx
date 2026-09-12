@@ -499,3 +499,121 @@ func TestContentTypesLookupLowercaseFallback(t *testing.T) {
 		t.Fatal("invalid PartName Lookup must return false")
 	}
 }
+
+// TestParseContentTypesDefaultMissingExt covers ParseContentTypes L62-64
+// (Default element without Extension attribute).
+func TestParseContentTypesDefaultMissingExt(t *testing.T) {
+	xml := `<Types xmlns="` + ctNS + `">` +
+		`<Default ContentType="application/xml"/></Types>`
+	_, err := ParseContentTypes([]byte(xml))
+	if !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("err = %v, want ErrMalformedPackage", err)
+	}
+}
+
+// TestParseContentTypesDefaultMissingCT covers ParseContentTypes L62-64
+// (Default element without ContentType attribute).
+func TestParseContentTypesDefaultMissingCT(t *testing.T) {
+	xml := `<Types xmlns="` + ctNS + `">` +
+		`<Default Extension="xml"/></Types>`
+	_, err := ParseContentTypes([]byte(xml))
+	if !errors.Is(err, ErrMalformedPackage) {
+		t.Fatalf("err = %v, want ErrMalformedPackage", err)
+	}
+}
+
+// TestParseContentTypesIgnoreUnknownChild covers ParseContentTypes L86
+// (unknown child element is silently ignored).
+func TestParseContentTypesIgnoreUnknownChild(t *testing.T) {
+	xml := `<Types xmlns="` + ctNS + `">` +
+		`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+		`<UnknownExtension Thing="value"/>` +
+		`<Default Extension="xml" ContentType="application/xml"/>` +
+		`</Types>`
+	ct, err := ParseContentTypes([]byte(xml))
+	if err != nil {
+		t.Fatalf("ParseContentTypes: %v", err)
+	}
+	if _, ok := ct.Lookup("/a.xml"); !ok {
+		t.Error("xml default not present after unknown child")
+	}
+}
+
+// TestExtensionOfEdgeCases covers extensionOf L115-125 edge branches
+// (no dot, trailing dot, embedded slash).
+func TestExtensionOfEdgeCases(t *testing.T) {
+	if got := extensionOf("noextension"); got != "" {
+		t.Errorf(`extensionOf("noextension") = %q, want ""`, got)
+	}
+	if got := extensionOf("weird."); got != "" {
+		t.Errorf(`extensionOf("weird.") = %q, want ""`, got)
+	}
+	if got := extensionOf(""); got != "" {
+		t.Errorf(`extensionOf("") = %q, want ""`, got)
+	}
+	if got := extensionOf("ppt/file.tar.gz"); got != "gz" {
+		t.Errorf(`extensionOf("ppt/file.tar.gz") = %q, want "gz"`, got)
+	}
+	// 含 slash 的尾段（例如路径中嵌点）：返回空。
+	if got := extensionOf("a/b.c/d.e/f.g/h.i/j"); got != "" {
+		t.Errorf(`slash-containing tail = %q, want ""`, got)
+	}
+	// 隐藏文件风格：以点开头（但不是点结尾）→ 返回点后段名（实测返回 "hidden"）。
+	if got := extensionOf(".hidden"); got != "hidden" {
+		t.Errorf(`hidden-file style = %q, want "hidden"`, got)
+	}
+	// 含点但尾段无 slash，正常返回。
+	if got := extensionOf("a/b/c.d/e.f"); got != "f" {
+		t.Errorf(`multi-dot basename = %q, want "f"`, got)
+	}
+}
+
+// TestContentTypesAddOverrideInvalid covers ContentTypes.addOverride L153-156
+// (invalid arguments → ErrMalformedPackage).
+func TestContentTypesAddOverrideInvalid(t *testing.T) {
+	ct, _ := ParseContentTypes([]byte(`<Types xmlns="` + ctNS + `"/>`))
+	if err := ct.addOverride("invalid-no-slash", "x"); err == nil {
+		t.Error("expected error for invalid PartName")
+	}
+	if err := ct.addOverride("/ok.xml", ""); err == nil {
+		t.Error("expected error for empty contentType")
+	}
+}
+
+// TestContentTypesAddOverrideDuplicate covers ContentTypes.addOverride L157-159
+// (override already present → ErrMalformedPackage).
+func TestContentTypesAddOverrideDuplicate(t *testing.T) {
+	ct, _ := ParseContentTypes([]byte(miniContentTypes(
+		`<Override PartName="/a.xml" ContentType="t1"/>`)))
+	if err := ct.addOverride("/a.xml", "t2"); err == nil {
+		t.Error("expected error for duplicate Override")
+	}
+}
+
+// TestContentTypesRemoveOverride covers ContentTypes.removeOverride L146-150.
+func TestContentTypesRemoveOverride(t *testing.T) {
+	ct, _ := ParseContentTypes([]byte(miniContentTypes(
+		`<Override PartName="/a.xml" ContentType="t1"/>`)))
+	ct.removeOverride("/a.xml")
+	if _, ok := ct.overrides["/a.xml"]; ok {
+		t.Error("Override not removed from overrides map")
+	}
+	if _, ok := ct.lowerOverrides[lookupKey("/a.xml")]; ok {
+		t.Error("Override not removed from lowerOverrides map")
+	}
+}
+
+// TestSerializeFallsBackOnInvalidChars covers mustAttrEscape L199-201
+// (EscapeAttrValue returns error → fall back to raw input).
+func TestSerializeFallsBackOnInvalidChars(t *testing.T) {
+	// 构造非法 XML 字符 (0x01) 迫使 EscapeAttrValue 失败。
+	ct := &ContentTypes{
+		overrides:      map[PartName]string{},
+		lowerOverrides: map[string]string{},
+		defaults:       map[string]string{"bin": "\x01bad"},
+	}
+	out := string(ct.serialize())
+	if !strings.Contains(out, "\x01bad") {
+		t.Errorf("expected fallback to raw byte 0x01; output = %q", out)
+	}
+}

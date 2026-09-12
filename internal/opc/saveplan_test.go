@@ -1,9 +1,11 @@
 package opc
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/sha256"
 	"errors"
+	"io"
 	"sort"
 	"testing"
 
@@ -316,5 +318,93 @@ func TestSavePlanEntriesSorted(t *testing.T) {
 	}
 	if !sort.StringsAreSorted(names) {
 		t.Errorf("entries not sorted: %v", names)
+	}
+}
+
+// TestWriteOmitSkipsEntry covers SavePlan.Write L256-257 (Omit action skips entry).
+func TestWriteOmitSkipsEntry(t *testing.T) {
+	pk := loadMiniPackage(t)
+	plan := &SavePlan{
+		Entries: []PlannedEntry{
+			{Name: PartName("/ppt/slides/slide1.xml"), Action: EmitNew, Content: []byte("<xml/>")},
+			{Name: PartName("/ppt/notesSlides/notesSlide1.xml"), Action: Omit},
+			{Name: PartName("/ppt/deck.xml"), Action: EmitPatched, Content: []byte(`<p:presentation xmlns:p="urn:p"/>`)},
+		},
+	}
+	var buf bytes.Buffer
+	if err := plan.Write(pk, &buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("zip.NewReader: %v", err)
+	}
+	for _, f := range zr.File {
+		if f.Name == "ppt/notesSlides/notesSlide1.xml" {
+			t.Errorf("Omit entry should not appear in output: %s", f.Name)
+		}
+	}
+	if len(zr.File) != 2 {
+		t.Errorf("expected 2 entries (Omit skipped), got %d", len(zr.File))
+	}
+}
+
+// TestWriteInvalidEntryName covers SavePlan.Write L259-262 (PartName.EntryName error).
+func TestWriteInvalidEntryName(t *testing.T) {
+	pk := loadMiniPackage(t)
+	plan := &SavePlan{
+		Entries: []PlannedEntry{
+			{Name: PartName("invalid-no-slash"), Action: EmitNew, Content: []byte("x")},
+		},
+	}
+	if err := plan.Write(pk, io.Discard); err == nil {
+		t.Fatal("expected error for invalid PartName (no leading slash)")
+	}
+}
+
+// TestWriteUnknownAction covers SavePlan.Write L280-281 (default case in switch).
+func TestWriteUnknownAction(t *testing.T) {
+	pk := loadMiniPackage(t)
+	plan := &SavePlan{
+		Entries: []PlannedEntry{
+			{Name: PartName("/ppt/deck.xml"), Action: "BogusAction"},
+		},
+	}
+	err := plan.Write(pk, io.Discard)
+	if !errors.Is(err, ErrPlanInvalid) {
+		t.Fatalf("expected ErrPlanInvalid, got %v", err)
+	}
+}
+
+// TestReadAllMissingPart covers Package.readAll L292-294 (OpenPart returns error).
+func TestReadAllMissingPart(t *testing.T) {
+	pk := loadMiniPackage(t)
+	missing := PartName("/ppt/slides/does-not-exist.xml")
+	if _, err := pk.readAll(missing); err == nil {
+		t.Fatal("expected error reading missing Part")
+	}
+}
+
+// TestRelsPartOfInvalid covers relsPartOf L303 (invalid PartName → no rels, ok=false).
+func TestRelsPartOfInvalid(t *testing.T) {
+	cases := []PartName{"", "no-slash-here", "/"}
+	for _, c := range cases {
+		if _, ok := relsPartOf(c); ok {
+			t.Errorf("expected !ok for %q", c)
+		}
+	}
+	// root PartName ("/") triggers the early-return branch.
+	if _, ok := relsPartOf("/"); ok {
+		t.Error("expected !ok for root PartName")
+	}
+}
+
+// TestLastIndexByteNoMatch covers lastIndexByte L317 (return -1 when byte absent).
+func TestLastIndexByteNoMatch(t *testing.T) {
+	if got := lastIndexByte("noslash", '/'); got != -1 {
+		t.Errorf("expected -1 for no-slash string, got %d", got)
+	}
+	if got := lastIndexByte("", '/'); got != -1 {
+		t.Errorf("expected -1 for empty string, got %d", got)
 	}
 }
