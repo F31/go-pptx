@@ -7,7 +7,8 @@
 - **v1.0.0 已发布**：`git tag -s v1.0.0`（SSH 签名，仓库级 `gpg.format=ssh` + `user.signingkey=~/.ssh/id_ed25519`）→ commit 44b9ba7；tag 对象 92dc8622。
 - **v1.0.1 已发布**：`git tag -s v1.0.1`（SSH 签名）→ commit 9f24866（commit 9f24866 即"docs(release): 准备 v1.0.1 patch release 文档"）；tag 对象 13d1376。**binary-compat with v1.0.0**——公共 API 零变化，// Stable: 34 / // Experimental: 5 / 50 Stable 符号 / 158 总 type / 17 哨兵 全部锁死不变。范围：v1.0.0..HEAD 共 17 commit（ADR-016 渐进式 internal 抽取首轮收敛 / ir 表格文本投影闭环 / 5 包行为优先补测 / L3 文档同步 / MediaSource nil 流保护 / Stable 计数 off-by-one 修正 / ADR-014 三处缺陷 / 技术白皮书 / 1.x 路线图方案）。
 - **v1.0 冻结清单已闭合（2026-09-12 勘误口径）**：34 Stable 段落（33 独立 type 段 + 1 个 17 哨兵聚合段；Stable 符号合计 50）/ 5 Experimental / 0 Deprecated / 120 API type / 158 总 type。**勘误原因**：曾误记"51 Stable（34 独立 + 17）/ 102 API"——把段落 grep 数 34 误作独立 type 数（段落含 1 聚合段），且 158−51−5 算式把 var 哨兵错从 type 总数扣除。符号级承诺不变，仅计数修正；详见 freeze list §"2026-09-12 — 口径勘误"。
-- **新增导出符号流程**：按 freeze list §D 评审 checklist——升 Stable 须给"为什么 Stable"+ 不允许扩展方向 + 使用面举例；降档禁止 PR 直降必须新 ADR。
+- **新增导出符号流程**：按 freeze list §D 评审 checklist——升 Stable 须给"为什么 Stable"+ 不允许扩展方向 + 使用面举例；降档禁止 PR 直降必须新 ADR。**改动公共 API 表面后必须同步更新 `api_surface_test.go` 的 golden 清单**（2026-09-12 起：158 type / 50 Stable 符号 / 5 Experimental / 127 个 Stable 方法 / 17 哨兵含错误字符串，全部由 `go/ast` 断言，不再是人工 grep）。**根包非测试文件禁止 `//go:build`**（否则该守门测的是各平台 API 并集，在 Linux CI 上失效）。
+- **不变量自动化优先**（2026-09-12 经验）：判断信号 = 该数字曾在文档里被修正过（易错）+ 是发布硬门槛（出错代价高）。实现要点：① golden **名单**优于只断言计数（计数对不上看不出是哪一项；名单 diff 在 PR 里直接可见）；② AST 口径优于 grep——`grep '^type [A-Z]'` 只数出 149 而真实 158（漏分组 `type ( ... )` 声明），用 `parser.ParseDir` + `GenDecl.Specs` 才完整，反射无法枚举包级类型。
 - **1.x 已知缺口（更新于 2026-09-12 下午，09-12 深夜实测修正）**：L3 客户端矩阵已闭合（真机 8/8，`docs/client-compat-matrix.md`）；覆盖率补测后 editplan 100% / textmap 100% / **opc 90.0%（实测，旧记 88.9% 已过时）** / audioprobe 88.4% / root 82.8%，full total **84.4%**（COV-04 评估放弃统一 90% 口径）；PERF-01 基线已在 ADR-016 重构后重跑（p50 全链路 -60%~-65%，无回归）。1.x 路线图见 `docs/1.x-roadmap.md`（5 方向 + 5 阶段 + 6 风险 + 5 决策点）。
 
 ## 工程约定（已落地）
