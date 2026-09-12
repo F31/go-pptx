@@ -660,3 +660,146 @@ func dumpPending(p *Presentation) string {
 	}
 	return buf.String()
 }
+
+// ---------- 纯函数 helper 单测（无 fixture，clone 主体外的内部逻辑） ----------
+
+// TestSplitTrailingDigits 覆盖 clone.go:545 splitTrailingDigits 的全部分支。
+// 该函数把"chart1.xml"拆为 ("chart", ".xml", 1)；返回 ok=false 时调用方
+// 走 allocCloneName 的非数字结尾路径（base-N 后缀模式）。
+func TestSplitTrailingDigits(t *testing.T) {
+	cases := []struct {
+		name       string
+		base       string
+		wantStem   string
+		wantExt    string
+		wantDigits int
+		wantOK     bool
+	}{
+		// 正常路径（含边界：单数字 / 多数字 / 0 / stem 内含数字）
+		{"trailing_single_digit", "chart1.xml", "chart", ".xml", 1, true},
+		{"trailing_multi_digit", "notesSlide100.xml", "notesSlide", ".xml", 100, true},
+		{"trailing_zero", "sheet0.xlsx", "sheet", ".xlsx", 0, true},
+		{"stem_with_internal_digit", "x9chart5.xml", "x9chart", ".xml", 5, true},
+
+		// 提前返回 false 的三类：全数字结尾 / 无数字 / 无扩展名 / 扩展名在第 0 位
+		{"all_digits_head", "123.xml", "", "", 0, false},   // head="123" → k=0
+		{"no_digit_at_all", "chart.xml", "", "", 0, false}, // head="chart" → k==len
+		{"no_extension", "chart1", "", "", 0, false},       // j<0
+		{"ext_at_pos_zero", ".txt", "", "", 0, false},      // j=0 → j<=0 false
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			stem, ext, digits, ok := splitTrailingDigits(tc.base)
+			if ok != tc.wantOK || stem != tc.wantStem || ext != tc.wantExt || digits != tc.wantDigits {
+				t.Errorf("splitTrailingDigits(%q) = (%q,%q,%d,%v), want (%q,%q,%d,%v)",
+					tc.base, stem, ext, digits, ok, tc.wantStem, tc.wantExt, tc.wantDigits, tc.wantOK)
+			}
+		})
+	}
+}
+
+// TestRetargetRel 覆盖 clone.go:490 retargetRel 的全部分支。
+// 绝对 Target → 整体替换；相对带目录 → 保留目录前缀；无目录 → 仅 basename。
+// 这是 cloned Part 关系流重写的最后一环，决定补丁后的 Target 字符串。
+func TestRetargetRel(t *testing.T) {
+	cases := []struct {
+		name      string
+		oldTarget string
+		dst       opc.PartName
+		want      string
+	}{
+		{"absolute_target_same_dir", "/ppt/charts/chart1.xml", "/ppt/charts/chart2.xml", "/ppt/charts/chart2.xml"},
+		{"absolute_target_different_dir", "/ppt/media/image1.png", "/ppt/media/image2.png", "/ppt/media/image2.png"},
+		{"relative_with_dir", "../charts/chart1.xml", "/ppt/charts/chart2.xml", "../charts/chart2.xml"},
+		{"relative_deeply_nested", "../slideLayouts/slideLayout1.xml", "/ppt/slideLayouts/slideLayout2.xml", "../slideLayouts/slideLayout2.xml"},
+		{"no_dir_basename_only", "chart1.xml", "/ppt/charts/chart2.xml", "chart2.xml"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := retargetRel(tc.oldTarget, tc.dst); got != tc.want {
+				t.Errorf("retargetRel(%q, %q) = %q, want %q", tc.oldTarget, tc.dst, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestClassifyCloneRel 覆盖 clone.go:388 classifyCloneRel 的全部 case 与容器组合。
+// 7 个 relType 类别（reuse / media / notes / chart / workbook / backref / unknown）
+// 与不同 container 的组合，决定 cloneWalkContainer 走 reuse/media/notes/chart/
+// workbook/backref/unknown 哪条分支（unknown 走 ErrUnsupportedEdit 拒绝）。
+func TestClassifyCloneRel(t *testing.T) {
+	cases := []struct {
+		name      string
+		relType   string
+		container string
+		want      string
+	}{
+		// reuse：版式/母版在 slide 与 notes 容器中都属复用（跨文档按字节匹配）
+		{"slide_layout_in_slide", opc.RelSlideLayout, "slide", "reuse"},
+		{"slide_layout_in_notes", opc.RelSlideLayout, "notes", "reuse"},
+		{"notes_master_in_slide", relNotesMaster, "slide", "reuse"},
+		{"notes_master_in_notes", relNotesMaster, "notes", "reuse"},
+
+		// media：图片/音频/视频/媒体在任何容器中都属 media
+		{"image_in_slide", relImage, "slide", "media"},
+		{"audio_in_slide", relAudio, "slide", "media"},
+		{"video_in_slide", relVideo, "slide", "media"},
+		{"media_in_slide", relMedia, "slide", "media"},
+		{"image_in_chart", relImage, "chart", "media"},
+
+		// notes：notesSlide 关系仅在 slide 容器中合法
+		{"notes_slide_in_slide", opc.RelNotesSlide, "slide", "notes"},
+		{"notes_slide_in_chart", opc.RelNotesSlide, "chart", "unknown"},
+
+		// chart：chart 关系仅在 slide 容器中合法
+		{"chart_in_slide", relChart, "slide", "chart"},
+		{"chart_in_notes", relChart, "notes", "unknown"},
+
+		// workbook：包关系仅在 chart 容器中合法（图表嵌入工作簿）
+		{"workbook_in_chart", relPackage, "chart", "workbook"},
+		{"workbook_in_slide", relPackage, "slide", "unknown"},
+
+		// backref：slide 关系仅在 notes 容器中合法（notes→slide 回引）
+		{"slide_in_notes", opc.RelSlide, "notes", "backref"},
+		{"slide_in_slide", opc.RelSlide, "slide", "unknown"},
+
+		// 完全未知 relType（OLE/SmartArt/外部生成图表的样式 Part 等）
+		{"unknown_rel_type_in_slide", "http://example.com/foo", "slide", "unknown"},
+		{"unknown_rel_type_in_chart", "http://example.com/foo", "chart", "unknown"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := classifyCloneRel(tc.relType, tc.container); got != tc.want {
+				t.Errorf("classifyCloneRel(%q, %q) = %q, want %q", tc.relType, tc.container, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFallbackCloneCT 覆盖 clone.go:640 fallbackCloneCT 的全部分支。
+// 源读得到内容类型优先用源（cp.ct != "" 早返回）；读不到时按 kind 兜底
+// 到根包常量；其它 kind（media / 未知）→ ""。该兜底仅在源 OPC ContentType
+// 查询失败时启用，正常路径不会被触发——因此 100% 覆盖 = 8 个 case。
+func TestFallbackCloneCT(t *testing.T) {
+	cases := []struct {
+		name string
+		cp   clonePartPlan
+		want string
+	}{
+		{"ct_already_set_notes_kind", clonePartPlan{ct: "custom/ct", kind: "notes"}, "custom/ct"},
+		{"ct_already_set_chart_kind", clonePartPlan{ct: "custom/ct", kind: "chart"}, "custom/ct"},
+		{"kind_notes_no_ct", clonePartPlan{kind: "notes"}, ctNotesSlide},
+		{"kind_chart_no_ct", clonePartPlan{kind: "chart"}, ctChartPart},
+		{"kind_workbook_no_ct", clonePartPlan{kind: "workbook"}, ctWorkbook},
+		{"kind_media_no_ct", clonePartPlan{kind: "media"}, ""},   // media 不在兜底白名单
+		{"unknown_kind", clonePartPlan{kind: "weird"}, ""},
+		{"empty", clonePartPlan{}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := fallbackCloneCT(tc.cp); got != tc.want {
+				t.Errorf("fallbackCloneCT(%+v) = %q, want %q", tc.cp, got, tc.want)
+			}
+		})
+	}
+}
