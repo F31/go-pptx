@@ -9,11 +9,39 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 ## [Unreleased]
 
-### Changed
+（暂无）
 
-（暂无——本节内容已合并入 [1.0.2]）
+## [1.0.4] - 2026-09-13
 
-## [1.0.3] - 2026-09-22
+**v1.0.3 后的第四个 patch release——质量里程碑版**。v1.0.3 → v1.0.4 共 10 个 commit，**全部为测试与文档增量，零生产代码改动**：公共 API 表面与 v1.0.3 逐项一致（158 type / 34 Stable 段 / 50 Stable 符号 / 129 Stable 方法 / 5 Experimental / 17 哨兵全部不变），**binary-compat with v1.0.0 / v1.0.1 / v1.0.2 / v1.0.3**。
+
+本版核心是 6 轮覆盖率补测（commits `120c1b3` / `a2efe4a` / `dbaf0d3` / `968110a` / `315e077` + 各轮 memory sync）：根包合并口径覆盖率 **82.3% → 84.4%**，**零覆盖函数清单全部清零**，测试资产 **+1251 行 / 15 个测试文件**。
+
+### Added (tests-only)
+
+- **6 轮覆盖率补测**（全部为表驱动/白盒单元测试，不走 fixture，回归快）：
+  - `OpaqueShape.Kind()` 三路径 0% → 100%（cxnSp / graphicFrame / 未知类型）；
+  - `Rect.Contains` 0% → 100%（22 个子测：边界语义 / 越界 / 负宽高 / 退化矩形 / 负坐标）；
+  - `clone.go` 4 helper：`fallbackCloneCT` 28.6% → 100%、`retargetRel` 60% → 100%、`classifyCloneRel` 75% → 100%、`splitTrailingDigits` 78.6% → 92.9%（余 1 行为 Atoi 整数溢出退化分支，按"追逻辑分支不追退化安全网"原则不追）；
+  - `leafTextPatch` 40% → 100% / `resolveColorSpec` 39.1% → 95.7% / `translateSentinel` 30% → 100% / `clamp01` 60% → 100%；
+  - **10 个 0% 函数清零**：`chartTypeFromPlot` / `GeometryKind.String` / `EffectKind.String` / `appendPartUnique` / `inferCols` / `sizeCentipoints` / `parseHexRune` / `parseDecRune` / `nsPrefix` → 100%，`kindIndex` → 90.9%；
+  - 低覆盖提升：`cloneChangeSet` 11.8% → 100%（深拷贝回滚语义）、`timingReferencesShape` 15.8% → 94.7%、`rPrChildRank` 23.5% → 100%、`xmlUnescape` 54.8% → 100%。
+
+### Fixed (documentation)
+
+- **[1.0.3] 段日期笔误修正**：`2026-09-22` → `2026-09-12`（tag 实际创建日；早前会话时钟漂移所致，v1.0.0–v1.0.3 四个 tag 均创建于 2026-09-11/12）。
+
+### Verification
+
+- `go test ./...` 全包 PASS 无回归；`api_surface_test.go` 7 个 AST 断言 PASS（数字与 v1.0.3 完全一致）；
+- `CGO_ENABLED=0 go vet ./...` 零警告；`CGO_ENABLED=0 GOOS=js GOARCH=wasm go build ./...` 通过；
+- 覆盖率：根包合并口径（`-coverpkg=./.`）82.3% → **84.4%**；opc 90.4% / chart 91.4% / audioprobe 88.4% 维持。
+
+### Compatibility
+
+- v1.0.4 = binary-compat + API-compat with v1.0.0 / v1.0.1 / v1.0.2 / v1.0.3（**零生产代码改动**；下游消费者无任何升级动作，本版收益为可审计的质量基线与回归资产）。
+
+## [1.0.3] - 2026-09-12
 
 **v1.0.2 后的第三个 patch release**——按 ppts 项目《go-pptx 特性与 bug 跟踪计划》FEAT-003 实施（ppts/内部登记号 G1-2；本仓库 doc 文件位置 `docs/ppts-sync/FEAT-003-hidden-advtm-read.md`）。公共 API 表面扩展 2 个 Stable 只读方法 + 1 个 Experimental IR 字段，**与 v1.0.0 / v1.0.1 / v1.0.2 binary-compat**——零破坏、零字段删除、零签名变更。
 

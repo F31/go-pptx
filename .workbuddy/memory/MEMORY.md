@@ -4,7 +4,8 @@
 纯 Go（CGO_ENABLED=0、无外部运行时强依赖）PPTX 创建/编辑组件。设计基线《go-pptx 完整设计方案 V2.6 开发实施版》，实施依《go-pptx 项目实施计划》M0–M8 阶段门禁制推进。
 
 ## 发布状态（2026-09-13 精简版）
-- 已发布 tag：**v1.0.0 / v1.0.1 / v1.0.2 / v1.0.3**（均 `git tag -s` SSH 签名 + push origin；签名用仓库级 `gpg.format=ssh` + `user.signingkey=~/.ssh/id_ed25519`，本机无 GPG 勿用）。
+- 已发布 tag：**v1.0.0 / v1.0.1 / v1.0.2 / v1.0.3 / v1.0.4**（均 `git tag -s` SSH 签名 + push origin；签名用仓库级 `gpg.format=ssh` + `user.signingkey=~/.ssh/id_ed25519`，本机无 GPG 勿用）。**注意**：CHANGELOG [1.0.3] 曾误记 2026-09-22（会话时钟漂移），已在 v1.0.4 修正为 2026-09-12；tag 实际日期 v1.0.0=09-11、v1.0.1–v1.0.3=09-12、v1.0.4=09-13。
+- v1.0.4（质量里程碑版）：v1.0.3..HEAD 零生产代码改动（全为测试+文档），API 表面与 v1.0.3 逐项一致；根包合并口径覆盖率 82.3%→84.4%，零覆盖函数清零，测试资产 +1251 行。
 - **全系列 binary-compat**：// Stable 34 / Experimental 5 / 50 Stable 符号 / 158 总 type / 17 哨兵（含错误字符串）全部锁死；v1.0.3 仅追加 2 Stable 只读方法（`Slide.Hidden` / `Slide.AdvanceAfter`），**Stable 方法 127 → 129**。
 - **不变量由 `api_surface_test.go` 7 个 AST 测试守门**（golden 名单优于计数、parser.ParseDir 优于 grep——`grep '^type [A-Z]'` 只数 149 漏分组声明）。**改动公共 API 表面必须同步 golden 清单**；根包非测试文件禁止 `//go:build`。
 - v1.0 冻结清单已闭合（34 Stable 段=33 独立 type+1 哨兵聚合段；曾误记 51/102，系段落 grep 数误当 type 数，详见 freeze list §2026-09-12 勘误）。
