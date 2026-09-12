@@ -39,11 +39,14 @@
 - **状态跟踪**：docs/go-pptx-实施状态跟踪.md（负责人每 PR/里程碑后更新）；记忆日志按日追加。
 - **句柄身份约定（STALE-GUARD，M8 落地，三层已闭环）**：所有句柄身份 = 所属形状的 cNvPr@id（`shapeNode.idHint` / `textNode.shapeHint` / `Cell.shapeHint`），path 仅作"在哪个 spTree/grpSp 下查找"的父容器提示。locate 先按 path 解析出目标元素，再向上遍历找最近 p:sp/p:cxnSp/p:graphicFrame/p:grpSp 的 cNvPr@id 与 hint 比对——不等/找不到返回 ErrStaleHandle；hint=0 走纯路径判定（向后兼容 notes/老句柄）。语义：MoveShape / AddShape（兄弟增）/ 编辑文本后句柄仍有效（cNvPr@id 未变），只有 RemoveShape 让目标 cNvPr@id 消失时句柄才失效。三层覆盖：shapeNode（形状）、textNode（Paragraph/TextRun/TextFrame）、Cell（表格单元格）。
 - **opencode 协作分界**：`testdata/corpus/`（含 README.md、s00*、ext-*）与 `scripts/gen_corpus/` 由 opencode 维护，主代理提交不纳入这些路径。
+- **测试策略（2026-09-12 沉淀）**：① **纯函数 helper 优先走表驱动单测，不走 fixture**——无 XML/包/IO 依赖时单测 > 端到端（100× 体积小，回归快）。Rect.Contains / classifyCloneRel / retargetRel / splitTrailingDigits / fallbackCloneCT 均按此规则。② **100% 覆盖不等于好测试**：纯字符串解析里的整数溢出分支（如 splitTrailingDigits 的 Atoi err 分支，字符范围已卡死 0-9）属退化路径，需构造 19+ 位全数字串才能触发——本质测 stdlib 不测逻辑，**放过更诚实**。原则：**测试覆盖应追逻辑分支，不追退化安全网**。③ **bug-registry 漏列 helper**：扫描覆盖率时应主动查所有 <90% 的同文件函数（不只是 backlog 主表）——本轮发现 splitTrailingDigits 78.6% 同样低覆盖但 backlog 未列。
+- **根包覆盖率驱动补测（2026-09-12 沉淀）**：v1.0 bug-registry §4 backlog 按 ROI 排序（公开 trivial getter 0% → 公开 API error path → 私有 0% helper）。单 commit 多回报模式：每次扫 <90% 函数聚类补测，辅以"零覆盖公开函数必须消除"的硬规则（即使没生产调用方也属于 API 盲区）。backlog 状态文档：`docs/v1.0-bug-registry.md`。
 
 ## 事故记录（重要）
 - 2026-09-08：git merge 触发内部 stash 失败后 `.git` 目录整体消失（工作区完好）。教训：① 本机 git 大操作（merge/rebase）前先 `cp -r .git` 备份；② merge 前务必保证 working tree clean，避免 autostash 路径。
 - 2026-09-10/11（两次复现）：`git commit -F .commit-msg-*.txt` 报 `fatal: could not read log file`（exit 128）但 **commit 实际创建成功**（Windows Git Bash 与 `.` 开头隐藏文件竞态）。处理：fatal 后先 `git log` 核实，已创建则直接 push，勿重复 commit。`.gitignore` 已加 `/.commit-msg-*.txt` 规则。
 - 2026-09-12 深夜：项目清理期间 **scripts/ 整目录从磁盘消失**（非删除目标；清理前 Grep 仍可读）。同期 chart.go/chartbook.go/chartfrag.go/internal/chart/types.go 出现未预期大量修改 + internal/chart 新增 6 个未跟踪 .go（形态符合 A-1 第三批 WIP，疑似并行会话在制品）。处置：`git restore -- scripts/` 恢复（纯 D 零丢失）；chart WIP 未触碰。教训：① 批量删除后必须 git status 全量核对；② 沙箱 safe-delete 钩子报 "Some operations were aborted" 时立即检查无关路径；③ 本机 bash coreutils（ls/sed/grep/dirname）损坏，文件操作走 PowerShell/专用工具，git 命令可用。
+- 2026-09-12：`git commit -m "docs(test): \u2192 100% \u2014 ..."` 用 `\u` 转义序列直接传 `-m` 时，**bash 不会解析为 UTF-8**，commit message 字面落盘 `\u2192 \u2014 \u4e2a...`（GitHub 上看就是这样）。**唯一可靠路径**：写临时文件用 `-F .commitmsg_*.txt` 直写 UTF-8 字符。文件名用 `.commitmsg_*.txt`（**不要**用 `.commit-msg-*.txt`，前者无 .gitignore 规则，后者命中已加的 `/.commit-msg-*.txt` 规则且触发 `fatal: could not read log file` 竞态——commit 实际创建但 && 链中断）。本轮：commit `743d717` 字面落 escape → `git commit --amend -F .commitmsg_rect.txt` 修复为 `a2efe4a` UTF-8。
 
 ## 待确认（阻塞/排期敏感）
 1. ~~正式 module path~~（已定 github.com/F31/go-pptx）；~~许可证~~（已定 Apache-2.0）；~~v1.0 冻结~~（2026-09-11 已发布）；~~L3 客户端矩阵~~（2026-09-11 8/8 通过，PowerPoint 16.0.20326 + WPS 12.1.0.28599 / Windows 11 10.0.26200 已登记 `testdata/corpus/README.md` §"已登记客户端版本与平台"）。
