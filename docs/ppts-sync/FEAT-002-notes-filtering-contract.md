@@ -1,6 +1,6 @@
 ---
 title: "FEAT-002 项 1 备注过滤契约注记"
-date: 2026-09-22
+date: 2026-09-12
 linked_ppts_doc: §7/FEAT-002
 go_pptx_commit: 待 commit（wait）— v1.0.3 patch
 ---
@@ -19,7 +19,7 @@ go_pptx_commit: 待 commit（wait）— v1.0.3 patch
 
 ## go-pptx 端评估
 
-按 2026-09-22 HEAD `c47b7a3` 实测：
+按 2026-09-12 HEAD `c47b7a3` 实测：
 
 | ppts §验收点 | go-pptx 现状 | 是否仍需改动 |
 |---|---|---|
@@ -38,7 +38,7 @@ go_pptx_commit: 待 commit（wait）— v1.0.3 patch
 ```go
 // notes.go
 //
-// 隐式过滤契约（FEAT-002 项 1，2026-09-22 登记）：
+// 隐式过滤契约（FEAT-002 项 1，2026-09-12 登记）：
 //   - SpeakerNotesText / SpeakerNotes / SetSpeakerNotes 仅操作 p:ph type
 //     为缺省或 "body" 的占位符（notesPhType 实现）；
 //   - p:ph type="hdr" / "ftr" / "sldNum" / "dt" 等页眉/页码/日期占位符

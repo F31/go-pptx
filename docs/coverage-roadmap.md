@@ -89,7 +89,9 @@ Recent movement:
 | COV-01 | full total >= 80% | **Reached 2026-09-11**; full total now **84.4%** as of 2026-09-12 afternoon |
 | COV-02 | root package >= 82% | **Reached 2026-09-11** (82.0%); now **82.8%** as of 2026-09-12 afternoon |
 | COV-03 | command/helper packages >= 85% | **Reached 2026-09-11**; all three packages now 87.2% / 89.5% / 89.5% |
-| COV-04 | release target review | **Closed 2026-09-12 third refresh**: all six low-level format packages now satisfy the per-package 90% target — `videoprobe` 92.6%, `xmlstore` 90.8%, `editplan` 100%, `textmap` 100%, `opc` 90.0%. `audioprobe` remains at 88.4% per the documented B-2 decision (remaining ~1.6% is unreachable defensive post-frame code; further pursuit would require either fake filesystem injection or relaxed failure-path assertions, both of which contradict Rule 2). 14 new behavior-priority tests added in commit `b676bab`. |
+| COV-04 | release target review | **Closed 2026-09-12 third refresh**: all six low-level format packages now satisfy the per-package 90% target — `videoprobe` 92.6%, `xmlstore` 90.8%, `editplan` 100%, `textmap` 100%, `opc` 90.0%. `audioprobe` remains at 88.4% per the documented B-2 decision (remaining ~1.6% is unreachable defensive post-frame code; further pursuit would require either fake filesystem injection or relaxed failure-path assertions, both of which contradict Rule 2). 14 new behavior-priority tests added in commit `b676bab`.
+
+- **2026-09-13 refresh (root zero-coverage clearing)**: 第 4 轮 `968110a`（4 函数 100%/95.7%）+ 第 5 轮 `315e077`（10 个 0% 函数全消除）将**根包合并口径覆盖率推至 84.4%**（`-coverpkg=./.` 口径，非 per-package 82.8%）。合并口径已达原路线图 85% 目标附近；per-package root 仍 82.8%（COV-02 门槛 82% 已满足）；全仓 total 维持 84.4%。 |
 
 ## Verification
 

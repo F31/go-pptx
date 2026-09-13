@@ -1,6 +1,6 @@
 # go-pptx v1.0.3 Patch Release Notes
 
-> 2026-09-22 · 将随 `git tag -s v1.0.3`（SSH 签名）发布
+> 2026-09-12 · 将随 `git tag -s v1.0.3`（SSH 签名）发布
 >
 > **本版本是 v1.0.2 后的第三个 patch release**——公共 API **仅追加** 2 个 Stable 公开只读方法 + 1 个 Experimental IR 字段 + 1 个 `ir.Options` 开关（**binary-compat with v1.0.0 / v1.0.1 / v1.0.2**；零删除、零签名变更），主要工作是按 ppts 项目《go-pptx 特性与 bug 跟踪计划》V1.0 §7 实施 FEAT-003 读侧补全（隐藏页 + advTm）、FEAT-002 项 1 备注过滤契约文档化、BUG-001 自愈登记。
 
@@ -108,7 +108,7 @@ go test -run 'TestAPIFrozen|TestErrorSentinels|TestNoBuildConstraints' -v .     
 go test -run 'TestSlide_Hidden|TestSlide_AdvanceAfter' -v .                    # 6/6 PASS
 go test -run 'TestFromPresentation_PageHiddenProjection|TestOptions_Defaults' -v ./ir  # 3+/3+ PASS
 
-# 覆盖率（口径同步到 2026-09-22 实测）
+# 覆盖率（口径同步到 2026-09-12 实测）
 CGO_ENABLED=0 go test ./... -coverprofile=/tmp/cover.out
 # full total ≈ 84.4% / root ≈ 82.3% / opc 90.4% / chart 91.4% / ir ≈ 87.0%+
 
@@ -141,4 +141,4 @@ gh workflow run fuzz.yml
 
 ## Acknowledgments
 
-本 patch 由 ppts 项目《go-pptx 特性与bug跟踪计划》V1.0 §7 直接驱动——FEAT-001 / FEAT-002 / FEAT-003 / BUG-001 四条验收契约全部得到代码侧或文档侧应答（详见 `docs/ppts-sync/README.md`）。全部增量在 CHANGELOG `## [1.0.3] - 2026-09-22` 段累积。
+本 patch 由 ppts 项目《go-pptx 特性与bug跟踪计划》V1.0 §7 直接驱动——FEAT-001 / FEAT-002 / FEAT-003 / BUG-001 四条验收契约全部得到代码侧或文档侧应答（详见 `docs/ppts-sync/README.md`）。全部增量在 CHANGELOG `## [1.0.3] - 2026-09-12` 段累积。

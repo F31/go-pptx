@@ -1,6 +1,6 @@
 ---
 title: "BUG-001 自愈通知"
-date: 2026-09-22
+date: 2026-09-12
 linked_ppts_doc: §7/BUG-001
 go_pptx_commit: c47b7a3（HEAD 当前基底）+ 后续 v1.0.3 commit（wait）
 ---
@@ -42,7 +42,7 @@ chartfrag.go:22:func validateChartData(cd ChartData, op string) error {
 5. **commit `c08249d`**：补 `TestNoBuildConstraintsInRootPackage` 断言根包禁止构建约束，确保守门测的是单一跨平台 API 表面。
 6. **commit `20b12a4`** / `b2cac60`：v1.0 冻结清单 AST 守门 + 根包禁止构建约束——两者都在 CI 上拒收 `validateChartData` 双声明**任何回归**。
 
-## 质量门禁（自愈后实测，2026-09-22 22:0x）
+## 质量门禁（自愈后实测，2026-09-12 22:0x）
 
 | 门禁 | 命令 | 结果 |
 |---|---|---|
@@ -73,5 +73,5 @@ chartfrag.go:22:func validateChartData(cd ChartData, op string) error {
 
 - 报告时点：2026-09-12（ppts V1.0 文档登记）
 - 自愈时点：2026-09-12 ADR-017 r3 落地（commit `a3abfca`）+ 后续 patch 链路
-- 应答登记：2026-09-22（本文件）
+- 应答登记：2026-09-12（本文件）
 - 关联 commit：`a3abfca`（r3 实现全搬迁）、`c08249d`（根包禁止构建约束）、`20b12a4`（冻结守门）

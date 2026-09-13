@@ -28,7 +28,7 @@ status: Active
 
 ## 同步文本（直接复制给 ppts 方）
 
-> ## go-pptx 仓库应答同步（2026-09-22）
+> ## go-pptx 仓库应答同步（2026-09-12）
 >
 > 收到贵方的《go-pptx 特性与bug跟踪计划》V1.0 §7，按 status=NEW/P0 顺序处理完毕。详细应答见 [`docs/ppts-sync/`](https://github.com/F31/go-pptx/tree/main/docs/ppts-sync/) 目录：
 >
@@ -56,10 +56,10 @@ status: Active
 > ### FEAT-002 项 1 仅文档注记（无代码改动）
 > **§7/FEAT-002 备注过滤**——`SpeakerNotesText` 实现已正确过滤非 body 占位符（`notesPhType` 严格只匹配 `type=body` 或缺省），本次仅把契约注记落到 `notes.go` 顶部，无任何代码改动。详细见 `docs/ppts-sync/FEAT-002-notes-filtering-contract.md`。
 >
-> ### 暂未实施的 FEAT-002 子项（需新 ADR 评审）
+> ### FEAT-002 子项状态（项 3 已部分实施，项 2 待 ADR）
 > §7/FEAT-002 项 2（阅读顺序建议）与项 3（图表嵌入数据/单位）涉及公共 API 表面扩张：
-> - **项 3** 触及 `ChartAxisOptions` 字段扩张 → 需要新 **ADR-019** 评审；
-> - **项 2** 触及新 `ReadingOrder` API + IR 扩展 → 需要新 **ADR-020** 评审；
+> - **项 3** 图表单位：ADR-019（设计空间）+ ADR-020（降置信 interim，已实施）已落地；阶段二精确字段待 ppts 按 §4 回填后钉死（方案 A/C）。
+> - **项 2** 触及新 `ReadingOrder` API + IR 扩展 → 需要新 **ADR-022** 评审（ADR-020/021 已被占用）。
 > - **FEAT-001** 真机门禁非 go-pptx 代码工作，归 ppts 端 PowerPoint/WPS 安装后跑 G0-8 真实播放验证。
 >
 > 贵方如需在这些未实施条目上启动 ADR，请把 §4 模板填写完发回本仓库做 IN_PROGRESS。

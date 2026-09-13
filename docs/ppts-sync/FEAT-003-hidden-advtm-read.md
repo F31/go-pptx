@@ -1,6 +1,6 @@
 ---
 title: "FEAT-003 读侧补全"
-date: 2026-09-22
+date: 2026-09-12
 linked_ppts_doc: §7/FEAT-003
 go_pptx_commit: 待 commit（wait）— v1.0.3 patch
 ---
@@ -21,7 +21,7 @@ go_pptx_commit: 待 commit（wait）— v1.0.3 patch
 
 ## go-pptx 端评估（G0 已覆盖 vs 真缺口）
 
-按 2026-09-22 HEAD `c47b7a3` 实测：
+按 2026-09-12 HEAD `c47b7a3` 实测：
 
 | ppts §验收点 | go-pptx 现状 | 是否仍需改动 |
 |---|---|---|
