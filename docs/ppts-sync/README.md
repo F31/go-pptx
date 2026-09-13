@@ -1,7 +1,7 @@
 ---
 title: "go-pptx 仓库对 ppts 项目跟踪计划 V1.0 §7 的实施记录"
 version: v1.0.0
-date: 2026-09-22
+date: 2026-09-12
 status: Active
 ---
 
@@ -20,8 +20,8 @@ status: Active
 | §7/BUG-001 `validateChartData` 双声明 | [`BUG-001-self-healed.md`](BUG-001-self-healed.md) | c47b7a3（已存于 HEAD） | **CLOSED（自愈），无须代码改动** |
 | §7/FEAT-001 带音频 PPTX 配音完整化 | （未实施；ppts 端 G0-8 真机门禁）| — | NEW；代码侧已闭环，ppts 端做真机门禁 |
 | §7/FEAT-002 讲稿提取增强 | [`FEAT-002-notes-filtering-contract.md`](FEAT-002-notes-filtering-contract.md)（项 1：仅文档注记）| （本批次，wait commit） | NEW；代码行为已生效，本版仅契约文档化 |
-| §7/FEAT-002 图表单位 | 未实施 | — | NEW；需新 ADR-019 评审 |
-| §7/FEAT-002 阅读顺序 | 未实施 | — | NEW；需新 ADR 评审 |
+| §7/FEAT-002 图表单位 | [`FEAT-002-chart-axis-units.md`](FEAT-002-chart-axis-units.md)（ADR-019 设计空间 + §4 需求回填单）| 本批次（wait commit） | NEW；ADR-019 Draft + ADR-020 降置信子项已实施 |
+| §7/FEAT-002 阅读顺序 | 未实施 | — | NEW；需新 ADR（项 2，暂定 ADR-022）评审 |
 | §7/FEAT-003 隐藏页报告 + 页序读取 | [`FEAT-003-hidden-advtm-read.md`](FEAT-003-hidden-advtm-read.md) | （本批次，wait commit） | **NEW → 待 ppts 端契约验证** |
 
 ---
@@ -71,3 +71,27 @@ status: Active
 > - 新公开方法 + 测试 + IR 字段 + 注记 + 文档
 >
 > HEAD 仍为 `c47b7a3` 之后的新 commit；`git tag v1.0.3` 待 ppts 端 VERIFIED 后补打。
+
+---
+
+## go-pptx 仓库应答同步（2026-09-12，本批次）
+
+> 本批次在 v1.0.4（HEAD `683b0e4`）之上推进 FEAT-002 项 3 与 A-2 路线图工作包，全部 binary-compat：
+>
+> ### FEAT-002 项 3 图表单位：ADR-019（设计空间）+ ADR-020（降置信 interim 已实施）
+> - **降置信子项已上线（ADR-020）**：新增 `ChartShape.DataWithDiagnostics()`（追加式只读，binary-compat v1.0.0..v1.0.4）+ internal `ChartAxisUnreadFieldNames` 检测器 + `ir.Shape.Diagnostics` 字段。ppts 集成后，源图表轴含未提取字段（majorUnit/minorUnit/numFmt 等）即收到 `chart.axis.unread` 诊断，可整体降低单位/刻度置信度。**零 API 扩张、零字节变化**。
+> - **设计空间已开（ADR-019）**：不盲定字段，先框定方案 A/B/C 与权衡，待 ppts 按 [`FEAT-002-chart-axis-units.md`](FEAT-002-chart-axis-units.md) 的 §4 模板回填需求后，钉死字段集与 Stable 承诺（阶段二）。
+>
+> ### A-2 Shape 能力窄接口拆分（ADR-021，路线图工作包）
+> 新增 5 个能力窄接口（`GeometryProvider / FillProvider / EffectsProvider / StyleMatrixRefsProvider / LineProvider`），8 个具体形状经 `shapeNode` 编译期断言满足；不修改 `Shape` 接口、不破坏既有调用方。进入 goldenStableSymbols（50→55）。
+>
+> ### 守门状态
+> - `go test ./...` 14/14 包 ok；`go test -tags=corpus ./...` 全绿；`go vet ./...` 干净。
+> - `api_surface_test.go`：wantExportedTypes 158→163、wantStableSymbols 50→55、wantStableMethods 129→130。
+>
+> ### 提交列表（本批次，多个逻辑 commit）
+> - A-2 窄接口 + 编译期断言（ADR-021）
+> - FEAT-002 项 3 降置信子项：`DataWithDiagnostics` + `ChartAxisUnreadFieldNames` + `ir.Shape.Diagnostics`（ADR-020）
+> - ADR-019/020/021 文档 + ppts 需求回填单
+>
+> v1.1.0 在 ppts 端 VERIFIED（FEAT-001 真机门禁 / 项 3 阶段二需求确认）后开启。

@@ -192,3 +192,21 @@
 | CAP-01/TIMIR-01/TPL-01/TOOL-02 | M7 创新 I | M7 | **四项全部完成**（CAP-01 能力 manifest + `pptx capability` CLI；TOOL-02 WASM 编译目标 + 浏览器端只读检查工具 + 离线静态网页；TIMIR-01 动画时序只读 IR；TPL-01 模板数据绑定引擎 + `pptx bind` CLI）（能力 manifest + `pptx capability` CLI + WASM 编译目标 + 浏览器端只读检查工具 + 离线静态网页 + node.js 烟雾测试 + 构建脚本 + 动画时序只读 IR）；余下 TPL-01 待启动 |
 | DIFF-01 | M8 创新 II | M8 | **已完成**（语义 diff 与审计：ir.Diff 加权 LCS 页面对齐 + ShapeID 页内配对 + opaque diff 定位回溯；`pptx diff` CLI；NodePath 溯源接入 Shape 接口与 IR） |
 | QA-01 | 语料、fuzz、兼容报告 | 持续 | 进行中（模板 + fuzz 八目标已落地；语料硬阻塞已解除：36 样本索引 + 3 公开 LibreOffice 金样闭环 + ext-0024 真实样本冒烟；2026-09-11 L3 客户端矩阵 8/8 通过） |
+
+## v1.1.0 路线图推进（2026-09-12 起）
+
+> v1.1.0 在 ppts 端 VERIFIED（FEAT-001 真机门禁 / FEAT-002 项 3 阶段二需求确认）后开启。
+> 本段登记当前已落地的 v1.1.0 预备代码（全部 binary-compat，不破坏 v1.0.x API 表面）。
+
+| 工作包 / ADR | 内容 | 状态 | 守门 |
+|---|---|---|---|
+| A-2 / ADR-021 Shape capability 小接口拆分 | 新增 5 个能力窄接口（GeometryProvider / FillProvider / EffectsProvider / StyleMatrixRefsProvider / LineProvider）；8 个具体形状经 shapeNode 编译期断言满足；不修改 Shape 接口 | 已实施（代码 + 编译期断言） | `go test ./...` 全绿；goldenStableSymbols 50→55 |
+| FEAT-002 项 3 降置信子项 / ADR-020 | 新增 `ChartShape.DataWithDiagnostics()` + internal `ChartAxisUnreadFieldNames` 检测器 + `ir.Shape.Diagnostics`；零 API 扩张、零字节变化 | 已实施（interim，ADR-019 阶段一） | `go test ./...` / `-tags=corpus` 全绿；goldenStableMethods 129→130 |
+| FEAT-002 项 3 阶段二 / ADR-019 | 图表坐标轴单位/numFmt 设计空间（方案 A/B/C 权衡），不盲定字段；待 ppts 按 `docs/ppts-sync/FEAT-002-chart-axis-units.md` §4 模板回填需求 | Draft（待 ppts 需求确认） | — |
+
+### 关联文档
+- `docs/adr/ADR-019-chart-axis-units-design-space.md`
+- `docs/adr/ADR-020-feat002-chart-axis-confidence.md`
+- `docs/adr/ADR-021-shape-capability-interfaces.md`
+- `docs/ppts-sync/FEAT-002-chart-axis-units.md`（§4 需求回填单，发 ppts）
+- `docs/ppts-sync/README.md`（索引 + 同步文本已更新）
