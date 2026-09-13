@@ -1,6 +1,7 @@
 package chart
 
 import (
+	"sort"
 	"strconv"
 
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -255,6 +256,64 @@ func ParseChartAxes(doc *xmlstore.XMLDocument, plotArea *xmlstore.NodeRecord) *C
 		}
 	}
 	return out
+}
+
+// unreadAxisFieldLocals 是 ParseChartAxes 当前**未**提取、但具有轴语义的子元素
+// local 名集合（FEAT-002 项 3 降置信子项，ADR-020）。当源图表轴含有这些字段
+// 时，说明本库对轴单位/刻度/数字格式的提取不完整，应降低对该图表轴信息完整
+// 性的置信度。
+//
+// 注意：本集合只列"轴语义且本库当前未建模"的字段；纯布局/样式字段（spPr/txPr
+// 等）即使存在也不影响数值提取，不计入降置信。
+var unreadAxisFieldLocals = map[string]bool{
+	"majorUnit":      true, // 主刻度单位
+	"minorUnit":      true, // 次刻度单位
+	"numFmt":         true, // 数字格式代码（formatCode）
+	"majorTickMark":  true, // 主刻度标记
+	"minorTickMark":  true, // 次刻度标记
+	"majorGridlines": true, // 主网格线
+	"minorGridlines": true, // 次网格线
+	"dispUnits":      true, // 显示单位
+	"tickLblPos":     true, // 刻度标签位置
+}
+
+// ChartAxisUnreadFieldNames 返回 plotArea 下 catAx/dateAx/valAx 中本库未提取的
+// 轴语义字段 local 名（去重、按字典序排序）。无未提取字段时返回 nil。
+//
+// 该信息是"降置信"信号的唯一来源：调用方据此判断所提取的轴单位/刻度是否完整
+// （FEAT-002 项 3）。本函数零依赖根包类型，与 ParseChartAxes 同源。
+func ChartAxisUnreadFieldNames(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord) []string {
+	chart := childOfKind(doc, root, nsChartML, "chart", 0)
+	if chart == nil {
+		return nil
+	}
+	plotArea := childOfKind(doc, chart, nsChartML, "plotArea", 0)
+	if plotArea == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var names []string
+	for _, lk := range []string{"catAx", "dateAx", "valAx"} {
+		ax := childOfKind(doc, plotArea, nsChartML, lk, 0)
+		if ax == nil {
+			continue
+		}
+		for _, cid := range ax.Children {
+			cn := doc.Node(cid)
+			if cn.Namespace != nsChartML {
+				continue
+			}
+			if unreadAxisFieldLocals[cn.Local()] && !seen[cn.Local()] {
+				seen[cn.Local()] = true
+				names = append(names, cn.Local())
+			}
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	sort.Strings(names)
+	return names
 }
 
 // serName / serCategories / serValues / serCachePoints 读回系列数据的助手，

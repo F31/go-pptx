@@ -134,6 +134,10 @@ type Shape struct {
 	// Table 专属字段（ShapeTable）。
 	TableRows int `json:"tableRows,omitempty"`
 	TableCols int `json:"tableCols,omitempty"`
+	// Diagnostics 是本形状读取过程中产生的非阻断诊断（如图表轴未提取字段的
+	// 降置信信号，FEAT-002 项 3，ADR-020）。Experimental: 字段新增，
+	// binary-compat；走 ir schemaVersion 兼容（omitempty，不影响既有消费方）。
+	Diagnostics Diagnostics `json:"diagnostics,omitempty"`
 }
 
 // Box 是轴对齐矩形（EMU）。
@@ -367,7 +371,8 @@ func projectShape(p *pptx.Presentation, s *pptx.Slide, sh pptx.Shape) Shape {
 		}
 	case pptx.ShapeChart:
 		if cs, ok := sh.(*pptx.ChartShape); ok && cs != nil {
-			if data, err := cs.Data(); err == nil {
+			data, diags, err := cs.DataWithDiagnostics()
+			if err == nil {
 				s2.ChartType = data.Type.String()
 				var sb strings.Builder
 				if data.Title != "" {
@@ -381,6 +386,9 @@ func projectShape(p *pptx.Presentation, s *pptx.Slide, sh pptx.Shape) Shape {
 					sb.WriteString(c)
 				}
 				s2.Text = sb.String()
+				if len(diags) > 0 {
+					s2.Diagnostics = append(s2.Diagnostics, convertDiagnostics(diags)...)
+				}
 			}
 		}
 	case pptx.ShapeTextBox, pptx.ShapeAutoShape:
@@ -400,6 +408,25 @@ func projectShape(p *pptx.Presentation, s *pptx.Slide, sh pptx.Shape) Shape {
 		}
 	}
 	return s2
+}
+
+// convertDiagnostics 把根包 Diagnostic 投影为 IR Diagnostic（字段子集：
+// Code/Severity/Part/Message）。IR Diagnostic 当前不含 ShapeID/NodePath，
+// 这些信息在 Part + 调用方上下文已可定位。
+func convertDiagnostics(in []pptx.Diagnostic) Diagnostics {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(Diagnostics, 0, len(in))
+	for _, d := range in {
+		out = append(out, Diagnostic{
+			Code:     d.Code,
+			Severity: SeverityString(d.Severity.String()),
+			Part:     d.Part,
+			Message:  d.Message,
+		})
+	}
+	return out
 }
 
 func shapeSummary(sh pptx.Shape) Shape {

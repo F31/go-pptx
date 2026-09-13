@@ -3,6 +3,7 @@ package pptx
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	chartinternal "github.com/F31/go-pptx/internal/chart"
 	"github.com/F31/go-pptx/internal/editplan"
@@ -339,26 +340,68 @@ func buildChartSpaceXML(cd ChartData) (string, error) {
 // Data 返回图表当前数据快照（类型/标题/类别/系列，读自 chart Part 的
 // 数据缓存）。多图表组（组合图等超出受限范围的布局）返回首个受限
 // 图表组的数据；无受限图表组返回 ErrUnsupportedFormat。
-func (c *ChartShape) Data() (ChartData, error) {
+// chartDataContext 解析图表数据并返回解析上下文（doc/root/part），供 Data /
+// DataWithDiagnostics 共用。解析失败返回错误；成功时 doc/root 可用于后续诊断
+// （如轴未提取字段检测，FEAT-002 项 3 降置信子项，ADR-020）。
+func (c *ChartShape) chartDataContext() (ChartData, *xmlstore.XMLDocument, *xmlstore.NodeRecord, opc.PartName, error) {
 	if err := c.alive(); err != nil {
-		return ChartData{}, Annotate(err, "ChartShape.Data")
+		return ChartData{}, nil, nil, "", Annotate(err, "ChartShape.Data")
 	}
 	part, err := c.chartPartOf()
 	if err != nil {
-		return ChartData{}, Annotate(err, "ChartShape.Data")
+		return ChartData{}, nil, nil, "", Annotate(err, "ChartShape.Data")
 	}
 	doc, err := c.p.docOf(part)
 	if err != nil {
-		return ChartData{}, Annotate(err, "ChartShape.Data")
+		return ChartData{}, nil, nil, "", Annotate(err, "ChartShape.Data")
 	}
 	root := doc.Root()
 	if root == nil || root.Namespace != nsChartML || root.Local() != "chartSpace" {
-		return ChartData{}, &OperationError{
+		return ChartData{}, nil, nil, "", &OperationError{
 			Op: "ChartShape.Data", Part: string(part),
 			Message: "chart part root is not c:chartSpace", Err: ErrMalformedPackage,
 		}
 	}
-	return parseChartSpace(doc, root)
+	cd, err := parseChartSpace(doc, root)
+	if err != nil {
+		return ChartData{}, nil, nil, "", err
+	}
+	return cd, doc, root, part, nil
+}
+
+// Data 读取图表数据快照（只读，不改变文档）。
+func (c *ChartShape) Data() (ChartData, error) {
+	cd, _, _, _, err := c.chartDataContext()
+	return cd, err
+}
+
+// DataWithDiagnostics 读取图表数据快照，并额外返回读取过程中产生的非阻断诊断
+// （FEAT-002 项 3 降置信子项，ADR-020）。
+//
+// 当前唯一诊断：当源图表轴含本库未提取的字段（如 majorUnit / minorUnit /
+// numFmt 等轴单位/刻度/数字格式）时，返回一条 SeverityInfo 诊断，Code 为
+// "chart.axis.unread"，提示所提取的轴信息可能不完整——调用方（如 ppts 自动
+// 讲解）应据此降低对图表轴单位/刻度的置信度。
+//
+// 本方法是 Data 的"带诊断"变体：数据快照与 Data 完全一致；不引入任何写入或
+// 字节变化。新增公开方法（仅追加），binary-compat with v1.0.0..v1.0.4。
+func (c *ChartShape) DataWithDiagnostics() (ChartData, []Diagnostic, error) {
+	cd, doc, root, part, err := c.chartDataContext()
+	if err != nil {
+		return ChartData{}, nil, err
+	}
+	var diags []Diagnostic
+	if names := chartinternal.ChartAxisUnreadFieldNames(doc, root); len(names) > 0 {
+		diags = append(diags, Diagnostic{
+			Code:     "chart.axis.unread",
+			Severity: SeverityInfo,
+			Part:     string(part),
+			ShapeID:  c.ID(),
+			Message: fmt.Sprintf("图表轴含本库未提取字段（%s），轴单位/刻度/数字格式信息可能不完整，置信度已降低",
+				strings.Join(names, ", ")),
+		})
+	}
+	return cd, diags, nil
 }
 
 // alive 复用 shapeNode 的存活检查（独立方法名避免与 Data 内多次定位混淆）。

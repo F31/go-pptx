@@ -30,11 +30,11 @@ import (
 
 // v1.0 冻结的计数不变量（grep 无法可靠复现，一律以 AST 口径为准）。
 const (
-	wantExportedTypes        = 158 // 根包导出 type 总数（含 2 个 type alias）
-	wantStableSections       = 34  // 带 "// Stable:" 段的顶层声明数（33 type + 1 哨兵聚合段）
-	wantStableSymbols        = 50  // 上述段落覆盖的符号数（33 type + 17 哨兵）
+	wantExportedTypes        = 163 // 根包导出 type 总数（含 2 个 type alias；v1.1.0 A-2 +5 能力窄接口）
+	wantStableSections       = 35  // 带 "// Stable:" 段的顶层声明数（34 + A-2 分组 1 段）
+	wantStableSymbols        = 55  // 上述段落覆盖的符号数（50 + A-2 5 接口）
 	wantExperimentalSections = 5   // 带 "// Experimental:" 段的顶层声明数
-	wantStableMethods        = 129 // Stable type 上的导出方法数（v1.0.2=127；FEAT-003 读侧补全 +2）
+	wantStableMethods        = 130 // Stable type 上的导出方法数（129 + ChartShape.DataWithDiagnostics，ADR-020）
 	wantSentinels            = 17  // 导出 Err* 哨兵数
 )
 
@@ -50,13 +50,13 @@ var goldenExportedTypes = []string{
 	"ChartTrendType", "ChartTrendline", "ChartType", "ChartWorkbookBuilder", "ClonePolicy",
 	"ColorSpec", "ColorTransform", "CoreProperties", "CorePropertiesPatch", "CustomPropertyKind",
 	"CustomPropertyValue", "CutOptions", "DefaultWorkbookBuilder", "Diagnostic", "EMU",
-	"Effect", "EffectInfo", "EffectKind", "EffectiveCellStyle", "FadeOptions",
-	"Field", "FieldKind", "FieldSpec", "FillInfo", "FillKind",
+	"Effect", "EffectInfo", "EffectKind", "EffectsProvider", "EffectiveCellStyle", "FadeOptions",
+	"Field", "FieldKind", "FieldSpec", "FillInfo", "FillKind", "FillProvider",
 	"FontProperty", "FontSize", "FontStyle", "GeomAdjust", "GeomGuide",
-	"GeomPath", "GeometryInfo", "GeometryKind", "GradientFill", "GradientStop",
+	"GeomPath", "GeometryInfo", "GeometryKind", "GeometryProvider", "GradientFill", "GradientStop",
 	"GroupShape", "HandoutMasterInfo", "IconMode", "KinsokuRule", "LayoutEmbeddedFont",
 	"LayoutRef", "LayoutReport", "LayoutSection", "LightRig3D", "LineEnd",
-	"LineStyle", "MatrixRefKind", "MediaSource", "MergeOption", "MultiCellTextPolicy",
+	"LineStyle", "LineProvider", "MatrixRefKind", "MediaSource", "MergeOption", "MultiCellTextPolicy",
 	"NewOption", "OpaqueShape", "OpenOption", "OperationError", "Optional",
 	"PageTiming", "Paragraph", "ParagraphProps", "ParagraphSpec", "ParsedColor",
 	"PathCommand", "PatternFill", "PictureFitMode", "PictureShape", "PictureSpec",
@@ -66,7 +66,7 @@ var goldenExportedTypes = []string{
 	"RunProps", "RunSymbol", "SaveOption", "SaveReport", "Scene3DInfo",
 	"Severity", "Shape", "Shape3DInfo", "ShapeID", "ShapeKind",
 	"Slide", "SlideID", "Spacing", "SplitAxis", "SplitDir",
-	"StyleMatrixRef", "StylePart", "StyleSource", "StyleStep", "StyleToggle",
+	"StyleMatrixRef", "StylePart", "StyleSource", "StyleMatrixRefsProvider", "StyleStep", "StyleToggle",
 	"TabStop", "TableShape", "TableStyleFlags", "TextBoxSpec", "TextFrame",
 	"TextRun", "TextShape", "ThemeFontSlot", "TimingPlan", "TimingSyncOptions",
 	"TimingSyncReport", "TrackContribution", "TransitionDir", "TransitionSpec", "TransitionSpeed",
@@ -78,15 +78,15 @@ var goldenExportedTypes = []string{
 var goldenStableSymbols = []string{
 	"AudioShape", "AutoShape", "CapabilityDimension", "CapabilityFeature",
 	"CapabilityManifest", "CapabilityManifestSource", "CapabilityStatus", "ChartShape",
-	"Diagnostic", "EMU", "ErrAtomicReplaceUnavailable", "ErrClosed",
+	"Diagnostic", "EffectsProvider", "EMU", "ErrAtomicReplaceUnavailable", "ErrClosed",
 	"ErrConcurrentModification", "ErrDurationUnknown", "ErrForeignReference", "ErrInvalidArgument",
 	"ErrLimitExceeded", "ErrMalformedPackage", "ErrNotFound", "ErrOutOfRange",
 	"ErrOutputExists", "ErrStaleHandle", "ErrTimingConflict", "ErrUnresolvedStyle",
-	"ErrUnsupportedEdit", "ErrUnsupportedFormat", "ErrValidationFailed", "GroupShape",
+	"ErrUnsupportedEdit", "ErrUnsupportedFormat", "ErrValidationFailed", "FillProvider", "GeometryProvider", "GroupShape", "LineProvider",
 	"MultiCellTextPolicy", "OpaqueShape", "OperationError", "Paragraph",
 	"PictureShape", "Point", "Presentation", "Quad",
 	"Rect", "ReplaceMode", "Severity", "Shape",
-	"ShapeID", "ShapeKind", "Slide", "SlideID",
+	"ShapeID", "ShapeKind", "Slide", "SlideID", "StyleMatrixRefsProvider",
 	"TableShape", "TextFrame", "TextRun", "TextShape",
 	"ValidationReport", "VideoShape",
 }
@@ -100,17 +100,18 @@ var goldenExperimentalSymbols = []string{
 // goldenStableMethods 是 Stable type 上的导出方法集合，形如 "Type.Method"（排序后）。
 // 这是 binary-compat 的真实表面：删除或重命名其中任何一条都会破坏下游编译。
 //
-// 变更记录（FEAT-003 读侧补全，2026-09-22）：
-//   - v1.0.2 = 127 项；本版 = 129 项（+2）
-//   - +Slide.AdvanceAfter：p:transition@advTm 读侧，与 SetAdvanceAfter 写入对偶（仅追加只读）
-//   - +Slide.Hidden：p:sldId@show="0" 读侧（仅追加只读）
-//     两方法均为追加式只读公开方法，binary-compat with v1.0.0..v1.0.2；列入 Stable 段。
+// 变更记录（FEAT-003 读侧补全 + FEAT-002 项3 降置信子项，2026-09-12）：
+//   - v1.0.2 = 127 项
+//   - v1.0.3 = 129 项（+2）：Slide.AdvanceAfter（p:transition@advTm 读侧，与 SetAdvanceAfter 写入对偶）、
+//     Slide.Hidden（p:sldId@show="0" 读侧）——均为追加式只读公开方法，binary-compat v1.0.0..v1.0.2，列入 Stable 段
+//   - v1.0.4 = 130 项（+1）：ChartShape.DataWithDiagnostics（FEAT-002 项3 降置信子项，
+//     追加式只读公开方法，零字节/零写入变更，binary-compat）
 var goldenStableMethods = []string{
 	"AudioShape.AudioSource", "AudioShape.Kind", "AudioShape.Profile",
 	"AudioShape.Role", "AudioShape.SetPlayback", "AutoShape.Kind",
 	"AutoShape.Placeholder", "AutoShape.SetAltText", "AutoShape.SetDecorative",
 	"AutoShape.TextFrame", "CapabilityStatus.MarshalJSON", "CapabilityStatus.String",
-	"CapabilityStatus.UnmarshalJSON", "ChartShape.Data", "ChartShape.Kind",
+	"CapabilityStatus.UnmarshalJSON", "ChartShape.Data", "ChartShape.DataWithDiagnostics", "ChartShape.Kind",
 	"ChartShape.SetAltText", "ChartShape.SetData", "ChartShape.SetDecorative",
 	"EMU.Inches", "EMU.Points", "GroupShape.Children", "GroupShape.Kind",
 	"OpaqueShape.Kind", "OperationError.Error", "OperationError.Unwrap",
