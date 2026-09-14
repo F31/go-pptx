@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 )
 
 // 保存计划（SAVE-01，方案 §18.2）：对当前包的变更集产出唯一、确定的
@@ -273,20 +274,23 @@ func (plan *SavePlan) Write(pk *Package, w io.Writer) error {
 				return fmt.Errorf("write entry %s: %w", e.Name, err)
 			}
 		case CopyOriginal:
-			// ADR-018 Tier 1：流式复制，不再把整个 Part 读进内存。
+			// ADR-018 Tier 1 + Tier 2：未变 Part 优先走 raw 直通（Tier 2），否则退回流式复制（Tier 1）。
 			//
-			// 未变 Part 通常占输出字节的绝大部分（媒体/母版/其他页），旧实现
-			// 走 readAll 让峰值内存变成 O(最大单个 Part)。这里改为从
-			// Package.OpenPart 的限额读取器直接 io.Copy 到 zip writer：
-			// 峰值内存降为 O(32 KiB 缓冲)，喂给压缩器的解压内容逐字节相同，
-			// 因此输出字节流不变（B1 语义保持）。
+			// Tier 2：未变 non-XML Part 用 (zip.File).OpenRaw 取源 Part 的已压缩帧，
+			// 经 (zip.Writer).CreateRaw 原样写出，跳过解压 + 重压缩。对媒体重文档（重压缩在
+			// Save p50 中占比常达 65%+，见 ADR-018 取证）收益显著；解压内容逐字节不变 → B1 语义保持。
 			//
-			// 预算仍在读取侧由 countedReadCloser 强制，超限行为不变。
-			if copyBuf == nil {
-				copyBuf = make([]byte, copyPartBufSize)
-			}
-			if err := copyPart(pk, f, e.Name, copyBuf); err != nil {
+			// 仅当源帧可安全复现且非 XML 时启用 raw 直通；否则退回 Tier 1 流式复制
+			// （io.Copy 解压内容到 zip writer，峰值内存 O(32 KiB 缓冲)，预算在读取侧强制）。
+			if raw, err := plan.tryRawCopyOriginal(pk, zw, e.Name); err != nil {
 				return err
+			} else if !raw {
+				if copyBuf == nil {
+					copyBuf = make([]byte, copyPartBufSize)
+				}
+				if err := copyPart(pk, f, e.Name, copyBuf); err != nil {
+					return err
+				}
 			}
 		default:
 			return fmt.Errorf("%w: unknown action %q for %s", ErrPlanInvalid, e.Action, e.Name)
@@ -328,6 +332,61 @@ func copyPart(pk *Package, dst io.Writer, name PartName, buf []byte) error {
 
 // copyPartBufSize 是未变 Part 复制的复用缓冲大小（32 KiB，与 io.Copy 默认一致）。
 const copyPartBufSize = 32 * 1024
+
+// tryRawCopyOriginal 尝试 raw 直通复制未变 Part（ADR-018 Tier 2）。
+//
+// 通过 (zip.File).OpenRaw 取源 Part 的已压缩帧，(zip.Writer).CreateRaw 原样写出，
+// 跳过解压与重压缩。返回语义：
+//   - (true, nil)   ：已直通，CreateRaw 已写入该条目；
+//   - (false, nil)  ：源帧不适合直通，调用方应退回流式复制（尚未调用 CreateRaw，可安全退回）；
+//   - (false, err)  ：直通尝试本身出错（CreateRaw/io.Copy 阶段，条目已提交，必须上抛）。
+//
+// 安全门槛（避免产出 PowerPoint/WPS 判损的产物）：
+//   - 仅 non-XML Part：XML（含 .rels）体积占比极小、收益可忽略，且避免任何规范化差异风险；
+//   - 仅 Store / Deflate 方法可被忠实复现，其余方法（加密型 /  exotic）一律不直通；
+//   - 排除加密帧（Flags bit0）与 data descriptor 帧（Flags bit3，尺寸可能不在头部）；
+//   - 尺寸必须已知（CompressedSize64 / UncompressedSize64 非零），排除 zip64 占位异常。
+func (plan *SavePlan) tryRawCopyOriginal(pk *Package, zw *zip.Writer, name PartName) (bool, error) {
+	if strings.HasSuffix(string(name), ".xml") || strings.HasSuffix(string(name), ".rels") {
+		return false, nil
+	}
+	f, ok := pk.rawPartFile(name)
+	if !ok {
+		return false, nil
+	}
+	if f.Method != zip.Store && f.Method != zip.Deflate {
+		return false, nil
+	}
+	const (
+		flagEncrypted      = 1 << 0 // bit 0：加密
+		flagDataDescriptor = 1 << 3 // bit 3：data descriptor（尺寸可能不在头部）
+	)
+	if f.Flags&flagEncrypted != 0 || f.Flags&flagDataDescriptor != 0 {
+		return false, nil
+	}
+	if f.CompressedSize64 == 0 || f.UncompressedSize64 == 0 {
+		return false, nil
+	}
+	entry, err := name.EntryName()
+	if err != nil {
+		return false, fmt.Errorf("entry name %s: %w", name, err)
+	}
+	// OpenRaw 必须先于 CreateRaw：若 OpenRaw 失败可安全退回（尚未提交条目）。
+	rc, err := f.OpenRaw()
+	if err != nil {
+		return false, nil
+	}
+	fh := f.FileHeader
+	fh.Name = entry // 与 Write 其余路径一致的条目名（去掉前导 /）
+	dst, err := zw.CreateRaw(&fh)
+	if err != nil {
+		return false, fmt.Errorf("create raw entry %s: %w", name, err)
+	}
+	if _, err := io.Copy(dst, rc); err != nil {
+		return false, fmt.Errorf("copy raw entry %s: %w", name, err)
+	}
+	return true, nil
+}
 
 // readAll 读取 Part 全部解压内容（受该 Part 的预算限制）。
 func (pk *Package) readAll(name PartName) ([]byte, error) {

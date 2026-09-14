@@ -1,6 +1,7 @@
 package opc
 
 import (
+	"archive/zip"
 	"fmt"
 	"io"
 	"strings"
@@ -86,6 +87,19 @@ func (pk *Package) ContentType(name PartName) (string, bool) { return pk.ct.Look
 
 // OpenPart 打开 Part 内容流（按实际字节计数与预算限制）。调用方负责 Close。
 func (pk *Package) OpenPart(name PartName) (io.ReadCloser, error) { return pk.index.OpenPart(name) }
+
+// rawPartFile 返回 Part 底层的 *zip.File（ADR-018 Tier 2 raw 直通用）。
+//
+// ok=false 表示 Part 在已载入的 zip 中无对应源文件（合成包或仅存在于变更集的 Part）；
+// 此时调用方应退回流式复制。返回的 *zip.File 仅供 OpenRaw / 读取 FileHeader，
+// 不持有包外的资源。
+func (pk *Package) rawPartFile(name PartName) (*zip.File, bool) {
+	f, err := pk.index.lookup(name)
+	if err != nil {
+		return nil, false
+	}
+	return f, true
+}
 
 // Relationships 返回源 Part 的关系集合；该 Part 没有关系流时返回
 // ok=false（OPC 语义：无关系流 = 无关系，不是错误）。
