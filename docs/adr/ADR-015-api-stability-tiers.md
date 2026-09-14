@@ -86,3 +86,9 @@ T-2 周启动文档：[`docs/v1.0-freeze-list.md`](../../v1.0-freeze-list.md)。
 
 - doc.go 顶层 godoc 含"API 稳定性承诺"摘要，引用本 ADR。
 - 跟踪文档 `docs/go-pptx-实施状态跟踪.md` 第 47 行"API 稳定性"待确认项已闭合。
+
+## changelog
+
+| 日期 | 变更 | 关联 ADR | 说明 |
+|---|---|---|---|
+| 2026-09-14 | 5 个 Experimental 段升 Stable（Experimental 5→0；Stable 段 35→40、符号 55→60、方法 130→131） | ADR-023 | WASM API GA 化（D-5）：`ChartWorkbookBuilder` / `ChartDataBook` / `DefaultWorkbookBuilder` / `CustomPropertyKind` / `CustomPropertyValue` 升档；改 godoc 标记 + `api_surface_test.go` golden 名单同步；binary-compat 不变。 |

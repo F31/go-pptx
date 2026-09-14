@@ -28,18 +28,18 @@ const nsSpreadsheetML = "http://schemas.openxmlformats.org/spreadsheetml/2006/ma
 // "编辑数据" 将打开该工作簿）。替换实现由调用方保证一致性；返回错误
 // 时 AddChart/SetData 整体失败，不产生部分写入。
 //
-// Experimental: 这是适配层接口，1.0 内可能新增方法或重命名；首选 API
-// 路径（受限默认实现）请使用 DefaultWorkbookBuilder。1.0 后将依据
-// 真实集成经验收敛为稳定签名——届时本类型冻结，新需求走扩展接口。
+// Stable: 适配层接口，v1.1.0 起 GA；Build(book ChartDataBook) ([]byte, error)
+// 签名与错误契约承诺向后兼容（只增不破）。新需求走扩展接口，不更名、
+// 不增破坏性方法。首选受限默认实现请使用 DefaultWorkbookBuilder。
 type ChartWorkbookBuilder interface {
 	Build(book ChartDataBook) ([]byte, error)
 }
 
 // ChartDataBook 是传递给工作簿适配器的数据快照。
 //
-// Experimental: 1.0 内可能新增字段（多 sheet / 公式 / 数据透视等）。
-// 当前形态适配 DefaultWorkbookBuilder 的最小 xlsx 输出。ChartSeries 数组
-// 内的顺序与 Categories 对应关系视为 v1.0 契约的一部分。
+// Stable: v1.1.0 起 GA；当前形态（Categories + ChartSeries 数组）即为 v1.0
+// 契约，数组顺序与 Categories 对应关系承诺不变。多 sheet / 公式 / 数据透视
+// 等扩展将通过新增可选字段或扩展类型进行，不破坏既有字段。
 //
 // ADR-017 第三批：定义搬到 internal/chart；根包用同名 type alias 引用，
 // 保证 DefaultWorkbookBuilder.Build(book ChartDataBook) 公共 API 表面零变化。
@@ -51,8 +51,9 @@ type ChartDataBook = chartinternal.ChartDataBook
 // xl/_rels/workbook.xml.rels、xl/worksheets/sheet1.xml（inlineStr 文本
 // 单元格 + 数值单元格），无宏、无公式、无第三方素材。
 //
-// Experimental: 受限最小实现，1.0 内可能扩展（公式、命名范围、自定义
-// sheet 名）。SheetName 当前硬性约束为 "Sheet1"，与图表 c:f 引用固定。
+// Stable: v1.1.0 起 GA；受限最小实现，Build 签名与"SheetName 必须 Sheet1"
+// 约束承诺向后兼容。公式、命名范围、自定义 sheet 名等扩展将以不破坏
+// 既有调用方的方式引入（新增构造选项或独立适配器类型）。
 type DefaultWorkbookBuilder struct{}
 
 // Build 生成与 book 一致的最小 xlsx 包字节（确定性输出）。

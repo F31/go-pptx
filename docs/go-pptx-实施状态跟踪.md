@@ -11,11 +11,11 @@
 
 | 档级 | 数量 | 段落位置 | 1.x 演化 |
 |---|---|---|---|
-| **Stable** | **34 段落**（33 独立 type 段 + 1 个 17 错误哨兵聚合段；Stable 符号合计 50） | §A.1-A.4 + §C.1/C.6/C.6.1/C.10 累计 | 仅追加新方法/字段；不破坏已有签名 |
-| **Experimental** | **5** | §B | 1.x 内可能改；godoc 段注明演化边界 |
+| **Stable** | **40 段落 / 60 符号**（v1.0.0 基线 34/50；A-2 +1 段落/+5 符号、D-5 +5 段落/+5 符号，ADR-023） | §A.1-A.4 + §C + A-2 能力接口 + D-5 升档 | 仅追加新方法/字段；不破坏已有签名 |
+| **Experimental** | **0** | — | D-5 全部升 Stable（ADR-023，2026-09-14）；原 5 类型见 §B 历史分配 |
 | **Deprecated** | **0** | — | v1.0 后视需要启用 |
-| **API 默认** | **120** type | 158 总 type − 33 Stable type − 5 Experimental | 仅追加新字段；不破坏已有默认值 |
-| **总 type** | **158** | grep `^type [A-Z]`（哨兵为 var，不计入） | — |
+| **API 默认** | **120** type | 163 总 type − 43 Stable type（33 v1.0.0 + 5 A-2 + 5 D-5）− 0 Experimental | 仅追加新字段；不破坏已有默认值 |
+| **总 type** | **163** | grep `^type [A-Z]`（含 2 type alias + A-2 5 接口 + D-5 5 类型；哨兵为 var，不计入） | — |
 
 完整逐类型分配见 [`docs/v1.0-freeze-list.md`](v1.0-freeze-list.md) §"当前快照" + [ADR-015](adr/ADR-015-api-stability-tiers.md) §"v1.0 冻结清单"。
 
@@ -31,7 +31,7 @@
 | T+0 末窗口形状 | 2026-09-10 | +9（ShapeKind + 8 Shape 句柄 + TextShape 别名） |
 | T-3 日补齐 | 2026-09-10 | +2（CapabilityFeature / CapabilityManifestSource 补齐 §A.4 4 type 全部有 Stable 段落；v1.0 freeze list 与代码同步） |
 
-合计：**34 Stable 段落（33 独立 type + 1 个哨兵聚合段覆盖 17 哨兵，符号合计 50）/ 5 Experimental / 120 API 默认 / 158 总 type**。
+合计（当前 v1.0.4 + D-5 状态）：**40 Stable 段落 / 60 Stable 符号（含 17 错误哨兵）/ 0 Experimental / 120 API 默认 / 163 总 type（根包导出 type，含 2 type alias）**。v1.0.0 基线为 34 Stable 段落 / 50 符号 / 5 Experimental / 158 总 type。
 
 > **2026-09-12 勘误**：此前合计误记"51 Stable 段落（34 独立 type + 17 哨兵）/ 102 API"——
 > 将"段落 grep 数 34"误作"独立 type 34"（段落含 1 个哨兵聚合段，独立 type 实为 33），

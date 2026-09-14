@@ -9,7 +9,16 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 ## [Unreleased]
 
-（暂无）
+### Changed (API stability)
+
+- **WASM API GA 化（D-5，ADR-023）**：5 个 `// Experimental:` 段全部升为 `// Stable:`
+  —— `ChartWorkbookBuilder` / `ChartDataBook` / `DefaultWorkbookBuilder` /
+  `CustomPropertyKind` / `CustomPropertyValue`。公共 API 表面分类由
+  `34/50/5/130`（Stable 段/符号/Experimental/Stable 方法）调整为
+  `40/60/0/131`，**无任何签名或字段变更，binary-compat with v1.0.x**。
+  WASM 嵌入消费者现获得稳定契约，不再受 1.x 内静默变更的威胁。
+- 不在本次范围：`ir.Page.Hidden` / `ir.Shape.Diagnostics` 的 `// Experimental:`
+  字段标记（属 `ir` 包，需各自 ADR 评审，见 FEAT-003 / ADR-020 文档）。
 
 ## [1.0.4] - 2026-09-13
 

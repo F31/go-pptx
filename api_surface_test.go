@@ -31,10 +31,10 @@ import (
 // v1.0 冻结的计数不变量（grep 无法可靠复现，一律以 AST 口径为准）。
 const (
 	wantExportedTypes        = 163 // 根包导出 type 总数（含 2 个 type alias；v1.1.0 A-2 +5 能力窄接口）
-	wantStableSections       = 35  // 带 "// Stable:" 段的顶层声明数（34 + A-2 分组 1 段）
-	wantStableSymbols        = 55  // 上述段落覆盖的符号数（50 + A-2 5 接口）
-	wantExperimentalSections = 5   // 带 "// Experimental:" 段的顶层声明数
-	wantStableMethods        = 130 // Stable type 上的导出方法数（129 + ChartShape.DataWithDiagnostics，ADR-020）
+	wantStableSections       = 40  // 带 "// Stable:" 段的顶层声明数（34 + A-2 分组 1 段 + D-5 升 5 Experimental）
+	wantStableSymbols        = 60  // 上述段落覆盖的符号数（50 + A-2 5 接口 + D-5 升 5 Experimental）
+	wantExperimentalSections = 0   // 带 "// Experimental:" 段的顶层声明数（D-5 全部升 Stable，ADR-023）
+	wantStableMethods        = 131 // Stable type 上的导出方法数（130 + DefaultWorkbookBuilder.Build，D-5）
 	wantSentinels            = 17  // 导出 Err* 哨兵数
 )
 
@@ -77,7 +77,7 @@ var goldenExportedTypes = []string{
 // goldenStableSymbols 是 v1.0 冻结的 Stable 符号集合（排序后）。
 var goldenStableSymbols = []string{
 	"AudioShape", "AutoShape", "CapabilityDimension", "CapabilityFeature",
-	"CapabilityManifest", "CapabilityManifestSource", "CapabilityStatus", "ChartShape",
+	"CapabilityManifest", "CapabilityManifestSource", "CapabilityStatus", "ChartDataBook", "ChartShape", "ChartWorkbookBuilder", "CustomPropertyKind", "CustomPropertyValue", "DefaultWorkbookBuilder",
 	"Diagnostic", "EffectsProvider", "EMU", "ErrAtomicReplaceUnavailable", "ErrClosed",
 	"ErrConcurrentModification", "ErrDurationUnknown", "ErrForeignReference", "ErrInvalidArgument",
 	"ErrLimitExceeded", "ErrMalformedPackage", "ErrNotFound", "ErrOutOfRange",
@@ -92,10 +92,8 @@ var goldenStableSymbols = []string{
 }
 
 // goldenExperimentalSymbols 是 v1.0 冻结的 Experimental 符号集合（排序后）。
-var goldenExperimentalSymbols = []string{
-	"ChartDataBook", "ChartWorkbookBuilder", "CustomPropertyKind",
-	"CustomPropertyValue", "DefaultWorkbookBuilder",
-}
+// D-5（ADR-023，2026-09-14）：原 5 个 Experimental 类型全部升 Stable，集合清空。
+var goldenExperimentalSymbols = []string{}
 
 // goldenStableMethods 是 Stable type 上的导出方法集合，形如 "Type.Method"（排序后）。
 // 这是 binary-compat 的真实表面：删除或重命名其中任何一条都会破坏下游编译。
@@ -113,7 +111,7 @@ var goldenStableMethods = []string{
 	"AutoShape.TextFrame", "CapabilityStatus.MarshalJSON", "CapabilityStatus.String",
 	"CapabilityStatus.UnmarshalJSON", "ChartShape.Data", "ChartShape.DataWithDiagnostics", "ChartShape.Kind",
 	"ChartShape.SetAltText", "ChartShape.SetData", "ChartShape.SetDecorative",
-	"EMU.Inches", "EMU.Points", "GroupShape.Children", "GroupShape.Kind",
+	"DefaultWorkbookBuilder.Build", "EMU.Inches", "EMU.Points", "GroupShape.Children", "GroupShape.Kind",
 	"OpaqueShape.Kind", "OperationError.Error", "OperationError.Unwrap",
 	"Paragraph.AddRun", "Paragraph.AppendField", "Paragraph.Fields",
 	"Paragraph.InsertField", "Paragraph.Props", "Paragraph.ReplaceText",

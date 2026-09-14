@@ -559,9 +559,9 @@ func childByNSLocal(doc *xmlstore.XMLDocument, parent *xmlstore.NodeRecord, ns, 
 
 // CustomPropertyKind 标识自定义属性值的基础类型（OOXML 变体）。
 //
-// Experimental: 1.0 内可能新增变体类型（vt:lpstr / vt:r8 等）。当前 iota
-// 顺序与 CustomProperty{Str,Int,Bool,DateTime} 字段对应；新增值追加到
-// iota 末尾，避免破坏已有 switch-case 分支。
+// Stable: v1.1.0 起 GA；当前 iota 顺序与 CustomProperty{Str,Int,Bool,DateTime}
+// 字段对应，承诺不变。新增值类型追加到 iota 末尾（不重用、不重排已有常量），
+// 避免破坏已有 switch-case 分支。
 type CustomPropertyKind int
 
 const (
@@ -577,11 +577,11 @@ const (
 
 // CustomPropertyValue 是自定义属性的值：Kind 决定有效字段。
 //
-// Experimental: 1.0 内字段布局可能调整（按 Kind 分流到独立类型，避免
-// 当前"所有字段可填但只有一字段有效"的形态）。应用层代码应只通过
-// StringCustomProperty / IntCustomProperty / BoolCustomProperty /
-// DateTimeCustomProperty 四个构造器与 CustomPropertyValue 交互，避免
-// 直接读 Str/Int/Bool/Time 字段。
+// Stable: v1.1.0 起 GA；当前"Kind + 四字段"布局承诺向后兼容。应用层代码
+// 应只通过 StringCustomProperty / IntCustomProperty / BoolCustomProperty /
+// DateTimeCustomProperty 四个构造器与 CustomPropertyValue 交互，避免直接
+// 读 Str/Int/Bool/Time 字段。按 Kind 分流到独立类型的重构如确需进行，将
+// 经新 ADR 评审并以非破坏方式过渡。
 type CustomPropertyValue struct {
 	Kind CustomPropertyKind
 	Str  string
