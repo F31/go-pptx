@@ -29,7 +29,7 @@
 - **ADR-018 Save 流式复制**：`io.Copy` 每次新分配 32KiB 与 Part 大小无关——循环内 per-item 用 `io.Copy` 就是 O(n) 次 32KiB 分配，正解是循环外复用缓冲（`io.CopyBuffer`）。微基准「少而大」不可能暴露 per-item 固定开销，**收益锚点必须同时有「少而大」+「多而小」两档**（已补 200x4KiB 哨兵档）。Tier 2 raw 直通不实施（重启条件见 ADR-018）。
 - **跨实现比较 ZIP 产物**：必须按条目名对齐，不能按位置。B1 比对走 OPC Part 视角（PartNames+SHA256）；B1-AFTER 口径：只有 SaveReport.ChangedParts 声明的 Part 可变。**断言绑在 CI 取不到的输入上 = 死断言**（新增门禁先确认输入 CI 可得）。
 - **基准测量**：B/op 随 -benchtime 变化，对比须固定同 benchtime；本机 P/E 混合核墙钟漂移 3.5×，跨轮次判定只能用 B/op/allocs/peak-heap 确定性指标；归因须用中间 commit 独立 worktree 隔离变量。
-- **本机环境**：bash coreutils（ls/sed/grep/dirname）损坏——文件操作走 PowerShell/专用工具，go 用 `D:/Go/bin/go.exe`（go1.27.0），git 可用；`pwsh` 不可用（PowerShell 工具是 5.1），perf 脚本走 `bash scripts/perf/run.sh`；gofmt 假阳性：CRLF 检出被标记，git 内 LF 是干净的，勿整体重排（用 `git diff --stat` 判断）。**`go fmt ./...` 会把 CRLF 检出文件整体重写为 LF**（git status 全标 M 但 diff 无内容 hunk）——跑完必须 `git checkout --` 还原无内容 diff 的文件，只留真实格式修复；勿直接全量提交行尾噪音。
+- **本机环境**：bash coreutils（ls/sed/grep/dirname）损坏——文件操作走 PowerShell/专用工具，go 用 `D:/Go/bin/go.exe`（go1.27.0），git 可用；`pwsh` 不可用（PowerShell 工具是 5.1），perf 脚本走 `bash scripts/perf/run.sh`；gofmt 假阳性：CRLF 检出被标记，git 内 LF 是干净的，勿整体重排（用 `git diff --stat` 判断）。**`go fmt ./...` 会把 CRLF 检出文件整体重写为 LF**（git status 全标 M 但 diff 无内容 hunk）——跑完必须 `git checkout --` 还原无内容 diff 的文件，只留真实格式修复；勿直接全量提交行尾噪音。**`rm` 被沙箱 safe-bin 封装拦截**（exit 127，shim 内部 helper 缺失，实际未删）；仓库内删临时文件改用 `git clean -f`（先 `git clean -f -n` 干跑确认仅删目标，无输出管道即可）；PowerShell `Remove-Item` 在本沙箱不回显且偶发失败，勿依赖。bash 中 bare `git` 与 `/e/...` 路径可用（此前"挂载不稳定"为误判，实为 coreutils 损坏导致的 stderr 噪声）。
 - **测试策略**：① 纯函数 helper 优先表驱动单测不走 fixture（100× 体积小）；② 100% 覆盖≠好测试——整数溢出等退化分支本质测 stdlib，放过更诚实，**覆盖追逻辑分支不追退化安全网**；③ 扫覆盖率主动查所有 <90% 同文件函数（bug-registry 可能漏列）；④ 零覆盖公开函数必须消除（即使无生产调用方也是 API 盲区）；单 commit 多函数回报是高 ROI 模式。
 
 ## 事故记录（重要）
