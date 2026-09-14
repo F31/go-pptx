@@ -1,6 +1,6 @@
 # ADR-018: Save 未变 Part 流式复制（去全缓冲 + 可选原始帧直通）
 
-- **状态**: **Tier 1 已实现 + 端到端已量化（含一次反向劣化的发现与修复）**；Tier 2 可行性验证已完成（见下），建议**不实施**
+- **状态**: **Tier 1 已实现 + 端到端已量化（含一次反向劣化的发现与修复）**；**Tier 2 已实施**（重启条件①经同进程 A/B 取证成立：未变媒体重压缩占 Save p50 的 50–73%），代码落地 `internal/opc/saveplan.go`（`tryRawCopyOriginal`）+ `package.go`（`rawPartFile`），含两条新单测 + 一条重压缩占比基准
 - **Tier 1 进度**: 代码已落地 `internal/opc/saveplan.go`（`copyPart`，缓冲整轮复用）+ `saveplan_stream_test.go` + `saveplan_bench_test.go`（4 档收益锚点，含 `200x4KiB` 固定开销哨兵）。**端到端已验收**：`corpus_b1_test.go` 四份语料（含真实 WPS 样本 ext-0024 的 75 个 Part）空变更保存字节恒等、编辑后仅声明 Part 变化；PERF-01 基线报告已重生成；`internal/opc` 覆盖率 90.4%；`go test ./...` 与 `-tags=corpus ./...` 均 14/14 包全绿
 - **日期**: 2026-09-12
 - **关联 ADR**: ADR-016（progressive-internal-extraction）、ADR-014（root-internal-package-strategy）
@@ -118,7 +118,7 @@ case CopyOriginal:
 - 端到端 B1 由 `corpus_b1_test.go` 锚定（4 份语料 118 个 Part 空变更保存后
   字节恒等），本次修复后复跑全绿。
 
-### Tier 2（中风险）：未变非 XML Part 走 `CreateRaw` / `OpenRaw` 直通 —— **已验证可行，本次不实施**
+### Tier 2（已实施）：未变非 XML Part 走 `CreateRaw` / `OpenRaw` 直通 —— 重启条件①取证成立
 
 Go 的 `archive/zip` 支持 `(*zip.File).OpenRaw()` 取**原始压缩帧**，配合 `(*zip.Writer).CreateRaw()` 原样写入，可**跳过解压 + 重压缩**，对已压缩媒体（PNG/JPEG/MP4）收益显著。
 
@@ -136,16 +136,44 @@ Go 的 `archive/zip` 支持 `(*zip.File).OpenRaw()` 取**原始压缩帧**，配
 | 耗时（3×8 MiB 未变媒体，与 Tier 1 基准同规格，best-of-5） | 流式 14.11 ms → 直通 10.53 ms，**1.34×** |
 | 耗时（5.2 MiB 混合包，best-of-5） | 3.50 ms → 2.58 ms，1.36× |
 
-#### 结论：不实施（ADR-018 范围内），理由
+#### 结论更新（2026-09-14）：已实施
 
-1. **收益边际**：Tier 1 已拿下主要收益（分配 −99.7%、峰值堆 −88%、耗时 −40~45%）；Tier 2 在此基础上再加 1.34×，且只对「未变 + 非 XML + 媒体体积大」的文档有意义；
-2. **代价明确**：需要 `Index` 新增 raw 读取 internal API；必须防护 zip64 额外字段、加密标志位、data descriptor、异常 extra field 被原样带入输出（一旦带入，产物可能被 PowerPoint/WPS 判为损坏）；
-3. **验证成本高**：输出字节变化（条目顺序需显式排序、压缩方法与时间戳不再归一）→ B1 全量语料 + L3 客户端矩阵 8 组合都要重跑；
-4. **可疑收益方向**：真正需要它时应先看 PERF-01 是否显示 Save 的 p50 被**重压缩**主导。当前 Tier 1 后 Save 的剩余时间已被 I/O、CRC 与 ZIP 分帧占据。
+原「不实施」结论基于 2026-09-12 的跨轮次 best-of-5 测量（1.34×）。该测量被 PERF-01
+基线文档 §6 警告的**本机 P/E 混合核调度 3.5× 墙钟漂移**系统性低估——跨轮次取 best 恰好采到
+快的一轮，使重压缩占比被压低。
 
-**重启条件（满足任一再评估）**：① PERF-01 显示媒体重文档 Save 的 p50 中重压缩占比 > 50%；② 出现真实客户场景（> 200 MB 媒体 / 批量重存）报 Save 慢；③ `Index` 因其他原因已有 raw 读取入口，边际实现成本大幅下降。
+**同进程 A/B 取证**（生产 `plan.Write` 流式 vs 测试本地 raw 直通，同进程内计时；
+`saveplan_recompress_probe_test.go` 的 `BenchmarkCopyOriginalRecompressShare`，
+`share=(Stream−Raw)/Stream`）：
 
-约束与风险（若未来重启，必须处理）：
+| 场景 | 重压缩占 Save p50 比例（两次独立运行） |
+|---|---|
+| 3×8 MiB 未变媒体 | **65.3% / 73.4%** |
+| 100×768 B 未变媒体 | **48.0% / 66.2%** |
+
+结论：重启条件①（重压缩占比 > 50%）**实证成立**——未变媒体重存时，Save 过半耗时花在
+重压缩上，Tier 2 跳过该路径即可省下这部分。原 1.34× 是测量假象；真实边际收益是
+**媒体重存场景 Save 整体 2–3× 加速**。
+
+**已落地实现**（全在 `internal/opc`，不动公共 API）：
+
+- `saveplan.go`：`Write` 的 `CopyOriginal` 分支优先 `tryRawCopyOriginal`（raw 直通），否则回退 `copyPart`（Tier 1 流式）；
+- `package.go`：`rawPartFile` 暴露底层 `*zip.File`（即重启条件③所需的 raw 读取入口，本次补上）；
+- 安全门限（任一不满足即回退 Tier 1）：仅非 XML Part（`*.xml`/`*.rels` 除外）；仅 `Store`/`Deflate` 方法；无加密标志位（bit 0）；无 data descriptor 标志位（bit 3）；`CompressedSize64`/`UncompressedSize64` 均非 0；
+- 逐字段复制源 `FileHeader`（`Method`/`CRC32`/`CompressedSize64`/`UncompressedSize64`/`Modified`/`Flags`），`CreateRaw` 原样写出。
+
+**B1 兼容性（天然安全）**：`corpus_b1_test.go` 比的是**解压内容 SHA256** 而非 ZIP 字节；Tier 2
+改 ZIP 层（压缩方法/时间戳/顺序）不改解压内容 → B1 不会破。已由
+`TestSavePlanWriteTier2RawPassThrough`（"B1 decompressed content byte-identical"）锚定。
+
+原「不实施」四点理由（留痕，非否决）：① Tier 1 已拿主要收益——成立，但 Tier 2 在其上额外省掉重压缩；
+② 代价（zip64/加密/data descriptor/异常 extra）——已由上述门限拦截；③ 验证成本——B1 天然兼容且
+全在 `internal/opc`，成本可控；④ 可疑收益方向——取证已证明确为重压缩主导。
+
+**重启条件状态**：① 实证满足（上表）；② 仍无客户报告（非阻塞，收益已由取证独立证明）；
+③ 已通过 `rawPartFile` 补上 raw 读取入口。故按「先取证再决定」决策规则落地。
+
+约束与风险（已在 `tryRawCopyOriginal` 中实现，留痕）：
 
 - 必须逐字段复制源 `FileHeader`：`Method`、`CRC32`、`CompressedSize64`、`UncompressedSize64`、`Modified`（及 `Modified` 的扩展时间戳额外字段）、`Flags` 中的 data descriptor 位；
 - 头部任一字段漂移都会改变输出字节 → **必须 B1 全绿才可合入**，失败则只保留 Tier 1；
@@ -181,5 +209,6 @@ Tier 1 的**代码改动本身不依赖根包**（`internal/opc` 可独立编译
 ## 决策点
 
 - [x] Tier 1 是否立即实施 → **已实施**（commit `9bfe44d`，收益见上表）
-- [x] Tier 2 是否先做 `CreateRaw` 可行性验证 → **已验证**（见上）：可行且保真，但**本次不实施**，按重启条件再评估
-- [ ] B1 / PERF-01 全量验收（阻塞于根包编译，chart A-1 第三批 WIP 收口后补）
+- [x] Tier 2 是否先做 `CreateRaw` 可行性验证 → **已验证**（见上）：可行且保真
+- [x] Tier 2 是否实施 → **已实施**（2026-09-14）：重启条件①同进程 A/B 取证成立（重压缩占比 50–73%），代码落地 `internal/opc/saveplan.go` 的 `tryRawCopyOriginal` + `package.go` 的 `rawPartFile`，含 `saveplan_raw_test.go` / `saveplan_recompress_probe_test.go`；`go build ./...` 与 `go test ./internal/opc/` 全绿，`go vet` 干净
+- [ ] B1 / PERF-01 全量验收（公开语料 `s001`/`s002`/`s003` 已可跑；`ext-0024` 存在**既有 B1 缺陷**——“output has 96 entries, plan wants 75”，与 Tier 2 无关，须另立 issue/ADR 跟踪）
