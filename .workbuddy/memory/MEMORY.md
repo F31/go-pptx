@@ -34,7 +34,7 @@
 
 ## 事故记录（重要）
 - **2026-09-08**：git merge 内部 stash 失败后 `.git` 整体消失。教训：大操作（merge/rebase）前 `cp -r .git` 备份；保证 working tree clean。
-- **2026-09-10/11**：`git commit -F .commit-msg-*.txt` 报 fatal 但 commit 实际创建成功（Windows Git Bash 隐藏文件竞态）——fatal 后先 `git log` 核实勿重复 commit。`.gitignore` 已加 `/.commit-msg-*.txt`。
+- **2026-09-10/11、2026-09-16（第三次复现）**：`git commit -F <msgfile>` 报 `fatal: could not read log file ... No such file or directory`（exit 128）但 **commit 实际创建成功**。**与文件名无关**——2026-09-16 用 `.commitmsg_sync105.txt`（不命中任何 .gitignore 规则）同样复现，故根因是 Windows Git Bash 对**新建/重定向文件的可见性竞态**，而非 gitignore 规则。处置：fatal 后**先 `git log --oneline -3` 核实**，已建则直接 push；**勿重复 commit**，且 `&&` 链会因 128 中断，push 必须单独执行。
 - **2026-09-12 深夜**：清理期间 scripts/ 整目录从磁盘消失（非删除目标）。教训：批量删除后必须 git status 全量核对；沙箱钩子报 aborted 立即检查无关路径。
 - **2026-09-12**：`git commit -m "...\u2192..."` 的 `\u` 转义不被 bash 解析，字面落盘。**唯一可靠**：Write 工具写 `.commitmsg_*.txt`（UTF-8）+ `git commit -F`（不要用 `.commit-msg-*` 命名，见上条）。修复：`git commit --amend -F <新文件>`。
 - **2026-09-13**：本会话两次出现 **Edit 工具报成功但改动未落盘**（tablestyle_test.go 的 helper 名替换，编译时发现；MEMORY.md 覆盖率行更新，commit 后才发现丢失）。原因未明（疑似与并行会话/文件监视有关）。对策：**重要 Edit 后立即 Read 验证落盘**；commit 前对关键文件 diff 复核。
