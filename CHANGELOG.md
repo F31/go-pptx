@@ -29,6 +29,16 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 - 修补 4 层测试盲区：Tier 2 测试用 `map[name][]byte` 收集条目导致同名重复互相覆盖；
   合成包无目录条目且未断言条目数；ext-0024 私有语料 CI 恒 Skip 且末段仅 `t.Logf`；
   `Write` 单测自建 `zip.NewReader` 不校验重复。
+- **`internal/opc` 覆盖率门槛回归（中，ADR-018 Tier 2 第二处同源缺陷）**：Tier 2 新增的
+  `tryRawCopyOriginal` 含 4 条安全门限拒绝分支（非 XML / 仅 Store 或 Deflate / 排除加密位
+  与 data-descriptor 位 / 尺寸必须已知），**落地时零测试覆盖** → `internal/opc` 覆盖率从
+  90.4% 静默跌到 **89.5%**，跌破 COV-04 的 90% 门槛，三天无人察觉（只跑了 build/test/vet）。
+  取证：`git worktree` 隔离实测 `f7c8dad`（90.4%）vs `27a539d`（89.6%），确认降幅由 Tier 2
+  引入、ADR-024 的结构调整无额外影响。
+  - 新增 `internal/opc/saveplan_raw_guard_test.go`：8 case 安全门限表（含"被拒帧不得在输出
+    注册任何条目"，同时守住 ADR-024 的缺陷形态）+ data-descriptor 帧端到端回退验证 +
+    3 项写入错误注入。手工 ZIP 构造 helper 用于产出 `zip.Writer` 无法生成的异常帧。
+  - 覆盖率 **89.5% → 90.3%**（corpus 89.6% → **90.5%**），门槛恢复。**零生产代码改动。**
 
 ### Changed (API stability)
 

@@ -197,6 +197,7 @@ Go 的 `archive/zip` 支持 `(*zip.File).OpenRaw()` 取**原始压缩帧**，配
    - 源 Part 损坏仍报 `ErrMalformedPackage`；
 4. **fuzz**：`FuzzLoad` / `FuzzScan` 无回归（种子语料已在 commit `1915fc2` 扩充）；
 5. **L3 客户端矩阵**：Tier 1 输出字节不变 → 按 ADR-017 判据无需重跑；Tier 2 若改动字节则需重跑 8 组合。
+6. **覆盖率门槛（2026-09-16 补）**：`internal/opc` 必须守住 COV-04 的 90% 门槛。Tier 2 落地时**未跑此门**，遗漏了 0.8pp 回归——见下节。
 
 ## 实施前置条件
 
@@ -212,3 +213,37 @@ Tier 1 的**代码改动本身不依赖根包**（`internal/opc` 可独立编译
 - [x] Tier 2 是否先做 `CreateRaw` 可行性验证 → **已验证**（见上）：可行且保真
 - [x] Tier 2 是否实施 → **已实施**（2026-09-14）：重启条件①同进程 A/B 取证成立（重压缩占比 50–73%），代码落地 `internal/opc/saveplan.go` 的 `tryRawCopyOriginal` + `package.go` 的 `rawPartFile`，含 `saveplan_raw_test.go` / `saveplan_recompress_probe_test.go`；`go build ./...` 与 `go test ./internal/opc/` 全绿，`go vet` 干净
 - [ ] B1 / PERF-01 全量验收（公开语料 `s001`/`s002`/`s003` 已可跑；`ext-0024` 的 "output has 96 entries, plan wants 75" 经 [ADR-024](ADR-024-saveplan-duplicate-entry-fix.md) 取证确认为 **Tier 2 引入的真实缺陷**（`Write` 中 `zw.Create` 与 `CreateRaw` 双重注册），**已修复**——详见 ADR-024）
+
+## Tier 2 落地后发现的缺陷（2026-09-16）
+
+Tier 2 自 `752fb95`（2026-09-14）落地后暴露出**两处同源缺陷**：同一次验证不完整——落地时只跑了 `go build` / `go test ./internal/opc/` / `go vet`，**既没有跑 B1 端到端保存校验，也没有跑覆盖率门槛**。
+
+### 缺陷 1：`SavePlan.Write` 重复条目（高危，产物损坏）
+
+`Write` 在循环开头**无条件** `zw.Create`，而 raw 直通成功时 `tryRawCopyOriginal` 又 `zw.CreateRaw` 注册同名第二个条目；`archive/zip` 允许同名重复故不报错。后果：**任何含未变非 XML Part 的文档 `Save`/`SaveToFile` 全部产出重复条目并失败**（`verifyOutput` 报 `output has 96 entries, plan wants 75`，`Load` 报 `duplicate entry`）。
+
+已由 **ADR-024** 修复：`zw.Create` 下沉到真正需要的分支，不放宽 `verifyOutput` 与安全门限；新增 `TestSavePlanWriteNoDuplicateEntries`（逐条计数、不经 map）守门。
+
+### 缺陷 2：`internal/opc` 覆盖率跌破 COV-04 门槛
+
+Tier 2 新增的 `tryRawCopyOriginal` 含 4 条安全门限拒绝分支（非 XML / 仅 Store 或 Deflate / 排除加密位与 data-descriptor 位 / 尺寸必须已知），**落地时零测试覆盖**：
+
+| 时点 | 无 tag | corpus |
+|---|---:|---:|
+| Tier 2 之前（`f7c8dad`） | 90.4% | 90.5% |
+| Tier 2 落地后（`27a539d`） | **89.6%** | （corpus 测试 FAIL） |
+| ADR-024 修复后 | 89.5% | 89.6% |
+| **补守门后（本次）** | **90.3%** | **90.5%** |
+
+取证方法：`git worktree add` 到 `f7c8dad` / `27a539d` 逐点实测（独立隔离变量），确认降幅由 Tier 2 引入、ADR-024 的结构调整无额外影响。
+
+处置：新增 `saveplan_raw_guard_test.go`——
+- `TestTryRawCopyOriginalSafetyGate`：8 case 表驱动逐条验证安全门限（含"被拒帧不得注册任何条目"，直接覆盖 ADR-024 的缺陷形态）；
+- `TestSavePlanWriteFallsBackOnUnsafeFrame`：data-descriptor 帧（`zip.Writer.Create` 的真实形态）端到端走回退路径，校验条目数 / 解压内容 / 可重新 `Load`；
+- `TestSavePlanWritePropagatesRawCopyError` / `...StreamCopyError` / `...FailsOnClose`：写入阶段错误传播（失败注入）。
+
+覆盖率回到 90.3% / 90.5%，门槛恢复。**"被拒帧不得留下任何条目"守的是 `tryRawCopyOriginal` 自身的边界**——若将来有人在门限判断之前就调用 `CreateRaw`，该断言会直接报"被拒帧注册了条目"。ADR-024 的"`zw.Create` 提前注册"形态则由 `TestSavePlanWriteNoDuplicateEntries` 的逐条计数守门，两条防线互补。
+
+### 教训
+
+性能 / IO 层改动必须同时跑：① `SaveToFile` **端到端**校验（`Load` 接受 + 条目集逐条计数比对，不经 map）；② **覆盖率门槛**。只跑 `go test` / `go vet` 不足以发现"产物损坏"与"门限分支零覆盖"这两类问题。
