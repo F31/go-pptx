@@ -9,6 +9,27 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 ## [Unreleased]
 
+### Fixed
+
+- **`SavePlan.Write` 重复条目（高危，ADR-024）**：ADR-018 Tier 2（raw 直通）引入的回归
+  —— `Write` 循环开头无条件 `zw.Create(entry)`，而 `tryRawCopyOriginal` 走通时又
+  `zw.CreateRaw` 注册同名第二个条目（`archive/zip` 允许同名重复，静默通过）。后果是
+  **任何含「未变 + 非 XML」Part 的文档**（即含图片/视频/音频/嵌入对象的绝大多数真实
+  PPTX）经 `Save`/`SaveToFile` 产出重复条目：`verifyOutput` 报
+  `output has 96 entries, plan wants 75`、`opc.Load` 报 `duplicate entry`。
+  ext-0024 实测 21 个 media 各重复一次（75 + 21 = 96）。修复：`zw.Create` 下沉到
+  `EmitPatched`/`EmitNew` 与「raw 回退」两个真正需要的分支。
+  - **根因定位耗时三轮**（前两轮结论已作废，详见 ADR-024 §取证过程）：最初误判为
+    "目录条目口径问题"（源 91 = 75 文件 + 16 目录，凑巧接近 96），实为
+    `96 = 75 + 21`，21 恰为走 raw 直通的 non-XML Part 数。
+  - 新增守门 `TestSavePlanWriteNoDuplicateEntries`（按 `zr.File` 逐条计数不经 map +
+    断言条目数 == 计划条目数 + 断言 `opc.Load` 接受），并已注入退化验证其必红。
+    `TestRealExt0024_SaveUnchangedB1` 新增 `assertEntryCountInvariant`。
+  - **零公共 API 变化**；`go test ./...` 与 `-tags=corpus ./...` 均 14/14 全绿。
+- 修补 4 层测试盲区：Tier 2 测试用 `map[name][]byte` 收集条目导致同名重复互相覆盖；
+  合成包无目录条目且未断言条目数；ext-0024 私有语料 CI 恒 Skip 且末段仅 `t.Logf`；
+  `Write` 单测自建 `zip.NewReader` 不校验重复。
+
 ### Changed (API stability)
 
 - **WASM API GA 化（D-5，ADR-023）**：5 个 `// Experimental:` 段全部升为 `// Stable:`

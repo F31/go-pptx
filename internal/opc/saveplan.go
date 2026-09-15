@@ -264,12 +264,12 @@ func (plan *SavePlan) Write(pk *Package, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("entry name %s: %w", e.Name, err)
 		}
-		f, err := zw.Create(entry)
-		if err != nil {
-			return fmt.Errorf("create entry %s: %w", e.Name, err)
-		}
 		switch e.Action {
 		case EmitPatched, EmitNew:
+			f, err := zw.Create(entry)
+			if err != nil {
+				return fmt.Errorf("create entry %s: %w", e.Name, err)
+			}
 			if _, err := f.Write(e.Content); err != nil {
 				return fmt.Errorf("write entry %s: %w", e.Name, err)
 			}
@@ -282,9 +282,17 @@ func (plan *SavePlan) Write(pk *Package, w io.Writer) error {
 			//
 			// 仅当源帧可安全复现且非 XML 时启用 raw 直通；否则退回 Tier 1 流式复制
 			// （io.Copy 解压内容到 zip writer，峰值内存 O(32 KiB 缓冲)，预算在读取侧强制）。
+			//
+			// 注意：raw 直通路径由 tryRawCopyOriginal 自行调用 zw.CreateRaw 注册条目，
+			// **不得**在此前预先 zw.Create —— 否则同一 Part 会被注册两次，输出出现重复
+			// 条目（`archive/zip` 允许同名重复，verifyOutput 与 Load 均判失败）。
 			if raw, err := plan.tryRawCopyOriginal(pk, zw, e.Name); err != nil {
 				return err
 			} else if !raw {
+				f, err := zw.Create(entry)
+				if err != nil {
+					return fmt.Errorf("create entry %s: %w", e.Name, err)
+				}
 				if copyBuf == nil {
 					copyBuf = make([]byte, copyPartBufSize)
 				}

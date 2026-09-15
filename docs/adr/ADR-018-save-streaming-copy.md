@@ -1,6 +1,6 @@
 # ADR-018: Save 未变 Part 流式复制（去全缓冲 + 可选原始帧直通）
 
-- **状态**: **Tier 1 已实现 + 端到端已量化（含一次反向劣化的发现与修复）**；**Tier 2 已实施**（重启条件①经同进程 A/B 取证成立：未变媒体重压缩占 Save p50 的 50–73%），代码落地 `internal/opc/saveplan.go`（`tryRawCopyOriginal`）+ `package.go`（`rawPartFile`），含两条新单测 + 一条重压缩占比基准
+- **状态**: **Tier 1 已实现 + 端到端已量化（含一次反向劣化的发现与修复）**；**Tier 2 已实施并已修复一处回归**（重启条件①经同进程 A/B 取证成立：未变媒体重压缩占 Save p50 的 50–73%），代码落地 `internal/opc/saveplan.go`（`tryRawCopyOriginal`）+ `package.go`（`rawPartFile`），含两条新单测 + 一条重压缩占比基准。**回归修复（ADR-024）**：`Write` 曾对 raw 直通路径双重注册条目（`zw.Create` + `CreateRaw`），致输出重复条目、`SaveToFile` 失败——已修复，并新增 `TestSavePlanWriteNoDuplicateEntries` 守门
 - **Tier 1 进度**: 代码已落地 `internal/opc/saveplan.go`（`copyPart`，缓冲整轮复用）+ `saveplan_stream_test.go` + `saveplan_bench_test.go`（4 档收益锚点，含 `200x4KiB` 固定开销哨兵）。**端到端已验收**：`corpus_b1_test.go` 四份语料（含真实 WPS 样本 ext-0024 的 75 个 Part）空变更保存字节恒等、编辑后仅声明 Part 变化；PERF-01 基线报告已重生成；`internal/opc` 覆盖率 90.4%；`go test ./...` 与 `-tags=corpus ./...` 均 14/14 包全绿
 - **日期**: 2026-09-12
 - **关联 ADR**: ADR-016（progressive-internal-extraction）、ADR-014（root-internal-package-strategy）
@@ -211,4 +211,4 @@ Tier 1 的**代码改动本身不依赖根包**（`internal/opc` 可独立编译
 - [x] Tier 1 是否立即实施 → **已实施**（commit `9bfe44d`，收益见上表）
 - [x] Tier 2 是否先做 `CreateRaw` 可行性验证 → **已验证**（见上）：可行且保真
 - [x] Tier 2 是否实施 → **已实施**（2026-09-14）：重启条件①同进程 A/B 取证成立（重压缩占比 50–73%），代码落地 `internal/opc/saveplan.go` 的 `tryRawCopyOriginal` + `package.go` 的 `rawPartFile`，含 `saveplan_raw_test.go` / `saveplan_recompress_probe_test.go`；`go build ./...` 与 `go test ./internal/opc/` 全绿，`go vet` 干净
-- [ ] B1 / PERF-01 全量验收（公开语料 `s001`/`s002`/`s003` 已可跑；`ext-0024` 存在**既有 B1 缺陷**——“output has 96 entries, plan wants 75”，与 Tier 2 无关，须另立 issue/ADR 跟踪）
+- [ ] B1 / PERF-01 全量验收（公开语料 `s001`/`s002`/`s003` 已可跑；`ext-0024` 的 "output has 96 entries, plan wants 75" 经 [ADR-024](ADR-024-saveplan-duplicate-entry-fix.md) 取证确认为 **Tier 2 引入的真实缺陷**（`Write` 中 `zw.Create` 与 `CreateRaw` 双重注册），**已修复**——详见 ADR-024）

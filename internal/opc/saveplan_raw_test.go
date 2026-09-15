@@ -189,3 +189,59 @@ func TestSavePlanWriteTier2RawPreservesSourceFrame(t *testing.T) {
 		}
 	}
 }
+
+// TestSavePlanWriteNoDuplicateEntries 是 raw 直通的**条目计数守门**（防回归）。
+//
+// 背景（BUG ext-0024，2026-09-16 修复）：`Write` 曾在循环开头无条件调用
+// `zw.Create(entry)` 注册条目，而 `tryRawCopyOriginal` 走通时又调用
+// `zw.CreateRaw` 注册**同名第二个条目** —— 于是每个 raw 直通的 Part 输出两条，
+// media 重的文档（ext-0024 21 个媒体）输出 75 + 21 = 96 条，`verifyOutput`
+// 以 "output has 96 entries, plan wants 75" 失败，且 `opc.Load` 报
+// "duplicate entry"。
+//
+// 既有 Tier 2 测试之所以漏网：它们用 `map[name][]byte` 收集条目（rawParts /
+// decompressedParts），同名条目互相覆盖，重复被静默吞掉。本测试**直接按
+// zr.File 逐条计数**，不看 map，确保任何同名重复都会暴露。
+func TestSavePlanWriteNoDuplicateEntries(t *testing.T) {
+	// 3 个媒体（raw 直通）+ 3 个 XML（流式）——两条路径都被覆盖。
+	data, pk, plan := rawTestLoadPlan(t, 1<<20, 3)
+
+	var buf bytes.Buffer
+	if err := plan.Write(pk, &buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("zip.NewReader(output): %v", err)
+	}
+
+	// 1) 逐条计数：不得有同名条目。
+	seen := make(map[string]int, len(zr.File))
+	for _, f := range zr.File {
+		seen[f.Name]++
+	}
+	for name, n := range seen {
+		if n > 1 {
+			t.Errorf("duplicate entry %q appears %d times in output", name, n)
+		}
+	}
+
+	// 2) 物理条目数必须恰好等于计划中非 Omit 条目数（本测试无目录条目候选，
+	//    故不存在"目录条目不计入"的豁免）。
+	want := 0
+	for _, e := range plan.Entries {
+		if e.Action != Omit {
+			want++
+		}
+	}
+	if len(zr.File) != want {
+		t.Errorf("output entries = %d, want %d (plan parts)", len(zr.File), want)
+	}
+
+	// 3) 输出必须能被 opc.Load 接受（重复条目会在此报 duplicate）。
+	if _, err := Load(bytes.NewReader(buf.Bytes()), int64(buf.Len()), Budget{}); err != nil {
+		t.Errorf("Load(output) rejected: %v", err)
+	}
+	_ = data
+}
