@@ -114,5 +114,6 @@ V2.6 §15.3 第 3 条要求"PowerPoint/WPS 的受支持关键用例实际打开�
    - ✅ **形状与原生等价**：对照实验中 PowerPoint 原生 `AddMediaObject2` 插入的音频形状同为 `type=16`；
    - ❌ **`CreateVideo` 不能作为该证据**：它**不渲染页内音频对象**（原生对照组同样无声，box 结构逐项一致）——"Narrations" 仅指「录制旁白」；
    - ❌ **"音频确实出声"仍需人工**：放映（F5）时页内音频对象会播放，但 COM 无法采集音频输出。最终证据需人工录屏（`.mp4`，`Win+Shift+S` / `Win+G`）或 Windows 音频会话枚举（本机 `Add-Type` 被安全策略禁，纯脚本不可行）。
+   - **人工录屏已取得**（2026-09-16，详见 §第四轮）：录屏 `.mp4` 含 **2 条 trak**（`vide` + **`soun`**，838 个 AAC 帧 / 423191 B / ≈126 kbps），`AUDIO_TRACK_PRESENT=true`。**但 CBR AAC 下静音帧同样被填充到固定大小（逐秒均值恒 505 B），容器层无法判定是否静音** —— 最终闭合仍需两项确认：① 录屏音频源为「系统声音」（而非麦克风）；② 人耳确认能听到 2s 的 440 Hz 提示音。
 3. ~~`AudioShape.Profile()` 走 `lastProfileByMedia`（手写内联解析）漏读 `durMs`/`stMs`/`trigger`/`slide`，与 `PlanTimingSync` 所用的 `parseAudioProfile` 两条路径不同步~~ —— **已修复（2026-09-16 同批）**：`lastProfileByMedia` 改为复用 `parseAudioProfile`，消除手写副本。守门 `TestAudioShapeProfileExposesDuration` 断言 `Profile()` 的 `Duration`/`Role`/`MediaPart`/`SlidePart`/`ShapeID`/`ContentSHA256` 均有效（注入退化验证必红：`Duration = 0s, want 2s`）。
    - 影响面：修复前 `Profile().Duration` 恒为 0（用户读不到时长），但主链路 `PlanTimingSync`/`ApplyTimingPlan` 不受影响（它们走完整解析器）—— 实测 `PlanTimingSync` 返回 `err=<nil>, jumps=1`。因此这是**契约一致性缺陷**而非产物缺陷。

@@ -121,6 +121,42 @@ go run .l3-output/zz_genaudio.go -input testdata/corpus/s001-text/s001-text.pptx
 go run .l3-output/zz_mp4probe.go -f x.mp4     # AUDIO_TRACK_PRESENT=false 属预期
 ```
 
+## 第四轮：人工录屏（2026-09-16，§15.3 第 3 条最终证据）
+
+**方法**：在真机上放映 `s001-text.narrated.final.pptx` 并录屏（`.mp4`），再用 `zz_mp4probe` 扫描录屏文件的 MP4 box 结构。
+
+**结果**：
+
+| 项 | 值 |
+|---|---|
+| 文件 | `.l3-output/s001-text.narrated.mp4`（643923 B；覆盖了先前的 CreateVideo 产物） |
+| 总时长 | 26.816s |
+| 轨数 | **2** |
+| 轨 1 | `hdlr handler_type=vide`（400 帧 / 26.606s） |
+| 轨 2 | **`hdlr handler_type=soun`** + `smhd` + AAC（`mp4a` / `esds` 命中） |
+| 音频样本 | 838 帧 / 423191 B / 平均 505 B / 最大 572 B |
+| 等效码率 | **≈126 kbps** |
+| `AUDIO_TRACK_PRESENT` | **true** |
+
+**结论与边界**：
+
+1. ✅ 录屏**确实包含音频轨**且带实际数据（非空轨）——录屏期间有音频被捕获。
+2. ⚠️ **但不能仅凭容器层判定"非静音"**：该音轨是 **CBR AAC**（逐秒平均帧大小恒为 505±2 字节）。恒定码率下静音帧同样会被填充到固定大小，**帧大小/码率不能作为"有声"的判据**（这是本节分析的自我修正——最初的"逐秒分析"假设被数据推翻）。
+3. 因此最终判定需要**播放确认**（人耳）与**音频源确认**（系统声音 vs 麦克风）。
+
+**验收标准（供 QA / 后续复现）**：
+
+| 步骤 | 期望 |
+|---|---|
+| 1. 用 PowerPoint 打开 `.l3-output/s001-text.narrated.final.pptx` | 无修复提示，页面出现 `Audio 11` 音频图标 |
+| 2. F5 放映 | 无修复提示；`advanceTime=2500` 生效（2.5s 后自动翻页/结束） |
+| 3. 放映期间 | 可听到 2.0s 的 440 Hz 提示音 |
+| 4. 录屏（`Win+Shift+S` 或 `Win+G`，输出 `.mp4`） | 音频源选**系统声音**（而非麦克风），以获得"客户端确实输出了音频"的直接证据 |
+| 5. `go run .l3-output/zz_mp4probe.go -f <录屏>.mp4` | `AUDIO_TRACK_PRESENT=true`（音轨存在） |
+| 6. 人耳确认 | 录屏中能听到该提示音 |
+
+> 步骤 4 的**音频源选择是关键**：录制"系统声音"时，音轨内容即客户端输出，是"配音确实播放"的直接证据；若录的是麦克风，则需扬声器外放才能捕获，证据强度降为间接。
+
 ## 执行步骤
 1. 运行 `scripts/gen_corpus/run.sh validate testdata/corpus` 确认本地语料索引有效。
 2. 对公开样本使用 `*.edited.pptx` 作为客户端打开输入。
