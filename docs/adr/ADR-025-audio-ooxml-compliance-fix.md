@@ -73,6 +73,11 @@ V2.6 §15.3 第 3 条要求"PowerPoint/WPS 的受支持关键用例实际打开�
    - 选 v6（保真）而非 v7（合并）：保留源模板的 `spd`/`p14:dur` 与 mc 结构，符合"未触碰区域不动"的 B1 原则。
    - mc 的两个分支语义等价，故**两者都写**同一份 `advTm`——否则客户端走降级分支时会丢自动翻页设置。
 3. **不放宽任何校验**：既未让 `Load`/`Validate` 忽略结构问题，也未把失败降级为警告。
+4. **修读取侧的三处同源问题**（由端到端往返测试 `TestNarratedDeckRoundTrip` 暴露——这是"写入修好了、自己却读不回"的典型）：
+   - `picMediaKind`（`shape.go`）原本只在 `p:blipFill` 子树里找 `a:audioFile`。写入侧改到正确位置后，go-pptx **读不回自己写的音频形状**（回归）。改为先探测 `p:nvPicPr > p:nvPr`，再回退 `p:blipFill`（兼容 v1.0.5 及更早产物）。
+   - `classifyShape` 构造 `AudioShape` 时只填 `role`、**不填 `profile`** —— 读回后 `Profile()` 全为零值、`AudioSource()` 因 `MediaPart` 为空报 `ErrNotFound`。改为按 `cNvPr@id` 从 `/docProps/audio.xml` 取回 Profile。
+   - `Slide.AdvanceAfter()` 与写入侧 `SetAdvanceAfter` 犯同样的错（只扫直接子元素）→ 读不到 mc 包裹的 `advTm`。改为复用 `alternateContentTransitions` 展开 mc 两个分支。
+   - **video 的探测未在本次范围内改动**：曾试图把 `p:videoFile` 的命名空间一并从 `nsPresentationML` 改为 `nsDrawingML`，但既有测试 `TestSlideAddVideo_PicClassifiedAsVideo` / `TestSlideClone_PreservesVideoProfile` 立即变红 —— 说明 video 的真实写法与该假设不符，已回退。**待先确认真实产物的 video 写法再定**（属独立事项）。
 
 ## 验证
 
@@ -104,4 +109,5 @@ V2.6 §15.3 第 3 条要求"PowerPoint/WPS 的受支持关键用例实际打开�
 
 1. 样本正式入 corpus（`audio` 标签 + 可再分发合成音）需与 opencode 协调。
 2. §15.3 第 3 条的"**播放记录**"仍需人工录屏或 Windows 音频会话枚举作为最终证据——本次已证明产物可被两家客户端正确打开并识别为媒体形状，但"音频确实播放出声"尚未留下证据。
-3. `AudioShape.Profile()` 走 `lastProfileByMedia`（手写内联解析）漏读 `durMs`/`stMs`/`trigger`，与 `PlanTimingSync` 所用的 `parseAudioProfile` 两条路径不同步——**独立缺陷，另行处置**。
+3. ~~`AudioShape.Profile()` 走 `lastProfileByMedia`（手写内联解析）漏读 `durMs`/`stMs`/`trigger`/`slide`，与 `PlanTimingSync` 所用的 `parseAudioProfile` 两条路径不同步~~ —— **已修复（2026-09-16 同批）**：`lastProfileByMedia` 改为复用 `parseAudioProfile`，消除手写副本。守门 `TestAudioShapeProfileExposesDuration` 断言 `Profile()` 的 `Duration`/`Role`/`MediaPart`/`SlidePart`/`ShapeID`/`ContentSHA256` 均有效（注入退化验证必红：`Duration = 0s, want 2s`）。
+   - 影响面：修复前 `Profile().Duration` 恒为 0（用户读不到时长），但主链路 `PlanTimingSync`/`ApplyTimingPlan` 不受影响（它们走完整解析器）—— 实测 `PlanTimingSync` 返回 `err=<nil>, jumps=1`。因此这是**契约一致性缺陷**而非产物缺陷。

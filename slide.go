@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // Slide 是页面的受控句柄（方案 §5/§14）。
@@ -189,14 +190,28 @@ func (s *Slide) AdvanceAfter() (time.Duration, bool, error) {
 	if root == nil {
 		return 0, false, Annotate(ErrStaleHandle, "Slide.AdvanceAfter")
 	}
+	// 收集全部 transition：既包括 p:sld 的直接子元素，也包括被
+	// mc:AlternateContent 包裹的 p:transition（源模板常见形态，用于表达
+	// p14:dur 等扩展属性）。不展开 mc 就会"读不到"已写入的 advTm ——
+	// 与 SetAdvanceAfter 的写入侧问题同源，详见 ADR-025。
+	var transitions []*xmlstore.NodeRecord
 	for _, cid := range root.Children {
 		c := doc.Node(cid)
-		if c == nil || c.Namespace != nsPresentationML || c.Local() != "transition" {
+		if c == nil {
 			continue
 		}
-		v, ok := c.Attr("", "advTm")
+		if c.Namespace == nsPresentationML && c.Local() == "transition" {
+			transitions = append(transitions, c)
+			continue
+		}
+		if c.Namespace == xmlstore.NSMarkupCompat && c.Local() == "AlternateContent" {
+			transitions = append(transitions, alternateContentTransitions(doc, c)...)
+		}
+	}
+	for _, tr := range transitions {
+		v, ok := tr.Attr("", "advTm")
 		if !ok || strings.TrimSpace(v) == "" {
-			return 0, false, nil
+			continue
 		}
 		ms, perr := strconv.ParseInt(v, 10, 64)
 		if perr != nil || ms < 0 {

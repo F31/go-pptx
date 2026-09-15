@@ -30,6 +30,30 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
   - 新增 `audio_ooxml_compliance_test.go` 两条守门测试，并注入退化验证其必红。
   - **性质修正**：V2.6 §15.3 第 3 条由"环境型缺口（缺 audio 语料）"改为
     "**真实代码缺陷**（已修复）"；"播放记录"仍需人工录屏/音频会话枚举补证。
+- **`AudioShape.Profile()` 字段丢失（中，与上条同批）**：`lastProfileByMedia` 是一份
+  手写精简解析副本，只读 `trackKey`/`role`/`media`/`sha256`/`shapeID`/`version`，
+  漏掉 `slide`/`durMs`/`stMs`/`trigger` —— `Profile().Duration` 恒为 0（用户读不到
+  时长），而 `PlanTimingSync` 走完整解析器 `parseAudioProfile` 却有值，**两条路径
+  语义不一致**。修复：`lastProfileByMedia` 改为复用 `parseAudioProfile`，消除副本。
+  - 影响面：主链路 `PlanTimingSync`/`ApplyTimingPlan` 不受影响（走完整解析器），
+    属**契约一致性缺陷**而非产物缺陷。
+  - 守门 `TestAudioShapeProfileExposesDuration`（断言 `Duration`/`Role`/`MediaPart`/
+    `SlidePart`/`ShapeID`/`ContentSHA256` 均有效），**注入退化验证必红**（`Duration = 0s, want 2s`）。
+- **读取侧同源修复（中，ADR-025 同批；由端到端往返测试暴露）**：写入侧修好后 go-pptx
+  **读不回自己写的音频形状**，三处读取侧同源问题一并修复：
+  - `picMediaKind`（`shape.go`）原本只在 `p:blipFill` 子树里找 `a:audioFile` → 改为先探测
+    正确位置 `p:nvPicPr > p:nvPr`，再回退 `p:blipFill`（**兼容 v1.0.5 及更早产物**）；
+  - `classifyShape` 构造 `AudioShape` 时**不填 `profile`** → 读回后 `Profile()` 全零值、
+    `AudioSource()` 因 `MediaPart` 为空报 `ErrNotFound` → 改为按 `cNvPr@id` 从
+    `/docProps/audio.xml` 取回 Profile；
+  - `Slide.AdvanceAfter()` 与写入侧犯同样的错（只扫 `p:sld` 直接子元素）→ 读不到
+    mc 包裹的 `advTm` → 复用 `alternateContentTransitions` 展开 mc 两个分支。
+  - 新增端到端往返守门 `TestNarratedDeckRoundTrip`（生成→保存→重开→断言形状/Profile/
+    `AdvanceAfter` 完整往返）。**自包含：音频用代码合成，无需往语料库放二进制样本**，
+    CI 恒可执行 —— 故本项不需要 opencode 侧入库配合。
+  - **未在本次范围**：video 的探测（`p:videoFile`）。曾试图一并修正其命名空间，
+    既有测试 `TestSlideAddVideo_PicClassifiedAsVideo` / `TestSlideClone_PreservesVideoProfile`
+    立即变红，已回退；待先确认真实产物的 video 写法。
 
 ## [1.0.5] - 2026-09-16
 

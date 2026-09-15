@@ -329,8 +329,14 @@ func findRoleForAudio(_ *xmlstore.NodeRecord, _ *xmlstore.XMLDocument) AudioRole
 	return AudioRoleNarration
 }
 
-// lastProfileByMedia 返回最近一次 recordAudioProfile 提交的 Profile。
-// 简单实现：扫描 /docProps/audio.xml 的最后一个 Profile 节点。
+// lastProfileByMedia 返回最近一次 recordAudioProfile 提交的 Profile
+// （即 /docProps/audio.xml 的最后一个 Profile 节点）。
+//
+// 实现上**必须复用 parseAudioProfile**，不要另写精简解析：历史上这里是
+// 一份手写副本，只读了 trackKey/role/media/sha256/shapeID/version，漏掉
+// slide/durMs/stMs/trigger —— 于是 AudioShape.Profile() 返回的 Duration
+// 恒为 0（StartDelay/Trigger/SlidePart 同样丢失），而 PlanTimingSync 走
+// 完整解析器却有值，两条路径语义不一致。详见 ADR-025 §后续。
 func lastProfileByMedia(p *Presentation) AudioProfile {
 	const partName opc.PartName = "/docProps/audio.xml"
 	b, err := p.partBytes(partName)
@@ -342,31 +348,14 @@ func lastProfileByMedia(p *Presentation) AudioProfile {
 		return AudioProfile{}
 	}
 	root := doc.Root()
-	if len(root.Children) == 0 {
+	if root == nil || len(root.Children) == 0 {
 		return AudioProfile{}
 	}
 	n := doc.Node(root.Children[len(root.Children)-1])
 	if n == nil {
 		return AudioProfile{}
 	}
-	tk, _ := n.Attr("", "trackKey")
-	role, _ := n.Attr("", "role")
-	media, _ := n.Attr("", "media")
-	sha, _ := n.Attr("", "sha256")
-	shapeID, _ := n.Attr("", "shapeID")
-	ver, _ := n.Attr("", "version")
-	ap := AudioProfile{
-		TrackKey:      tk,
-		Role:          roleFromString(role),
-		MediaPart:     opc.PartName(media),
-		ContentSHA256: sha,
-	}
-	if id, err := strconv.ParseInt(shapeID, 10, 64); err == nil {
-		ap.ShapeID = ShapeID(id)
-	}
-	if v, err := strconv.Atoi(ver); err == nil {
-		ap.Version = v
-	}
+	ap, _ := parseAudioProfile(n)
 	return ap
 }
 

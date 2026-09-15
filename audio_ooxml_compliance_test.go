@@ -1,6 +1,10 @@
 package pptx
 
 import (
+	"bytes"
+	"context"
+	"encoding/binary"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -95,5 +99,170 @@ func TestSetAdvanceAfterKeepsSingleTransition(t *testing.T) {
 	// 不得出现"直接子元素形态"的新 transition。
 	if strings.Contains(s, `<p:transition advTm="2500"/>`) {
 		t.Errorf("a direct-child <p:transition advTm=.../> was appended (duplicate transition)")
+	}
+}
+
+// synthTestWAV 合成 16-bit 单声道 PCM WAV（纯函数，无外部依赖）。
+func synthTestWAV(seconds float64, sampleRate int) []byte {
+	n := int(seconds * float64(sampleRate))
+	pcm := make([]byte, n*2)
+	for i := 0; i < n; i++ {
+		v := int16(math.Sin(2*math.Pi*440*float64(i)/float64(sampleRate)) * 0.3 * math.MaxInt16)
+		binary.LittleEndian.PutUint16(pcm[i*2:], uint16(v))
+	}
+	var buf bytes.Buffer
+	write := func(v any) { _ = binary.Write(&buf, binary.LittleEndian, v) }
+	buf.WriteString("RIFF")
+	write(uint32(36 + len(pcm)))
+	buf.WriteString("WAVE")
+	buf.WriteString("fmt ")
+	write(uint32(16))
+	write(uint16(1))
+	write(uint16(1))
+	write(uint32(sampleRate))
+	write(uint32(sampleRate * 2))
+	write(uint16(2))
+	write(uint16(16))
+	buf.WriteString("data")
+	write(uint32(len(pcm)))
+	buf.Write(pcm)
+	return buf.Bytes()
+}
+
+// TestAudioShapeProfileExposesDuration 守门 AudioShape.Profile() 的字段完整性。
+//
+// 历史上 lastProfileByMedia 是一份手写精简解析副本，漏读 durMs/stMs/trigger/
+// slide，导致 Profile().Duration 恒为 0（而 PlanTimingSync 走完整解析器却有值，
+// 两条路径语义不一致）。修复为复用 parseAudioProfile 后，本测试应通过。
+func TestAudioShapeProfileExposesDuration(t *testing.T) {
+	p, err := Open("testdata/corpus/s001-text/s001-text.pptx")
+	if err != nil {
+		t.Skipf("corpus sample unavailable: %v", err)
+	}
+	defer p.Close()
+
+	slides, err := p.Slides()
+	if err != nil {
+		t.Fatalf("Slides: %v", err)
+	}
+	if len(slides) == 0 {
+		t.Fatal("no slides")
+	}
+	const wantDur = 2 * time.Second
+	wav := synthTestWAV(2.0, 44100)
+	as, err := slides[0].AddAudio(context.Background(), BytesMedia(wav, "audio/wav"), AudioSpec{
+		TrackKey: "narration-1",
+		Role:     AudioRoleNarration,
+	})
+	if err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+
+	prof := as.Profile()
+	if prof.TrackKey != "narration-1" {
+		t.Errorf("Profile().TrackKey = %q, want narration-1", prof.TrackKey)
+	}
+	if prof.Duration != wantDur {
+		t.Errorf("Profile().Duration = %v, want %v (lastProfileByMedia must reuse parseAudioProfile)", prof.Duration, wantDur)
+	}
+	if prof.Role != AudioRoleNarration {
+		t.Errorf("Profile().Role = %v, want narration", prof.Role)
+	}
+	if prof.MediaPart == "" {
+		t.Errorf("Profile().MediaPart is empty")
+	}
+	if prof.SlidePart == "" {
+		t.Errorf("Profile().SlidePart is empty (dropped by the hand-rolled parser copy)")
+	}
+	if prof.ShapeID == 0 {
+		t.Errorf("Profile().ShapeID is zero")
+	}
+	if prof.ContentSHA256 == "" {
+		t.Errorf("Profile().ContentSHA256 is empty")
+	}
+}
+
+// TestNarratedDeckRoundTrip 端到端往返：生成含配音的文档 → 保存 → 重新打开，
+// 断言 audio 形状与计时设置可完整读回。
+//
+// 自包含：音频用代码合成（synthTestWAV），**不需要往语料库放二进制样本**，
+// 因此该覆盖在 CI 上恒可执行。
+func TestNarratedDeckRoundTrip(t *testing.T) {
+	const wantDur = 2 * time.Second
+	const wantAdv = 2500 * time.Millisecond
+
+	p, err := Open("testdata/corpus/s001-text/s001-text.pptx")
+	if err != nil {
+		t.Skipf("corpus sample unavailable: %v", err)
+	}
+	slides, err := p.Slides()
+	if err != nil {
+		t.Fatalf("Slides: %v", err)
+	}
+	if len(slides) == 0 {
+		t.Fatal("no slides")
+	}
+	as, err := slides[0].AddAudio(context.Background(), BytesMedia(synthTestWAV(2.0, 44100), "audio/wav"), AudioSpec{
+		TrackKey: "narration-1",
+		Role:     AudioRoleNarration,
+	})
+	if err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	if err := as.SetPlayback(PlaybackSpec{Trigger: PlaybackOnSlideEnter}); err != nil {
+		t.Fatalf("SetPlayback: %v", err)
+	}
+	if err := slides[0].SetAdvanceAfter(wantAdv); err != nil {
+		t.Fatalf("SetAdvanceAfter: %v", err)
+	}
+	var buf bytes.Buffer
+	if _, err := p.Write(context.Background(), &buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	p2, err := OpenReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("OpenReader(round-trip): %v", err)
+	}
+	defer p2.Close()
+	slides2, err := p2.Slides()
+	if err != nil {
+		t.Fatalf("Slides(2): %v", err)
+	}
+	shapes2, err := slides2[0].Shapes()
+	if err != nil {
+		t.Fatalf("Shapes(2): %v", err)
+	}
+	var audio *AudioShape
+	for _, sh := range shapes2 {
+		if a, ok := sh.(*AudioShape); ok {
+			audio = a
+		}
+	}
+	if audio == nil {
+		t.Fatalf("audio shape not found after round-trip (shapes=%d)", len(shapes2))
+	}
+	if audio.Kind() != ShapeAudio {
+		t.Errorf("Kind = %v, want ShapeAudio", audio.Kind())
+	}
+	if got := audio.Profile().Duration; got != wantDur {
+		t.Errorf("round-trip Profile().Duration = %v, want %v", got, wantDur)
+	}
+	if src, err := audio.AudioSource(); err != nil {
+		t.Errorf("AudioSource: %v", err)
+	} else if src == nil {
+		t.Errorf("AudioSource returned nil")
+	}
+	d, ok, err := slides2[0].AdvanceAfter()
+	if err != nil {
+		t.Fatalf("AdvanceAfter: %v", err)
+	}
+	if !ok {
+		t.Errorf("AdvanceAfter: ok = false, want true")
+	} else if d != wantAdv {
+		t.Errorf("AdvanceAfter = %v, want %v", d, wantAdv)
 	}
 }
