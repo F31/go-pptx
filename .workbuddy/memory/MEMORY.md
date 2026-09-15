@@ -4,9 +4,9 @@
 纯 Go（CGO_ENABLED=0、无外部运行时强依赖）PPTX 创建/编辑组件。设计基线《go-pptx 完整设计方案 V2.6 开发实施版》，实施依《go-pptx 项目实施计划》M0–M8 阶段门禁制推进。
 
 ## 发布状态（2026-09-13 精简版）
-- 已发布 tag：**v1.0.0 / v1.0.1 / v1.0.2 / v1.0.3 / v1.0.4**（均 `git tag -s` SSH 签名 + push origin；签名用仓库级 `gpg.format=ssh` + `user.signingkey=~/.ssh/id_ed25519`，本机无 GPG 勿用）。**注意**：CHANGELOG [1.0.3] 曾误记 2026-09-22（会话时钟漂移），已在 v1.0.4 修正为 2026-09-12；tag 实际日期 v1.0.0=09-11、v1.0.1–v1.0.3=09-12、v1.0.4=09-13。
+- 已发布 tag：**v1.0.0 / v1.0.1 / v1.0.2 / v1.0.3 / v1.0.4 / v1.0.5**（均 `git tag -s` SSH 签名 + push origin；签名用仓库级 `gpg.format=ssh` + `user.signingkey=~/.ssh/id_ed25519`，本机无 GPG 勿用；`git tag -s` 需读 `~/.ssh` 会触发沙箱升级）。**v1.0.5**（2026-09-16，`7d14f5b`）= v1.0.1 以来**首个含生产代码改动的 patch**：ADR-018 Tier 2 性能 + A-2/WASM GA API 表面 + ADR-024/COV-04 修复；L3 真机矩阵第二轮 8/8。**注意**：CHANGELOG [1.0.3] 曾误记 2026-09-22（会话时钟漂移），已在 v1.0.4 修正为 2026-09-12；tag 实际日期 v1.0.0=09-11、v1.0.1–v1.0.3=09-12、v1.0.4=09-13、v1.0.5=09-16。
 - v1.0.4（质量里程碑版）：v1.0.3..HEAD 零生产代码改动（全为测试+文档），API 表面与 v1.0.3 逐项一致；根包合并口径覆盖率 82.3%→84.4%，零覆盖函数清零，测试资产 +1251 行。
-- **全系列 binary-compat**：// Stable 34 / Experimental 5 / 50 Stable 符号 / 158 总 type / 17 哨兵（含错误字符串）全部锁死；v1.0.3 仅追加 2 Stable 只读方法（`Slide.Hidden` / `Slide.AdvanceAfter`），**Stable 方法 127 → 129**。
+- **binary-compat 表面演进**：v1.0.0 基线 34 Stable 段 / 5 Experimental / 50 Stable 符号 / 158 总 type / 17 哨兵（含错误字符串）；**v1.0.5 起为 40 / 0 / 60 / 163 / 131 Stable 方法**（v1.0.3 +2 方法、A-2 +1 段/+5 符号/+1 方法、D-5 +5 段/+5 符号/+1 方法），全部**只增不改**。
 - **不变量由 `api_surface_test.go` 7 个 AST 测试守门**（golden 名单优于计数、parser.ParseDir 优于 grep——`grep '^type [A-Z]'` 只数 149 漏分组声明）。**改动公共 API 表面必须同步 golden 清单**；根包非测试文件禁止 `//go:build`。
 - v1.0 冻结清单已闭合（34 Stable 段=33 独立 type+1 哨兵聚合段；曾误记 51/102，系段落 grep 数误当 type 数，详见 freeze list §2026-09-12 勘误）。
 - 覆盖率现状（2026-09-16 复测）：root 合并口径 **84.4%**（COV-02 门槛 82%，合并口径=根包测试 binary 对 -coverpkg=./. 的覆盖）；per-package：opc **90.3%** / xmlstore 90.8% / videoprobe 92.6% / summarize 91.0% / chart 91.2% / audioprobe 88.4% / editplan·textmap 100% / ir 86.1% / render 84.2%。**根包 0% 函数清单已清空**（2026-09-13 全仓扫描）。**注（重要）**：opc 在 09-14 因 ADR-018 Tier 2 静默跌至 **89.5%**（跌破 COV-04 的 90% 门槛，三天无人发现），09-16 补门限守门测试后恢复 90.3%——**已闭合的里程碑仍会被新代码悄悄突破，须定期实测而非只看登记值**。PERF-01 已在 ADR-016/018 双重构后重跑。
