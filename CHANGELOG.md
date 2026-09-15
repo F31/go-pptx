@@ -7,7 +7,34 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md).
 
-## [Unreleased]
+## [1.0.5] - 2026-09-16
+
+**v1.0.4 后的第五个 patch release，也是 v1.0.1 以来首个含生产代码改动的 patch**（v1.0.1–v1.0.4 均为测试/文档增量）。v1.0.4 → v1.0.5 共 **12 个 commit / 39 文件（+2291 / −109）**。
+
+公共 API 表面**只增不改**：`// Stable:` 段 34 → **40**、Stable 符号 50 → **60**、Stable 方法 129 → **131**、`// Experimental:` 5 → **0**、公共 type 158 → **163**——**binary-compat with v1.0.0 / v1.0.1 / v1.0.2 / v1.0.3 / v1.0.4**，零签名变更、零字段删除。
+
+本版三条主线：① **Save 性能**（ADR-018 Tier 2 原始帧直通，未变媒体不再重压缩）；② **API 表面预备**（A-2 形状能力窄接口 + WASM API GA 化）；③ **Tier 2 的两处同源缺陷修复**（ADR-024 重复条目 + COV-04 覆盖率门槛回归）。
+
+### Added (API)
+
+- **A-2 形状能力窄接口（ADR-021）**：新增 5 个 `// Stable:` 能力接口
+  —— `GeometryProvider` / `FillProvider` / `EffectsProvider` /
+  `StyleMatrixRefsProvider` / `LineProvider`，并补 8 条形状编译期断言。
+  既有 `Shape` 接口的 getter **全部保留**，新调用方可按需做窄接口断言组合；
+  `goldenStableSymbols` 50 → 55。
+- **FEAT-002 项 3 降置信诊断（ADR-020）**：新增
+  `ChartShape.DataWithDiagnostics` + `internal/chart.ChartAxisUnreadFieldNames`
+  + `ir.Shape.Diagnostics`（`// Experimental:` IR 字段）。图表轴单位读不到显式
+  `c:numFmt` 时给出可解释的降置信标记，而非静默取默认值。零 API 扩张。
+
+### Performance
+
+- **ADR-018 Tier 2：未变非 XML Part 走原始帧直通**（`(*zip.File).OpenRaw` +
+  `(*zip.Writer).CreateRaw`），跳过解压与重压缩。同进程 A/B 取证：未变媒体重压缩
+  占 Save p50 的 **50–73%**（3×8 MiB 65.3% / 73.4%、100×768 48.0% / 66.2%）。
+  安全门限：仅非 XML、仅 `Store` / `Deflate`、无加密位(bit0)、无 data-descriptor
+  位(bit3)、声明尺寸非零；不满足者自动退回 Tier 1 流式复制。B1 语义保持
+  （解压内容逐字节不变）。
 
 ### Fixed
 
@@ -50,6 +77,35 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
   WASM 嵌入消费者现获得稳定契约，不再受 1.x 内静默变更的威胁。
 - 不在本次范围：`ir.Page.Hidden` / `ir.Shape.Diagnostics` 的 `// Experimental:`
   字段标记（属 `ir` 包，需各自 ADR 评审，见 FEAT-003 / ADR-020 文档）。
+
+### Verification
+
+- `go test ./...` 与 `go test -tags=corpus ./...` 各 **14/14 全绿**；`api_surface_test.go`
+  7 个 AST 断言 PASS（与 v1.0.4 的计数差异见上方「公共 API 表面」行，属**有意**的
+  golden 名单更新，已过 ADR-021 / ADR-023 评审）；
+- `CGO_ENABLED=0 go vet ./...` 与 `-tags=corpus` 双口径零警告；`gofmt -l .` 干净；
+- 四目标交叉构建（`js/wasm` / `wasip1/wasm` / `darwin/arm64` / `linux/arm64`）全部通过；
+- **L3 真机客户端矩阵（Tier 2 产物）8/8 通过**：PowerPoint 16.0.20326 + WPS
+  12.1.0.28599 × 4 样本（`s001-text` / `s002-table` / `s003-image` / `ext-0024`）均
+  无修复提示打开、重存成功；重存文件经 go-pptx `Validate` 全部 errorCount=0。Tier 2
+  改变了输出字节，故按 ADR-018 验收清单第 5 项重跑——详见
+  [`docs/client-compat-matrix.md`](docs/client-compat-matrix.md) 第二轮。
+- 覆盖率：root 合并口径 **84.4%**；`internal/opc` **90.3%**（Tier 2 曾使其跌到
+  89.5%，本版补齐门限守门测试后恢复）/ chart 91.2% / xmlstore 90.8% /
+  videoprobe 92.6% / audioprobe 88.4% / editplan·textmap 100% / ir 86.1% /
+  render 84.2%。
+
+### Compatibility
+
+- **v1.0.4 → v1.0.5：binary-compatible + API-compatible（只增不改）**——新增 5 个
+  Stable 窄接口与 2 个方法/字段，既有签名与字段零变更；5 个 Experimental 段升
+  Stable 属**承诺增强**，不构成破坏性变更。
+- 下游升级动作：可选。使用 WASM 嵌入 API 者，本版把此前的 Experimental 段变为稳定
+  契约（收益是消除 1.x 内静默变更的风险）；其余调用方行为完全一致。
+- **注意**：Tier 2 之后 `SavePlan.Write` 的**输出字节布局**与 v1.0.4 不同（未变媒体
+  Part 保留源压缩帧与 Extra，不再重新 Deflate），但**解压内容逐字节一致**——B1 语义
+  与 OPC Part 视角（PartNames + 内容哈希）的等价性不变。若下游做过输出 ZIP 的逐字节
+  比对，需改用 Part 视角比对。
 
 ## [1.0.4] - 2026-09-13
 

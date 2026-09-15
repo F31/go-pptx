@@ -1,6 +1,6 @@
 # L3 客户端兼容矩阵
 
-日期：2026-09-11（**真机首轮执行完成**；自动化脚本见 `scripts/l3/`）
+日期：2026-09-11（**真机首轮执行完成**）/ 2026-09-16（**第二轮：ADR-018 Tier 2 产物验证**）；自动化脚本见 `scripts/l3/`
 
 本文记录 PowerPoint / WPS 真机兼容验证。验证方式：Windows 宿主机（WSL 侧触发）通过 COM 自动化打开样本、判定无修复提示并另存为 .pptx，再交由 go-pptx 重开回验。所有步骤可由 `scripts/l3/run_client.sh <ppt|wpp> <src> <dst>` 复现。
 
@@ -62,8 +62,37 @@
 | WPS | 12.1.0.28599 | Win11 26200 | `s003-image` | edited | pass | 无 | pass | errorCount=0，Generated PNG 保留 | `.l3-output/s003-image.wps-resaved.pptx` (2adeec79…) | COM 自动化 |
 | WPS | 12.1.0.28599 | Win11 26200 | `ext-0024` | go-pptx edited | pass | 无 | pass | errorCount=0，89145 保留 | `.l3-output/ext-0024.wps-resaved.pptx` (a97cf728…) | 私有样本，不入库 |
 
-## 执行步骤
+## 第二轮：ADR-018 Tier 2 产物验证（2026-09-16）
 
+**触发**：ADR-018 Tier 2（未变非 XML Part 走 `CreateRaw`/`OpenRaw` 原始帧直通）改变了 Save 的输出字节布局——媒体 Part 不再被重压缩，源压缩帧与 Extra 字段原样保留。ADR-018 验收清单第 5 项据此要求**重跑 8 组合**（Tier 1 曾因输出字节不变而豁免）。
+
+**输入**：用本轮 HEAD（含 Tier 2）经 SDK `ReplaceText` + `Save` 重新生成编辑后产物到 `.l3-output/t2/*.t2.pptx`——**不是**入库的 `*.edited.pptx`（后者由 Tier 2 之前的代码生成）。生成器 `scripts/gen_corpus/gold_replace.go`。
+
+| Sample | 编辑 | Tier 2 产物 sha8 | 尺寸 |
+|---|---|---|---:|
+| `s001-text` | `REPORT_BODY` → `Q3-2026` | 9771BB47 | 8748 |
+| `s002-table` | `GPU` → `AI` | 7C998323 | 9026 |
+| `s003-image` | `Synthetic PNG` → `Generated PNG` | 208210DA | 9014 |
+| `ext-0024` | `89144` → `89145` | BFF349A9 | 5964704 |
+
+**结果：8/8 全部通过**（`OPEN=ok` 无修复提示 + `SAVE=ok`）。
+
+| Client | Sample | Open | Repair Prompt | Resave | go-pptx Validate After Resave | Evidence sha8 |
+|---|---|---|---|---|---|---|
+| PowerPoint 16.0.20326 | `s001-text` | pass | 无 | pass | errorCount=0 | 038C7BDC |
+| PowerPoint 16.0.20326 | `s002-table` | pass | 无 | pass | errorCount=0 | 506665A0 |
+| PowerPoint 16.0.20326 | `s003-image` | pass | 无 | pass | errorCount=0 | 3783C1F0 |
+| PowerPoint 16.0.20326 | `ext-0024` | pass | 无 | pass | errorCount=0 | F041CB5A |
+| WPS 12.1.0.28599 | `s001-text` | pass | 无 | pass | errorCount=0 | 03DEAC86 |
+| WPS 12.1.0.28599 | `s002-table` | pass | 无 | pass | errorCount=0 | D51DB2EE |
+| WPS 12.1.0.28599 | `s003-image` | pass | 无 | pass | errorCount=0 | 91C94AFF |
+| WPS 12.1.0.28599 | `ext-0024` | pass | 无 | pass | errorCount=0 | 6F45FE60 |
+
+> 执行方式：本机为原生 Windows（非 WSL），故用等价的一次性 runner 驱动 `scripts/l3/ppt_open_resave.ps1`（`Start-Job` + 55s 超时保护，判定语义与 `run_client.sh` 一致）。总耗时 13.3s。`ext-0024` 重存后 2 页（`SLIDES=2`），其余样本 1 页，均与源一致。
+
+**意义**：这是 Tier 2 安全门限（非 XML / 仅 Store 或 Deflate / 排除加密位与 data-descriptor 位 / 尺寸已知）**在真机上的端到端背书**——raw 直通保留的原始压缩帧被 PowerPoint 与 WPS 正常接受，无修复提示。门限的全部意义就是不让"客户端判损"发生，本轮矩阵是其直接证据。
+
+## 执行步骤
 1. 运行 `scripts/gen_corpus/run.sh validate testdata/corpus` 确认本地语料索引有效。
 2. 对公开样本使用 `*.edited.pptx` 作为客户端打开输入。
 3. 对私有样本按 `manifest.json.files.pptx.path` 定位原文件，在受限环境生成 go-pptx 编辑后文件。
@@ -89,3 +118,5 @@ bash scripts/l3/run_client.sh wpp \
 ## 当前结论
 
 2026-09-11 首轮真机执行完成：**4 样本 × 2 客户端 = 8 组合全部通过**——PowerPoint 16.0.20326 与 WPS 演示 12.1.0.28599 均无修复提示打开、重存成功，重存文件经 go-pptx `Validate` 全部 errorCount=0 且编辑内容保留。L3 发布级缺口闭合（COM 自动化为无窗口代理；如需 GUI 截图证据，可后续在真机补录）。
+
+**2026-09-16 第二轮（Tier 2 产物）同样 8/8 通过**：这是 Tier 2 改变输出字节后的兼容性背书，也是 v1.0.5 的发布门禁之一。两轮合计 16 组合、零修复提示。
