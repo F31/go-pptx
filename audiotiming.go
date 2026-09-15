@@ -261,26 +261,47 @@ func (s *Slide) SetAdvanceAfter(d time.Duration) error {
 	}
 	ms := d.Milliseconds()
 	val := strconv.FormatInt(ms, 10)
-	var timing, transition *xmlstore.NodeRecord
+	// 收集页面上**全部**的有效 transition，以及 timing 节点。
+	//
+	// 关键：源模板常见形态是把 transition 包在 mc:AlternateContent 里
+	// （`<mc:Choice Requires="p14"><p:transition spd="slow" p14:dur="2000"/>`
+	// + `<mc:Fallback><p:transition spd="slow"/></mc:Fallback>`，用于表达
+	// p14 扩展属性）。这类节点既不是 p:sld 的直接子元素，命名空间也不是
+	// PresentationML —— 若只扫直接子元素就会**漏掉已有 transition**，
+	// 于是再追加一个 `<p:transition advTm="..."/>`，导致同一 slide 出现两个
+	// p:transition，违反 CT_Slide 的 maxOccurs=1，PowerPoint 判定包损坏
+	// （0x80070570）。详见 ADR-025。
+	var timing *xmlstore.NodeRecord
+	var transitions []*xmlstore.NodeRecord
 	for _, cid := range root.Children {
 		c := doc.Node(cid)
-		if c == nil || c.Namespace != nsPresentationML {
+		if c == nil {
 			continue
 		}
-		switch c.Local() {
-		case "transition":
-			transition = c
-		case "timing":
-			timing = c
+		if c.Namespace == nsPresentationML {
+			switch c.Local() {
+			case "transition":
+				transitions = append(transitions, c)
+			case "timing":
+				timing = c
+			}
+			continue
+		}
+		if c.Namespace == xmlstore.NSMarkupCompat && c.Local() == "AlternateContent" {
+			transitions = append(transitions, alternateContentTransitions(doc, c)...)
 		}
 	}
 	var patches []xmlstore.SpanPatch
-	if transition != nil {
-		p, err := setOrAddAttr(doc, transition, "advTm", val)
-		if err != nil {
-			return Annotate(err, "Slide.SetAdvanceAfter")
+	if len(transitions) > 0 {
+		// mc 的 Choice 与 Fallback 语义等价；两者都要写同一份 advTm，否则
+		// 一旦客户端走降级分支就会丢掉自动翻页设置。
+		for _, tr := range transitions {
+			p, err := setOrAddAttr(doc, tr, "advTm", val)
+			if err != nil {
+				return Annotate(err, "Slide.SetAdvanceAfter")
+			}
+			patches = append(patches, p)
 		}
-		patches = append(patches, p)
 	} else {
 		frag := `<p:transition advTm="` + val + `"/>`
 		var ap xmlstore.SpanPatch
@@ -303,6 +324,31 @@ func (s *Slide) SetAdvanceAfter(d time.Duration) error {
 		return Annotate(err, "Slide.SetAdvanceAfter")
 	}
 	return nil
+}
+
+// alternateContentTransitions 返回 mc:AlternateContent 各分支（Choice /
+// Fallback）下直接承载的 p:transition 元素。
+//
+// 这些元素由源模板携带（表达 p14:dur 等扩展属性），必须在写 advTm 时一并
+// 更新，不能被当作"不存在 transition"而追加新节点。详见 ADR-025。
+func alternateContentTransitions(doc *xmlstore.XMLDocument, alt *xmlstore.NodeRecord) []*xmlstore.NodeRecord {
+	var out []*xmlstore.NodeRecord
+	for _, bid := range alt.Children {
+		branch := doc.Node(bid)
+		if branch == nil {
+			continue
+		}
+		for _, gid := range branch.Children {
+			g := doc.Node(gid)
+			if g == nil {
+				continue
+			}
+			if g.Namespace == nsPresentationML && g.Local() == "transition" {
+				out = append(out, g)
+			}
+		}
+	}
+	return out
 }
 
 // ---------- UpsertNarration（AUDIO-03 入口） ----------

@@ -461,29 +461,28 @@ func (p *Presentation) planAudioMedia(data []byte, sum [32]byte, ext, ct string)
 
 // ---------- p:pic 形音频片段 ----------
 
-// buildAudioPicFragment 返回最小可识别片段：
-// p:pic 含 blipFill + a:audioFile（powerpoint 接受的 audio 形状表达之一）。
+// buildAudioPicFragment 返回 PowerPoint/WPS 均接受的 audio 形状片段。
+//
+// 结构合规性（ADR-025）：`p:nvPicPr` 必须含 `p:nvPr`（CT_PictureNonVisual 的
+// 三项均为 minOccurs=1），且音频引用 `<a:audioFile>` 属于 **nvPr** 而非
+// blipFill，其 `r:link` 是必需属性（CT_AudioFile）。缺任何一项时 PowerPoint
+// 会判定整包损坏（0x80070570 "文件或目录损坏"），而 WPS 宽容不报错。
 func buildAudioPicFragment(id int64, name, rid, ext string) string {
+	_ = ext // 媒体类型由 Part 关系与 Content_Types 承载，片段内不再声明
 	var sb strings.Builder
 	sb.WriteString(`<p:pic>`)
 	sb.WriteString(`<p:nvPicPr><p:cNvPr id="`)
 	sb.WriteString(strconv.FormatInt(id, 10))
 	sb.WriteString(`" name="`)
 	xmlEscapeAttr(&sb, name)
-	sb.WriteString(`"/><p:cNvPicPr/></p:nvPicPr>`)
+	sb.WriteString(`"/><p:cNvPicPr/><p:nvPr><a:audioFile r:link="`)
+	sb.WriteString(rid)
+	sb.WriteString(`"/></p:nvPr></p:nvPicPr>`)
 	sb.WriteString(`<p:blipFill>`)
 	sb.WriteString(`<a:blip r:embed="`)
 	sb.WriteString(rid)
-	sb.WriteString(`"/>`)
-	if ext == "mp3" {
-		sb.WriteString(`<a:audioFile contentType="audio/mpeg"/>`)
-	} else if ext == "wav" {
-		sb.WriteString(`<a:audioFile contentType="audio/wav"/>`)
-	} else {
-		sb.WriteString(`<a:audioFile/>`)
-	}
-	sb.WriteString(`</p:blipFill>`)
-	// 占位几何：1×1 EMU；调用方一般随后调 Geometry/Move。
+	sb.WriteString(`"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>`)
+	// 占位几何：0×0 EMU；调用方一般随后调 Geometry/Move。
 	sb.WriteString(`<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>`)
 	sb.WriteString(`</p:pic>`)
 	return sb.String()

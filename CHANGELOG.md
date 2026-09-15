@@ -7,6 +7,30 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md).
 
+## [Unreleased]
+
+### Fixed
+
+- **含配音的产物在 PowerPoint 下被判"文件或目录损坏"（高危，ADR-025）**：制作出第一个含
+  配音的样本后实测暴露——`s001-text.narrated.pptx` 在 PowerPoint 16.0.20326 报
+  `0x80070570 文件或目录损坏`，而同机同会话下原样本与 Tier 2 产物均能打开；
+  **WPS 12.1.0.28599 却正常接受**（故代码级测试与 WPS 验证都未能发现）。
+  根因是两处 OOXML 不合规，**均为必要条件**（最小实验矩阵证明缺一即失败）：
+  - `buildAudioPicFragment` 生成的 audio `p:pic` 缺必需的 `p:nvPr`，且 `a:audioFile`
+    缺必需的 `r:link`、位置错误（应在 `p:nvPr` 内而非 `p:blipFill` 内）；
+  - `SetAdvanceAfter` 只扫描 `p:sld` 的直接子元素，**看不见**被 `mc:AlternateContent`
+    包裹的既有 `p:transition`，于是追加了第二个 `p:transition`，违反 `CT_Slide`
+    的 `maxOccurs=1`。
+  修复：补全 pic 结构；新增 `alternateContentTransitions` 展开 mc 的 Choice/Fallback
+  并把 `advTm` 写到**全部**既有 transition（保留源模板的 `spd`/`p14:dur` 与 mc 结构，
+  不放宽任何校验）。
+  - **真机复验**：修复后 PowerPoint 与 WPS 均 `OPEN=ok` + `SAVE=ok`，都把音频形状
+    识别为 `type=16 (msoMedia)`，`advanceTime=2.5` 正确读出（修复前 WPS 只认作
+    type=13）。
+  - 新增 `audio_ooxml_compliance_test.go` 两条守门测试，并注入退化验证其必红。
+  - **性质修正**：V2.6 §15.3 第 3 条由"环境型缺口（缺 audio 语料）"改为
+    "**真实代码缺陷**（已修复）"；"播放记录"仍需人工录屏/音频会话枚举补证。
+
 ## [1.0.5] - 2026-09-16
 
 **v1.0.4 后的第五个 patch release，也是 v1.0.1 以来首个含生产代码改动的 patch**（v1.0.1–v1.0.4 均为测试/文档增量）。v1.0.4 → v1.0.5 共 **12 个 commit / 39 文件（+2291 / −109）**。

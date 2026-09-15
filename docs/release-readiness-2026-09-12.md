@@ -1,5 +1,7 @@
 # go-pptx 发布就绪度评估（2026-09-12）
 
+> **2026-09-16 勘误（重要）**：本文关于 §15.3 第 3 条"配音真机播放记录缺失，**属环境型缺口、不是代码缺陷**"的判断**已被实测推翻**。做出首个含配音样本后发现：**PowerPoint 直接拒收 go-pptx 的配音产物**（`0x80070570 文件或目录损坏`），根因是两处 OOXML schema 违反（audio `p:pic` 缺 `p:nvPr`、`a:audioFile` 缺 `r:link` 且位置错；`SetAdvanceAfter` 写入重复 `p:transition`）。WPS 宽容接受掩盖了它。**该条现已定性为真实代码缺陷并在 [ADR-025](adr/ADR-025-audio-ooxml-compliance-fix.md) 中修复**；剩余未闭合项为"播放记录"证据本身（需人工录屏/音频会话枚举）。
+>
 > 评估基准：`HEAD = c08249d`（领先 `origin/main` 6 个提交），上一个 tag `v1.0.1`（commit 9f24866）
 > 对照文档：《go-pptx 完整设计方案 V2.6 开发实施版》§15.3 / §16、《go-pptx 项目实施计划》、《1.x 路线图》、《coverage-roadmap》
 > 本文所有"实测"数字均在本次评估中重新跑出，未沿用文档登记值。
