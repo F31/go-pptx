@@ -55,6 +55,18 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
     既有测试 `TestSlideAddVideo_PicClassifiedAsVideo` / `TestSlideClone_PreservesVideoProfile`
     立即变红，已回退；待先确认真实产物的 video 写法。
 
+### Verification
+
+- **配音证据链推进到自动化极限**（§15.3 第 3 条；详见 `docs/client-compat-matrix.md` §第三轮）：
+  用 PowerPoint COM `CreateVideo(UseTimingsAndNarrations)` 做对照实验确认——
+  - 产物被 PowerPoint 与 WPS 识别为 `type=16 (msoMedia)`，与 PowerPoint **原生** `AddMediaObject2`
+    插入的音频形状在 COM 视角下等价；
+  - 写入的 `advanceTime="2500"` 被**实际采用**：导出 mp4 时长为 **2.508s**，而非常量参数
+    `DefaultSlideDuration = 2`（证明计时结构被解析执行）；
+  - **`CreateVideo` 不渲染页内音频对象**：原生对照组同样无音频轨（box 结构逐项一致），
+    故该路线不能作为"配音可播放"的证据；"音频确实出声"仍需人工录屏（`.mp4`）或
+    Windows 音频会话枚举。
+
 ## [1.0.5] - 2026-09-16
 
 **v1.0.4 后的第五个 patch release，也是 v1.0.1 以来首个含生产代码改动的 patch**（v1.0.1–v1.0.4 均为测试/文档增量）。v1.0.4 → v1.0.5 共 **12 个 commit / 39 文件（+2291 / −109）**。

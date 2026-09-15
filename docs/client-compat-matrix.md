@@ -92,6 +92,35 @@
 
 **意义**：这是 Tier 2 安全门限（非 XML / 仅 Store 或 Deflate / 排除加密位与 data-descriptor 位 / 尺寸已知）**在真机上的端到端背书**——raw 直通保留的原始压缩帧被 PowerPoint 与 WPS 正常接受，无修复提示。门限的全部意义就是不让"客户端判损"发生，本轮矩阵是其直接证据。
 
+## 第三轮：配音播放证据链（2026-09-16，CreateVideo 对照实验）
+
+**目的**：为 V2.6 §15.3 第 3 条"配音功能必须有播放记录"取证（该条此前因缺 audio 语料一直未闭合）。
+
+**方法**：用 PowerPoint COM `Presentation.CreateVideo(file, UseTimingsAndNarrations = -1, DefaultSlideDuration = 2, 720p, 30fps, 85)` 把含配音的文档渲染为 `.mp4`，再用 `zz_mp4probe` 扫描 MP4 的 box 结构判定音频轨是否存在。
+
+**结果**：
+
+| 输入 | 音频来源 | mp4 时长 | 音频轨 | 形状 type |
+|---|---|---|---|---|
+| `s001-text.narrated.final.pptx` | go-pptx `AddAudio` | **2.508s** | **无**（`soun`/`mp4a`/`esds` 均 false） | 16 |
+| `ref-ppt-inserted.pptx` | **PowerPoint 原生插入**（对照组） | **2.508s** | **无**（box 结构逐项一致） | 16 |
+
+**结论**：
+
+1. **`CreateVideo` 不把页内音频对象渲染进视频** —— 原生对照组同样无声，故**与本库无关**（`UseTimingsAndNarrations` 的 "Narrations" 仅指 PowerPoint「录制旁白」，不含「插入的音频对象」）。**该路线不能作为"配音可播放"的证据。**
+2. 但该实验意外产出两条**可自动获得**的强证据：
+   - **计时被采用**：两段 mp4 时长均为 **2.508s**，等于写入的 `advanceTime="2500"`，而非 `CreateVideo` 的默认时长参数（2s）→ PowerPoint 确实解析并执行了 go-pptx 写入的自动翻页计时（含 mc:AlternateContent 两个分支上的 `advTm`）；
+   - **形状与原生等价**：go-pptx 产物与 PowerPoint 原生插入的音频形状，在 COM 视角下同为 `type=16 (msoMedia)`。
+3. **"音频确实出声"仍需人工**：放映（F5）时页内音频对象会播放，但 COM 无法采集音频输出。最终证据需人工录屏（`.mp4`，`Win+Shift+S` 或 `Win+G`）或 Windows 音频会话枚举（本机 `Add-Type` 被安全策略禁，纯脚本不可行）。
+
+**复现**：
+
+```bash
+go run .l3-output/zz_genaudio.go -input testdata/corpus/s001-text/s001-text.pptx -output .l3-output/x.pptx
+# 用 PowerPoint COM CreateVideo 渲染为 mp4 后：
+go run .l3-output/zz_mp4probe.go -f x.mp4     # AUDIO_TRACK_PRESENT=false 属预期
+```
+
 ## 执行步骤
 1. 运行 `scripts/gen_corpus/run.sh validate testdata/corpus` 确认本地语料索引有效。
 2. 对公开样本使用 `*.edited.pptx` 作为客户端打开输入。

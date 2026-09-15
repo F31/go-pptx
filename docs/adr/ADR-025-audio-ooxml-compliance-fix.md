@@ -107,7 +107,12 @@ V2.6 §15.3 第 3 条要求"PowerPoint/WPS 的受支持关键用例实际打开�
 
 ## 后续
 
-1. 样本正式入 corpus（`audio` 标签 + 可再分发合成音）需与 opencode 协调。
-2. §15.3 第 3 条的"**播放记录**"仍需人工录屏或 Windows 音频会话枚举作为最终证据——本次已证明产物可被两家客户端正确打开并识别为媒体形状，但"音频确实播放出声"尚未留下证据。
+1. ~~样本正式入 corpus（`audio` 标签 + 可再分发合成音）需与 opencode 协调~~ —— **已改为更优方案**：不做二进制入库，改为**自包含的端到端往返守门** `TestNarratedDeckRoundTrip`（合成音现场生成 → 保存 → 重开 → 断言形状/Profile/`AdvanceAfter` 完整往返）。CI 恒可执行、零二进制资产，且不涉及 `testdata/corpus/` 的归属问题。
+2. **"播放记录"证据链已推进到自动化极限**（2026-09-16，详见 [`docs/client-compat-matrix.md`](../client-compat-matrix.md) §第三轮）：
+   - ✅ 产物被 PowerPoint 与 WPS 正确打开，音频形状识别为 `type=16 (msoMedia)`；
+   - ✅ **计时被采用**：`CreateVideo` 导出的 mp4 时长 **2.508s** = 写入的 `advanceTime="2500"`，而非 `CreateVideo` 默认时长参数（2s）；
+   - ✅ **形状与原生等价**：对照实验中 PowerPoint 原生 `AddMediaObject2` 插入的音频形状同为 `type=16`；
+   - ❌ **`CreateVideo` 不能作为该证据**：它**不渲染页内音频对象**（原生对照组同样无声，box 结构逐项一致）——"Narrations" 仅指「录制旁白」；
+   - ❌ **"音频确实出声"仍需人工**：放映（F5）时页内音频对象会播放，但 COM 无法采集音频输出。最终证据需人工录屏（`.mp4`，`Win+Shift+S` / `Win+G`）或 Windows 音频会话枚举（本机 `Add-Type` 被安全策略禁，纯脚本不可行）。
 3. ~~`AudioShape.Profile()` 走 `lastProfileByMedia`（手写内联解析）漏读 `durMs`/`stMs`/`trigger`/`slide`，与 `PlanTimingSync` 所用的 `parseAudioProfile` 两条路径不同步~~ —— **已修复（2026-09-16 同批）**：`lastProfileByMedia` 改为复用 `parseAudioProfile`，消除手写副本。守门 `TestAudioShapeProfileExposesDuration` 断言 `Profile()` 的 `Duration`/`Role`/`MediaPart`/`SlidePart`/`ShapeID`/`ContentSHA256` 均有效（注入退化验证必红：`Duration = 0s, want 2s`）。
    - 影响面：修复前 `Profile().Duration` 恒为 0（用户读不到时长），但主链路 `PlanTimingSync`/`ApplyTimingPlan` 不受影响（它们走完整解析器）—— 实测 `PlanTimingSync` 返回 `err=<nil>, jumps=1`。因此这是**契约一致性缺陷**而非产物缺陷。
