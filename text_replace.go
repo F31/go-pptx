@@ -5,6 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/F31/go-pptx/internal/textmap"
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -170,7 +171,7 @@ func snapshotRun(doc *xmlstore.XMLDocument, r *xmlstore.NodeRecord) segRun {
 		case "t":
 			sr.tNode = c
 			if !c.SelfClosing() {
-				sr.text = xmlUnescape(string(doc.Original()[c.OpenEnd:c.CloseStart]))
+				sr.text = textutil.XmlUnescape(string(doc.Original()[c.OpenEnd:c.CloseStart]))
 			}
 		}
 	}

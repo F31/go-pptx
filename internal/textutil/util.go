@@ -1,4 +1,4 @@
-package pptx
+package textutil
 
 import (
 	"strings"
@@ -13,7 +13,7 @@ import (
 // 引号之后（含引号）。NameStart/ValueEnd 来自 xmlstore 索引的精确
 // 字节锚点；ValueEnd 指向闭合引号位置（值区间为引号内内容），因此
 // 结束边界取 ValueEnd+1 以连同引号一并删除。
-func removeAttrPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, attrIdx int) xmlstore.SpanPatch {
+func RemoveAttrPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, attrIdx int) xmlstore.SpanPatch {
 	a := &n.Attrs[attrIdx]
 	orig := doc.Original()
 	start := a.NameStart
@@ -31,7 +31,7 @@ func removeAttrPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, attrIdx 
 }
 
 // removeElementPatch 构造删除元素补丁。
-func removeElementPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) xmlstore.SpanPatch {
+func RemoveElementPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) xmlstore.SpanPatch {
 	return xmlstore.SpanPatch{
 		Start:       n.Source.Start,
 		End:         n.Source.End,
@@ -39,7 +39,7 @@ func removeElementPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) xmlst
 	}
 }
 
-func firstChildOf(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) *xmlstore.NodeRecord {
+func FirstChildOf(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) *xmlstore.NodeRecord {
 	if len(n.Children) == 0 {
 		return nil
 	}
@@ -47,7 +47,7 @@ func firstChildOf(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) *xmlstore.N
 }
 
 // xmlUnescape 解码文本内容中出现的 XML 实体（含数字引用）。
-func xmlUnescape(s string) string {
+func XmlUnescape(s string) string {
 	if !strings.Contains(s, "&") {
 		return s
 	}
@@ -80,9 +80,9 @@ func xmlUnescape(s string) string {
 			if len(ent) > 1 && ent[0] == '#' {
 				var code rune = -1
 				if ent[1] == 'x' || ent[1] == 'X' {
-					code = parseHexRune(ent[2:])
+					code = ParseHexRune(ent[2:])
 				} else {
-					code = parseDecRune(ent[1:])
+					code = ParseDecRune(ent[1:])
 				}
 				if code >= 0 {
 					sb.WriteRune(code)
@@ -98,7 +98,7 @@ func xmlUnescape(s string) string {
 	return sb.String()
 }
 
-func parseHexRune(s string) rune {
+func ParseHexRune(s string) rune {
 	var v rune
 	for i := 0; i < len(s); i++ {
 		c := s[i]
@@ -120,7 +120,7 @@ func parseHexRune(s string) rune {
 	return v
 }
 
-func parseDecRune(s string) rune {
+func ParseDecRune(s string) rune {
 	var v rune
 	for i := 0; i < len(s); i++ {
 		c := s[i]

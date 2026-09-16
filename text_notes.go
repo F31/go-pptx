@@ -7,6 +7,7 @@ import (
 
 	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -365,7 +366,7 @@ func addNotesMasterToPresentation(doc *xmlstore.XMLDocument, rid string) ([]xmls
 		return []xmlstore.SpanPatch{patch}, nil
 	}
 	// 无 sldMasterIdLst（非常规）：插到根内容最前。
-	patch, err := xmlstore.InsertBefore(firstChildOf(doc, root), []byte(frag))
+	patch, err := xmlstore.InsertBefore(textutil.FirstChildOf(doc, root), []byte(frag))
 	if err != nil {
 		return nil, err
 	}

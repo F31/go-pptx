@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -496,7 +497,7 @@ func removeDescrPatch(doc *xmlstore.XMLDocument, c *xmlstore.NodeRecord) *xmlsto
 	for i := range c.Attrs {
 		a := &c.Attrs[i]
 		if a.Namespace == "" && a.RawName == "descr" {
-			p := removeAttrPatch(doc, c, i)
+			p := textutil.RemoveAttrPatch(doc, c, i)
 			return &p
 		}
 	}
@@ -508,7 +509,7 @@ func removeDecorativePatch(doc *xmlstore.XMLDocument, c *xmlstore.NodeRecord) *x
 	for i := range c.Attrs {
 		a := &c.Attrs[i]
 		if a.Namespace == "" && a.RawName == "decorative" {
-			p := removeAttrPatch(doc, c, i)
+			p := textutil.RemoveAttrPatch(doc, c, i)
 			return &p
 		}
 	}

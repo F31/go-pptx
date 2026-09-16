@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -281,7 +282,7 @@ func cellHasText(doc *xmlstore.XMLDocument, tc *xmlstore.NodeRecord) bool {
 					if !t.SelfClosing() {
 						raw = string(doc.Original()[t.OpenEnd:t.CloseStart])
 					}
-					if strings.TrimSpace(xmlUnescape(raw)) != "" {
+					if strings.TrimSpace(textutil.XmlUnescape(raw)) != "" {
 						return true
 					}
 				}
@@ -826,7 +827,7 @@ func dropAttrPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, name strin
 	for i := range n.Attrs {
 		a := &n.Attrs[i]
 		if a.Namespace == "" && a.RawName == name {
-			p := removeAttrPatch(doc, n, i)
+			p := textutil.RemoveAttrPatch(doc, n, i)
 			return []xmlstore.SpanPatch{p}
 		}
 	}

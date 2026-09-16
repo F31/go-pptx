@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -243,7 +244,7 @@ func removeAttrIfExists(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, name 
 	for i := range n.Attrs {
 		a := &n.Attrs[i]
 		if a.Namespace == "" && a.RawName == name {
-			sp := removeAttrPatch(doc, n, i)
+			sp := textutil.RemoveAttrPatch(doc, n, i)
 			return &sp
 		}
 	}
@@ -368,7 +369,7 @@ func (f *Field) Text() (string, error) {
 	if tNode.SelfClosing() {
 		return "", nil
 	}
-	return xmlUnescape(string(doc.Original()[tNode.OpenEnd:tNode.CloseStart])), nil
+	return textutil.XmlUnescape(string(doc.Original()[tNode.OpenEnd:tNode.CloseStart])), nil
 }
 
 // Kind 返回字段类型。
@@ -448,7 +449,7 @@ func (f *Field) Remove() error {
 	if err != nil {
 		return Annotate(err, "Field.Remove")
 	}
-	patch := removeElementPatch(doc, fld)
+	patch := textutil.RemoveElementPatch(doc, fld)
 	out, err := xmlstore.ApplyPatches(doc.Original(), []xmlstore.SpanPatch{patch})
 	if err != nil {
 		return Annotate(mapXMLError(err), "Field.Remove")
@@ -663,7 +664,7 @@ func paragraphText(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord) string 
 			if tNode == nil || tNode.SelfClosing() {
 				continue
 			}
-			sb.WriteString(xmlUnescape(string(doc.Original()[tNode.OpenEnd:tNode.CloseStart])))
+			sb.WriteString(textutil.XmlUnescape(string(doc.Original()[tNode.OpenEnd:tNode.CloseStart])))
 			continue
 		}
 		for _, tid := range item.run.Children {
@@ -672,7 +673,7 @@ func paragraphText(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord) string 
 				if tt.SelfClosing() {
 					continue
 				}
-				sb.WriteString(xmlUnescape(string(doc.Original()[tt.OpenEnd:tt.CloseStart])))
+				sb.WriteString(textutil.XmlUnescape(string(doc.Original()[tt.OpenEnd:tt.CloseStart])))
 			}
 		}
 	}

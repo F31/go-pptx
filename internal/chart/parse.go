@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -60,7 +61,7 @@ func nodeText(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) string {
 	if n == nil || n.SelfClosing() {
 		return ""
 	}
-	return xmlUnescape(string(doc.Original()[n.OpenEnd:n.CloseStart]))
+	return textutil.XmlUnescape(string(doc.Original()[n.OpenEnd:n.CloseStart]))
 }
 
 // NodeText 拼接子树内全部 a:t 文本（用于 c:title/c:tx/c:rich）。

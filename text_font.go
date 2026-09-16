@@ -3,6 +3,7 @@ package pptx
 import (
 	"strings"
 
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -85,7 +86,7 @@ func (r *TextRun) ResetFontProperty(prop FontProperty) error {
 		for i := range rPr.Attrs {
 			a := &rPr.Attrs[i]
 			if a.Namespace == "" && a.RawName == attrName {
-				patches = append(patches, removeAttrPatch(doc, rPr, i))
+				patches = append(patches, textutil.RemoveAttrPatch(doc, rPr, i))
 			}
 		}
 	}
@@ -93,7 +94,7 @@ func (r *TextRun) ResetFontProperty(prop FontProperty) error {
 		for _, cid := range rPr.Children {
 			c := doc.Node(cid)
 			if c.Namespace == nsDrawingML && c.Local() == childName {
-				patches = append(patches, removeElementPatch(doc, c))
+				patches = append(patches, textutil.RemoveElementPatch(doc, c))
 			}
 		}
 	}
@@ -130,7 +131,7 @@ func (r *TextRun) removeEmptyRPr(out []byte) ([]byte, error) {
 	if rPr == nil || len(rPr.Attrs) > 0 || len(rPr.Children) > 0 {
 		return out, nil
 	}
-	patches := []xmlstore.SpanPatch{removeElementPatch(doc, rPr)}
+	patches := []xmlstore.SpanPatch{textutil.RemoveElementPatch(doc, rPr)}
 	return xmlstore.ApplyPatches(out, patches)
 }
 
@@ -155,7 +156,7 @@ func (r *TextRun) buildFontPatches(doc *xmlstore.XMLDocument, run *xmlstore.Node
 		if err != nil {
 			return nil, err
 		}
-		anchor := firstChildOf(doc, run)
+		anchor := textutil.FirstChildOf(doc, run)
 		if anchor != nil {
 			p, err := xmlstore.InsertBefore(anchor, []byte(frag))
 			return []xmlstore.SpanPatch{p}, err

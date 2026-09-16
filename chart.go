@@ -8,6 +8,7 @@ import (
 	chartinternal "github.com/F31/go-pptx/internal/chart"
 	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -423,7 +424,7 @@ func nodeText(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) string {
 	if n == nil || n.SelfClosing() {
 		return ""
 	}
-	return xmlUnescape(string(doc.Original()[n.OpenEnd:n.CloseStart]))
+	return textutil.XmlUnescape(string(doc.Original()[n.OpenEnd:n.CloseStart]))
 }
 
 // parseChartSpace 从 chartSpace 节点解析受限图表数据。

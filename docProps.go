@@ -10,6 +10,7 @@ import (
 
 	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -149,7 +150,7 @@ func (p *Presentation) CoreProperties() (CoreProperties, error) {
 		default:
 			continue
 		}
-		childText[c.Local()] = xmlUnescape(string(doc.ContentSlice(c)))
+		childText[c.Local()] = textutil.XmlUnescape(string(doc.ContentSlice(c)))
 	}
 	if v, ok := childText["title"]; ok {
 		out.Title = NewOptional(v)
@@ -190,7 +191,7 @@ func (p *Presentation) CoreProperties() (CoreProperties, error) {
 		if doc2, err2 := p.docOf(appPart); err2 == nil {
 			if r2 := doc2.Root(); r2 != nil {
 				if co := childByNSLocal(doc2, r2, nsExtendedProps, "Company"); co != nil && len(co.Children) == 0 {
-					out.Company = NewOptional(xmlUnescape(string(doc2.ContentSlice(co))))
+					out.Company = NewOptional(textutil.XmlUnescape(string(doc2.ContentSlice(co))))
 				}
 			}
 		}
@@ -658,7 +659,7 @@ func (p *Presentation) CustomProperties() (map[string]CustomPropertyValue, error
 		if vt == nil {
 			continue // 无值变体：视为空（保留原样）
 		}
-		raw := xmlUnescape(string(doc.ContentSlice(vt)))
+		raw := textutil.XmlUnescape(string(doc.ContentSlice(vt)))
 		val, verr := parseVariant(vt.Local(), raw)
 		if verr != nil {
 			return nil, &OperationError{

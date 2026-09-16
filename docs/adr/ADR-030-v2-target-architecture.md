@@ -188,14 +188,25 @@ format 76.5 / chart 77.5 / theme 78.9 / clone 81.5 **应先补测试再搬**。
 ### 后续动作
 
 - 本文为 v2.0 **提案**；v1.x 期间不实施，继续按 ADR-014/029 维护；
-- **试点（2026-09-16 修订后选定）：`bind` 私有实现实搬**——`bind_body`/`bind_table`/
-  `bind_chart`/`bind_resolve`/`bind_marker` 五文件均**零导出声明**（v1.x 可安全搬、
-  公共 API 零变更），合计 467 语句 / 域覆盖 86.4%，bind 符号仅被 1-3 个 root 测试文件
-  引用（对比 text 34 / media 19 / geom 18），测试随迁成本最低。试点只验两件事：
-  ① 测试随包走 → 覆盖率归属正确；② 依赖方向可强制。**边界：验不了 v2.0 核心前提
-  「公共类型真实移动 + 薄委托门面」**——那只在真 breaking 版本验，不混入本次试点。
-  试点还将暴露跨域耦合，已知一例：`deletePatch`（bind_marker/bind_table）被 `create.go`
-  调用（core→bind 反向依赖，归属待裁决，建议入共享层）。
+- **试点（2026-09-16 修订后选定；kimi 评审后更正）**：`text_util.go` → `internal/textutil/` 迁移。
+  原选 `bind` 私有实现（5 文件零导出）因 Go 方法必须在类型所在包定义的硬约束
+  导致循环依赖（`bindScanner` 定义于根包 `bind.go`，迁入 `internal/bind` 后根包
+  `bind.go` 须 import `internal/bind` 以调用方法 → 包循环），改选 `text_util.go`
+  （136 行 / 零导出 / 零方法 / 6 个自由函数 / 域覆盖 82.5%）。
+- 试点结果（2026-09-16 实测）：
+  - 12 个调用方文件更新 import（9 根 + 2 internal/chart + 1 cmd 脚本无关），
+    测试随迁至 `internal/textutil/util_test.go`（package textutil，白盒）；
+    `internal/chart/codec_test.go` 保留本地副本测试（chart 自有 xmlUnescape 拷贝
+    与根包同步维护的契约不变）。
+  - `go test ./...` 与 `-tags=corpus` 15/15 全绿；`api_surface_test` golden 不变
+    （零公共 API 变更）。
+  - `internal/textutil` 覆盖率 82.5%（FLOORS 设 T1=82 暂放，待补 `RemoveAttrPatch`
+    / `RemoveElementPatch` / `FirstChildOf` 测试后有望达 T2=85）。
+  - 验证两件事：① 测试随包走 → 覆盖率归属正确（textutil 独立计数，root 从 83.9%
+    微调到 83.8%，符合预期）；② 依赖方向可强制（根包单向 import `internal/textutil`，
+    无反向）。
+- 边界：验不了 v2.0 核心前提「公共类型真实移动 + 薄委托门面」——那只在真 breaking
+  版本验，不混入本次试点。
 - **render 决策**（启动前定案）：删 / 留公共+指定消费者 / 降 `internal/render` 三选一；
 - 启动时同步维护 1.x→2.0 迁移文档（import 路径改写 + golden 计数随迁）。
 

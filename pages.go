@@ -9,6 +9,7 @@ import (
 
 	"github.com/F31/go-pptx/internal/editplan"
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -308,7 +309,7 @@ func appendSldIdPatch(doc *xmlstore.XMLDocument, sldIdFrag string) ([]xmlstore.S
 		}
 		return []xmlstore.SpanPatch{p}, nil
 	}
-	p, err := xmlstore.InsertBefore(firstChildOf(doc, root), []byte(lstFrag))
+	p, err := xmlstore.InsertBefore(textutil.FirstChildOf(doc, root), []byte(lstFrag))
 	if err != nil {
 		return nil, err
 	}

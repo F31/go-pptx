@@ -518,6 +518,9 @@ func TestBuildChartWorkbookBytes(t *testing.T) {
 }
 
 // TestXmlUnescapeEntities 覆盖命名实体、十进制/十六进制数字引用与未知实体保留。
+
+// TestXmlUnescapeEntities 验证 internal/chart 自有的 XML 实体解码副本
+//（与根包 textutil.XmlUnescape 保持字节级一致；改动任一侧须同步另一侧）。
 func TestXmlUnescapeEntities(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"plain", "plain"},
