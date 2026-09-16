@@ -180,6 +180,9 @@ var timingAudioSafeLocals = map[string]bool{
 	"tnLst": true, "par": true, "childTnLst": true, "audio": true,
 	"cMediaNode": true, "cTn": true, "stCondLst": true, "cond": true,
 	"tgtEl": true, "spTgt": true, "audioCtr": true, "endCondLst": true,
+	// 原生媒体播放树（p:seq + p:cmd playFrom 触发）的结构性元素。
+	"seq": true, "cmd": true, "cBhvr": true, "prevCondLst": true,
+	"nextCondLst": true, "sldTgt": true, "endSync": true, "rtn": true,
 }
 
 func timingAudioOnly(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) bool {
@@ -205,15 +208,13 @@ func timingAudioOnly(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) bool {
 // audioTimingFragment 生成 slide 上全部 audio Profile 的纯音频 timing
 // 子树内容（不含 p:timing 外壳；外壳由调用方决定新建或复用）。
 //
-// 结构（ECMA CT_SlideTimingInfo，简化子集）：
+// 每个音轨写成 PowerPoint 原生媒体播放形态：一个 p:seq（主序列/交互序列）
+// 承载 p:cmd playFrom(0.0) **播放命令**，外加 p:audio/p:cMediaNode 声明媒体
+// 节点（stCondLst delay="indefinite"，等待命令触发）。
 //
-//	<p:tnLst><p:par><p:cTn id dur="indefinite" restart="never" nodeType="tmRoot">
-//	  <p:childTnLst>
-//	    <p:audio><p:cMediaNode vol="80000">
-//	      <p:cTn id fill="hold" display="0"><p:stCondLst><p:cond delay="MS"/></p:stCondLst></p:cTn>
-//	      <p:tgtEl><p:spTgt spid="SHAPEID"/></p:tgtEl>
-//	    </p:cMediaNode></p:audio>
-//	  </p:childTnLst></p:cTn></p:par></p:tnLst>
+// 该形态是 PowerPoint 自身插入媒体时生成的结构；WPS 需要显式的播放命令
+// 才会在放映时实际播声（仅 p:audio + delay=0 的简化形态 PowerPoint 可自动
+// 触发、WPS 不会）。
 func audioTimingFragment(p *Presentation, slide opc.PartName) (string, error) {
 	profiles := p.audioProfilesOfSlide(slide)
 	if len(profiles) == 0 {
@@ -222,22 +223,61 @@ func audioTimingFragment(p *Presentation, slide opc.PartName) (string, error) {
 	var sb strings.Builder
 	sb.WriteString(`<p:tnLst><p:par><p:cTn id="900000" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>`)
 	for _, prof := range profiles {
-		tnID := 900000 + int64(prof.ShapeID)*2
-		delay := prof.StartDelay.Milliseconds()
-		cond := fmt.Sprintf(`<p:cond delay="%d"/>`, delay)
-		if prof.Trigger == PlaybackOnClick {
-			cond = fmt.Sprintf(`<p:cond evt="onClick" delay="0"/>`)
-		}
-		fmt.Fprintf(&sb,
-			`<p:audio><p:cMediaNode vol="80000">`+
-				`<p:cTn id="%d" fill="hold" display="0"><p:stCondLst>%s</p:stCondLst></p:cTn>`+
-				`<p:tgtEl><p:spTgt spid="%d"/></p:tgtEl>`+
-				`</p:cMediaNode></p:audio>`,
-			tnID, cond, int64(prof.ShapeID),
-		)
+		writeAudioProfileTiming(&sb, prof)
 	}
 	sb.WriteString(`</p:childTnLst></p:cTn></p:par></p:tnLst>`)
 	return sb.String(), nil
+}
+
+// writeAudioProfileTiming 写单个音轨的原生媒体播放子树。节点 ID 以
+// ShapeID 派生（base = 900000 + ShapeID*100，块内 6 个 ID），与 cNvPr@id
+// 不发生冲突。
+func writeAudioProfileTiming(sb *strings.Builder, prof AudioProfile) {
+	spid := int64(prof.ShapeID)
+	base := 900000 + spid*100
+
+	seqNodeType := "mainSeq"
+	effectNodeType := "withEffect"
+	seqCond := ""
+	nextCond := `<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>`
+	if prof.Trigger == PlaybackOnClick {
+		seqNodeType = "interactiveSeq"
+		effectNodeType = "clickEffect"
+		seqCond = fmt.Sprintf(`<p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="%d"/></p:tgtEl></p:cond></p:stCondLst>`, spid)
+		nextCond = fmt.Sprintf(`<p:nextCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="%d"/></p:tgtEl></p:cond></p:nextCondLst>`, spid)
+	}
+	delay := prof.StartDelay.Milliseconds()
+	dur := "indefinite"
+	if prof.Duration > 0 {
+		dur = strconv.FormatInt(prof.Duration.Milliseconds(), 10)
+	}
+
+	// 1) 播放命令：p:seq → par/par/par（nodeType 效果）→ p:cmd playFrom(0.0)。
+	fmt.Fprintf(sb,
+		`<p:seq concurrent="1" nextAc="seek"><p:cTn id="%d" dur="indefinite" nodeType="%s">%s<p:childTnLst>`+
+			`<p:par><p:cTn id="%d" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst><p:childTnLst>`+
+			`<p:par><p:cTn id="%d" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>`+
+			`<p:par><p:cTn id="%d" presetID="1" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="%s">`+
+			`<p:stCondLst><p:cond delay="%d"/></p:stCondLst><p:childTnLst>`+
+			`<p:cmd type="call" cmd="playFrom(0.0)"><p:cBhvr><p:cTn id="%d" dur="%s" fill="hold"/>`+
+			`<p:tgtEl><p:spTgt spid="%d"/></p:tgtEl></p:cBhvr></p:cmd>`+
+			`</p:childTnLst></p:cTn></p:par>`+
+			`</p:childTnLst></p:cTn></p:par>`+
+			`</p:childTnLst></p:cTn></p:par>`+
+			`</p:childTnLst></p:cTn>%s</p:seq>`,
+		base+1, seqNodeType, seqCond,
+		base+2, base+3, base+4, effectNodeType, delay, base+5, dur, spid,
+		nextCond,
+	)
+	// 2) 媒体节点（vol=80000 即 80%；delay="indefinite" 等待上面的播放命令）。
+	fmt.Fprintf(sb,
+		`<p:audio><p:cMediaNode vol="80000">`+
+			`<p:cTn id="%d" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>`+
+			`<p:endCondLst><p:cond evt="onStopAudio" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:endCondLst></p:cTn>`+
+			`<p:tgtEl><p:spTgt spid="%d"/></p:tgtEl>`+
+			`</p:cMediaNode></p:audio>`,
+		base+6, spid,
+	)
 }
 
 // SetAdvanceAfter 设置页面自动翻页时长（p:transition@advTm 毫秒）。

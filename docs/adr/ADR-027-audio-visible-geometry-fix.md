@@ -177,3 +177,54 @@ poster 图标 + 右下角定位 + `vol=80000` 后，真机反馈：**WPS 能打�
 ### 后果（续三）
 
 - audio 系列累计**六处**遗漏。本处再次印证：**"能打开"与"可见/可交互/有声"是三套独立的客户端约束**，必须逐项对照原生实包；且 ADR 的"最小改动"结论有**适用边界**（`blip→媒体` vs `blip→图片`），换路线后需重新取证。
+
+---
+
+## 续四：WPS 不自动播放（改原生媒体播放结构）
+
+续三修复后：**PowerPoint 打开 + 有声**（完全正常），**WPS 打开但 F5 无声**。
+
+### 第五个根因
+
+原实现用极简的 `p:audio/p:cMediaNode` + `stCondLst delay="0"`（直接挂在
+`tmRoot` 下）。PowerPoint 会据此自动触发播放，**WPS 不会**——WPS 需要显式的
+**播放命令** `p:cmd type="call" cmd="playFrom(0.0)"`（PowerPoint 自身插入
+媒体时也生成该命令，取证 `.l3-output/ref-ppt-inserted.pptx`）。
+
+### 决策（续四）
+
+`audioTimingFragment` 改为原生媒体播放形态（`audiotiming.go`）：
+
+```xml
+<p:seq concurrent="1" nextAc="seek">
+  <p:cTn id="…" dur="indefinite" nodeType="mainSeq">        <!-- 单击则 interactiveSeq -->
+    <p:childTnLst><p:par>…<p:par>…
+      <p:cTn presetID="1" presetClass="mediacall" presetSubtype="0"
+             nodeType="withEffect">                          <!-- 单击则 clickEffect -->
+        <p:childTnLst><p:cmd type="call" cmd="playFrom(0.0)">
+          <p:cBhvr><p:cTn dur="2000" fill="hold"/><p:tgtEl><p:spTgt spid="S"/></p:tgtEl></p:cBhvr>
+        </p:cmd></p:childTnLst>
+      </p:cTn></p:par>…
+    </p:childTnLst>
+  </p:cTn>
+  <p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>
+</p:seq>
+<p:audio><p:cMediaNode vol="80000">
+  <p:cTn fill="hold" display="0">
+    <p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>
+    <p:endCondLst><p:cond evt="onStopAudio" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:endCondLst>
+  </p:cTn><p:tgtEl><p:spTgt spid="S"/></p:tgtEl>
+</p:cMediaNode></p:audio>
+```
+
+- 节点 ID 改为 `900000 + ShapeID*100` 起 6 个（原 `*2`），避免多音轨冲突。
+- `timingAudioSafeLocals` 白名单扩展：`seq`/`cmd`/`cBhvr`/`prevCondLst`/`nextCondLst`/`sldTgt`/`endSync`/`rtn`（`timingAudioOnly` 幂等重建需接受新形态）。
+- 保持 `vol="80000"` 与 `p14:media` 等前述修复不变。
+
+### 验证（续四）
+
+- 生成物 `p:timing` 与原生结构逐项一致（`mainSeq`/`mediacall`/`withEffect`/`playFrom(0.0)`/`onStopAudio`）。
+- SDK 回读：`kind=audio`、profile 正常、`Validate` 0 错误。
+- 全量 + corpus（37 样本 0 错误）全绿。
+
+> 待真机：WPS F5 应自动播放；PowerPoint 需回归确认仍正常（该结构为原生形态，理论上兼容）。
