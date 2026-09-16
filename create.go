@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/bind"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -176,7 +177,7 @@ func (s *Slide) RemoveShape(id ShapeID) error {
 			Err:     ErrUnsupportedEdit,
 		}
 	}
-	out, err := xmlstore.ApplyPatches(doc.Original(), []xmlstore.SpanPatch{deletePatch(doc, target, "remove-shape")})
+	out, err := xmlstore.ApplyPatches(doc.Original(), []xmlstore.SpanPatch{bind.DeletePatch(doc, target, "remove-shape")})
 	if err != nil {
 		return Annotate(mapXMLError(err), op)
 	}
@@ -242,7 +243,7 @@ func (s *Slide) MoveShape(id ShapeID, zIndex int) error {
 			})
 		}
 	}
-	patches = append(patches, deletePatch(doc, moved, "move-shape-delete"))
+	patches = append(patches, bind.DeletePatch(doc, moved, "move-shape-delete"))
 	out, err := xmlstore.ApplyPatches(doc.Original(), patches)
 	if err != nil {
 		return Annotate(mapXMLError(err), op)

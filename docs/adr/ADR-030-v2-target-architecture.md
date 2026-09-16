@@ -207,6 +207,23 @@ format 76.5 / chart 77.5 / theme 78.9 / clone 81.5 **应先补测试再搬**。
     无反向）。
 - 边界：验不了 v2.0 核心前提「公共类型真实移动 + 薄委托门面」——那只在真 breaking
   版本验，不混入本次试点。
+
+### 试点续：`bind_marker.go` → `internal/bind/`（2026-09-16 第二批）
+
+同类迁移第二例——`bind_marker.go`（112 行，零导出/零方法）迁入 `internal/bind`：
+
+- 迁出内容：`TplToken`（字段导出 `Literal`/`Path`）、`ParseDirective`、`ScanInline`、
+  `DeletePatch`、`EmptyParaPatch`、`ChildElems`；原定义于根包 `bind.go` 的定界符常量
+  `TplMarkOpen`/`TplMarkClose` 随实现一并下沉（导出后根包引用 `bind.TplMarkOpen`）。
+- 调用方更新：`bind.go`（移除常量定义）、`bind_body.go`、`bind_table.go`、`create.go`
+  （`deletePatch` 跨域调用点）。
+- 测试随迁：`internal/bind/marker_test.go`（`TestBindPatchHelpers`、
+  `TestBindPureParseDirectiveAndScanInline`，见 `internal/bind` 覆盖率 **95.5%**）。
+- 守恒：`go test ./...` 与 `-tags=corpus` **16/16** 全绿；`api_surface_test` golden 不变
+  （零公共 API 变更）；gate 新增 `internal/bind=90`（实测 95.5%）。
+- 关键约束复证：**Go 方法必须在类型所在包定义**——`bindScanner` 系列方法（bind_body/
+  table/chart/resolve）仍无法迁出（其类型定义在根包 `bind.go`），故 bind 域只能逐文件
+  渐进而非整域搬迁。本批证明「零方法 + 零根类型依赖」的文件可独立迁出。
 - **render 决策**（启动前定案）：删 / 留公共+指定消费者 / 降 `internal/render` 三选一；
 - 启动时同步维护 1.x→2.0 迁移文档（import 路径改写 + golden 计数随迁）。
 

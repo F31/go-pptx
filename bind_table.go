@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/bind"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -57,7 +58,7 @@ func (s *bindScanner) bindTable(t *TableShape) error {
 				if err != nil {
 					return err
 				}
-				kind, p, ok := parseDirective(strings.TrimSpace(txt))
+				kind, p, ok := bind.ParseDirective(strings.TrimSpace(txt))
 				if !ok {
 					continue
 				}
@@ -65,7 +66,7 @@ func (s *bindScanner) bindTable(t *TableShape) error {
 				case "each":
 					if hasEach {
 						return &OperationError{Op: op, Message: fmt.Sprintf(
-							"multiple %s#each%s markers in one table row (%d)", tplMarkOpen, tplMarkClose, r),
+							"multiple %s#each%s markers in one table row (%d)", bind.TplMarkOpen, bind.TplMarkClose, r),
 							Err: ErrUnsupportedEdit}
 					}
 					hasEach, path = true, p
@@ -80,7 +81,7 @@ func (s *bindScanner) bindTable(t *TableShape) error {
 		}
 		if hasEach != hasEnd {
 			return &OperationError{Op: op, Message: fmt.Sprintf(
-				"%s#each%s/%s markers must be paired within table row %d", tplMarkOpen, tplMarkClose, tplMarkOpen, r),
+				"%s#each%s/%s markers must be paired within table row %d", bind.TplMarkOpen, bind.TplMarkClose, bind.TplMarkOpen, r),
 				Err: ErrInvalidArgument}
 		}
 		if !hasEach {
@@ -162,11 +163,11 @@ func (s *bindScanner) renderRow(rowBytes []byte, item any) ([]byte, error) {
 		pairs []bindPair
 	}
 	var units []paraUnit
-	for _, tc := range childElems(tmp, tr, "tc") {
-		for _, tx := range childElems(tmp, tc, "txBody") {
-			for _, p := range childElems(tmp, tx, "p") {
+	for _, tc := range bind.ChildElems(tmp, tr, "tc") {
+		for _, tx := range bind.ChildElems(tmp, tc, "txBody") {
+			for _, p := range bind.ChildElems(tmp, tx, "p") {
 				text := paragraphText(tmp, p)
-				if kind, _, ok := parseDirective(strings.TrimSpace(text)); ok {
+				if kind, _, ok := bind.ParseDirective(strings.TrimSpace(text)); ok {
 					switch kind {
 					case "each", "endeach":
 						units = append(units, paraUnit{start: p.Source.Start, del: true})
@@ -176,7 +177,7 @@ func (s *bindScanner) renderRow(rowBytes []byte, item any) ([]byte, error) {
 					}
 					continue
 				}
-				toks := scanInline(text)
+				toks := bind.ScanInline(text)
 				if len(toks) == 0 {
 					continue
 				}
@@ -184,29 +185,29 @@ func (s *bindScanner) renderRow(rowBytes []byte, item any) ([]byte, error) {
 				u := paraUnit{start: p.Source.Start, path: recordPath(tmp, p.ID)}
 				seen := map[string]bool{}
 				for _, tok := range toks {
-					if seen[tok.literal] {
+					if seen[tok.Literal] {
 						continue
 					}
-					seen[tok.literal] = true
-					v, found, err := s.resolve(item, tok.path)
+					seen[tok.Literal] = true
+					v, found, err := s.resolve(item, tok.Path)
 					if err != nil {
 						return nil, err
 					}
 					if !found {
 						if s.o.strict {
 							return nil, &OperationError{Op: op, Message: fmt.Sprintf(
-								"placeholder %q not found in row item", tok.path), Err: ErrInvalidArgument}
+								"placeholder %q not found in row item", tok.Path), Err: ErrInvalidArgument}
 						}
 						s.diag("bind.key_missing", "", fmt.Sprintf(
-							"placeholder %q missing in row item; left as-is", tok.path))
+							"placeholder %q missing in row item; left as-is", tok.Path))
 						continue
 					}
 					rep, ok := formatBindValue(v)
 					if !ok {
 						return nil, &OperationError{Op: op, Message: fmt.Sprintf(
-							"placeholder %q has unsupported value type %T", tok.path, v), Err: ErrInvalidArgument}
+							"placeholder %q has unsupported value type %T", tok.Path, v), Err: ErrInvalidArgument}
 					}
-					u.pairs = append(u.pairs, bindPair{needle: tok.literal, value: rep})
+					u.pairs = append(u.pairs, bindPair{needle: tok.Literal, value: rep})
 				}
 				if len(u.pairs) > 0 {
 					units = append(units, u)
@@ -220,7 +221,7 @@ func (s *bindScanner) renderRow(rowBytes []byte, item any) ([]byte, error) {
 	work := tmp.Original()
 	for _, u := range units {
 		if u.del {
-			work, err = xmlstore.ApplyPatches(work, []xmlstore.SpanPatch{deletePatch(tmp, tmpNodeAt(tmp, u.start), "each-marker")})
+			work, err = xmlstore.ApplyPatches(work, []xmlstore.SpanPatch{bind.DeletePatch(tmp, tmpNodeAt(tmp, u.start), "each-marker")})
 			if err != nil {
 				return nil, Annotate(mapXMLError(err), op)
 			}

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // ---------- TPL-01：模板数据绑定引擎（ADR 013） ----------
@@ -440,63 +439,6 @@ func TestBindChartFailurePaths(t *testing.T) {
 	}
 }
 
-func TestBindPatchHelpers(t *testing.T) {
-	doc, err := xmlstore.Index([]byte(`<a:p xmlns:a="` + nsDrawingML + `"><a:r><a:t>x</a:t></a:r></a:p>`))
-	if err != nil {
-		t.Fatalf("Index: %v", err)
-	}
-	p := doc.Root()
-	patch := emptyParaPatch(doc, p)
-	if patch == nil {
-		t.Fatal("emptyParaPatch returned nil for non-empty para")
-	}
-	if patch.Desc != "empty-paragraph" || patch.Start >= patch.End {
-		t.Fatalf("patch = %+v", patch)
-	}
-	out, err := xmlstore.ApplyPatches(doc.Original(), []xmlstore.SpanPatch{*patch})
-	if err != nil {
-		t.Fatalf("ApplyPatches: %v", err)
-	}
-	if string(out) != `<a:p xmlns:a="`+nsDrawingML+`"></a:p>` {
-		t.Fatalf("emptied para = %s", out)
-	}
-	// 自闭合 / 无子元素 → nil。
-	doc2, err := xmlstore.Index([]byte(`<a:p xmlns:a="` + nsDrawingML + `"/>`))
-	if err != nil {
-		t.Fatalf("Index: %v", err)
-	}
-	if got := emptyParaPatch(doc2, doc2.Root()); got != nil {
-		t.Fatalf("self-closing patch = %+v", got)
-	}
-	// deletePatch 构造带锚定补丁。
-	doc3, err := xmlstore.Index([]byte(`<a:p xmlns:a="` + nsDrawingML + `"><a:r/></a:p>`))
-	if err != nil {
-		t.Fatalf("Index: %v", err)
-	}
-	dp := deletePatch(doc3, doc3.Root(), "del")
-	if dp.Desc != "del" || dp.Expect == nil || dp.Start >= dp.End {
-		t.Fatalf("deletePatch = %+v", dp)
-	}
-	out3, err := xmlstore.ApplyPatches(doc3.Original(), []xmlstore.SpanPatch{dp})
-	if err != nil {
-		t.Fatalf("ApplyPatches: %v", err)
-	}
-	if len(out3) != 0 {
-		t.Fatalf("delete output = %s", out3)
-	}
-	// childElems 按本地名过滤。
-	doc4, err := xmlstore.Index([]byte(`<a:p xmlns:a="` + nsDrawingML + `"><a:r/><a:pPr/><a:r/></a:p>`))
-	if err != nil {
-		t.Fatalf("Index: %v", err)
-	}
-	if got := childElems(doc4, doc4.Root(), "r"); len(got) != 2 {
-		t.Fatalf("childElems(r) = %d", len(got))
-	}
-	if got := childElems(doc4, doc4.Root(), "nope"); len(got) != 0 {
-		t.Fatalf("childElems(nope) = %d", len(got))
-	}
-}
-
 func TestBindResolveBranches(t *testing.T) {
 	s := &bindScanner{data: map[string]any{"a": map[string]any{"b": 42}, "rows": []any{1, 2}}}
 	if v, found, err := s.resolve(nil, " a.b "); err != nil || !found || v != 42 {
@@ -812,42 +754,5 @@ func TestBindPureFormatBindValue(t *testing.T) {
 	}
 	if _, ok := formatBindValue(struct{ A int }{1}); ok {
 		t.Fatal("struct matched")
-	}
-}
-
-func TestBindPureParseDirectiveAndScanInline(t *testing.T) {
-	if kind, path, ok := parseDirective("{{#if show}}"); !ok || kind != "if" || path != "show" {
-		t.Fatalf("if = %q %q %v", kind, path, ok)
-	}
-	if kind, _, ok := parseDirective("{{#each rows}}"); !ok || kind != "each" {
-		t.Fatalf("each = %q %v", kind, ok)
-	}
-	if kind, _, ok := parseDirective("{{/if}}"); !ok || kind != "endif" {
-		t.Fatalf("endif = %q %v", kind, ok)
-	}
-	if kind, _, ok := parseDirective("{{/each}}"); !ok || kind != "endeach" {
-		t.Fatalf("endeach = %q %v", kind, ok)
-	}
-	if _, _, ok := parseDirective("{{#if }}"); ok {
-		t.Fatal("empty if path matched")
-	}
-	if _, _, ok := parseDirective("plain text"); ok {
-		t.Fatal("non-directive matched")
-	}
-	toks := scanInline("a {{x}} b {{ y }} c {{#if z}} d {{/if}}")
-	if len(toks) != 2 {
-		t.Fatalf("inline tokens = %v", toks)
-	}
-	if toks[0].path != "x" || toks[1].path != "y" {
-		t.Fatalf("paths = %v", toks)
-	}
-	if got := scanInline("no markers"); len(got) != 0 {
-		t.Fatalf("no markers = %v", got)
-	}
-	if got := scanInline("{{}}"); len(got) != 0 {
-		t.Fatalf("empty marker = %v", got)
-	}
-	if got := scanInline("{{unclosed"); len(got) != 0 {
-		t.Fatalf("unclosed marker = %v", got)
 	}
 }

@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"fmt"
+	"github.com/F31/go-pptx/internal/bind"
 	"strings"
 )
 
@@ -69,7 +70,7 @@ func (s *bindScanner) bindBody(label string, paras []*Paragraph) error {
 			return err
 		}
 		trimmed := strings.TrimSpace(text)
-		if kind, path, ok := parseDirective(trimmed); ok {
+		if kind, path, ok := bind.ParseDirective(trimmed); ok {
 			switch kind {
 			case "if":
 				v, found, err := s.resolve(nil, path)
@@ -87,12 +88,12 @@ func (s *bindScanner) bindBody(label string, paras []*Paragraph) error {
 			case "endif":
 				if len(stack) == 0 {
 					return &OperationError{Op: op, Message: fmt.Sprintf(
-						"unmatched %s/if%s in shape %q", tplMarkOpen, tplMarkClose, label), Err: ErrInvalidArgument}
+						"unmatched %s/if%s in shape %q", bind.TplMarkOpen, bind.TplMarkClose, label), Err: ErrInvalidArgument}
 				}
 				stack = stack[:len(stack)-1]
 			case "each", "endeach":
 				return &OperationError{Op: op, Message: fmt.Sprintf(
-					"%s#each%s marker in shape %q must live in a table row cell", tplMarkOpen, tplMarkClose, label),
+					"%s#each%s marker in shape %q must live in a table row cell", bind.TplMarkOpen, bind.TplMarkClose, label),
 					Err: ErrUnsupportedEdit}
 			}
 			del[i] = true // 标记段落始终不保留
@@ -108,7 +109,7 @@ func (s *bindScanner) bindBody(label string, paras []*Paragraph) error {
 	}
 	if len(stack) != 0 {
 		return &OperationError{Op: op, Message: fmt.Sprintf(
-			"unclosed %s#if%s block in shape %q", tplMarkOpen, tplMarkClose, label), Err: ErrInvalidArgument}
+			"unclosed %s#if%s block in shape %q", bind.TplMarkOpen, bind.TplMarkClose, label), Err: ErrInvalidArgument}
 	}
 	return s.applyDeletions(label, paras, del)
 }
@@ -135,7 +136,7 @@ func (s *bindScanner) applyDeletions(label string, paras []*Paragraph, del []boo
 			if err != nil {
 				return err
 			}
-			if p := emptyParaPatch(doc, node); p != nil {
+			if p := bind.EmptyParaPatch(doc, node); p != nil {
 				s.addDel(paras[i].part, p.Start, p.End, p.Expect)
 			}
 			del[i] = false
@@ -160,7 +161,7 @@ func (s *bindScanner) applyDeletions(label string, paras []*Paragraph, del []boo
 // replacePatches，其内部会替换该字面量的所有出现）。
 func (s *bindScanner) substitute(para *Paragraph, text string, scope any, label string) error {
 	const op = "Presentation.Bind"
-	toks := scanInline(text)
+	toks := bind.ScanInline(text)
 	if len(toks) == 0 {
 		return nil
 	}
@@ -173,30 +174,30 @@ func (s *bindScanner) substitute(para *Paragraph, text string, scope any, label 
 	path := recordPath(doc, node.ID)
 	offset := node.Source.Start
 	for _, tok := range toks {
-		if seen[tok.literal] {
+		if seen[tok.Literal] {
 			continue
 		}
-		seen[tok.literal] = true
-		v, found, err := s.resolve(scope, tok.path)
+		seen[tok.Literal] = true
+		v, found, err := s.resolve(scope, tok.Path)
 		if err != nil {
 			return err
 		}
 		if !found {
 			if s.o.strict {
 				return &OperationError{Op: op, Message: fmt.Sprintf(
-					"placeholder %q not found in data (shape %q)", tok.path, label), Err: ErrInvalidArgument}
+					"placeholder %q not found in data (shape %q)", tok.Path, label), Err: ErrInvalidArgument}
 			}
 			s.diag("bind.key_missing", string(para.part),
-				fmt.Sprintf("placeholder %q missing; left as-is", tok.path))
+				fmt.Sprintf("placeholder %q missing; left as-is", tok.Path))
 			continue
 		}
 		rep, ok := formatBindValue(v)
 		if !ok {
 			return &OperationError{Op: op, Message: fmt.Sprintf(
-				"placeholder %q has unsupported value type %T", tok.path, v), Err: ErrInvalidArgument}
+				"placeholder %q has unsupported value type %T", tok.Path, v), Err: ErrInvalidArgument}
 		}
 		// 实际补丁在 apply 阶段生成（同段落多占位符需逐个重新索引）。
-		s.addSub(para.part, offset, path, tok.literal, rep)
+		s.addSub(para.part, offset, path, tok.Literal, rep)
 	}
 	return nil
 }
