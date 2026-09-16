@@ -65,6 +65,12 @@ type AudioSpec struct {
 	TrackKey string
 	Role     AudioRole
 	Source   MediaSource
+	// X/Y/Width/Height（EMU）：音频形状在页面上的位置与尺寸（对应
+	// p:spPr/a:xfrm 框）。全零时采用默认 914400×914400 EMU（1in×1in）
+	// 并放置在 (914400, 914400)——与 PowerPoint 插入音频的默认位置一致，
+	// 避免产生不可见的 0×0 形状。
+	X, Y          int64
+	Width, Height int64
 	// Duration 可选：调用方已知时长。Set=false 时由 probe 解出；probe
 	// 也无法解出返回 ErrDurationUnknown（同步与 AddAudio 均受影响）。
 	Duration Optional[time.Duration]
@@ -231,7 +237,8 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 	}
 	id := nextShapeID(doc, tree)
 	name := "Audio " + strconv.FormatInt(id, 10)
-	frag := buildAudioPicFragment(id, name, rid, ext)
+	ox, oy, cx, cy := audioGeometry(spec)
+	frag := buildAudioPicFragment(id, name, rid, ext, ox, oy, cx, cy)
 	ap, err := xmlstore.AppendChild(tree, []byte(frag))
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Slide.AddAudio")
@@ -450,13 +457,37 @@ func (p *Presentation) planAudioMedia(data []byte, sum [32]byte, ext, ct string)
 
 // ---------- p:pic 形音频片段 ----------
 
+// audioGeometry 计算音频形状的几何框（EMU）。
+//
+// AudioSpec.X/Y/Width/Height 全零时采用默认值 914400×914400 EMU
+// （1in×1in）放置在 (914400, 914400)——与 PowerPoint 插入音频的默认
+// 位置一致，避免产生不可见的 0×0 形状。部分零值时按"缺失维度用默认"
+// 补齐，宽度/高度为 0 但位置非 0 时只补尺寸、保留调用方位置。
+func audioGeometry(spec AudioSpec) (ox, oy, cx, cy int64) {
+	const defaultSize, defaultOff = 914400, 914400
+	ox = spec.X
+	oy = spec.Y
+	cx = spec.Width
+	cy = spec.Height
+	if ox == 0 && oy == 0 {
+		ox, oy = defaultOff, defaultOff
+	}
+	if cx == 0 {
+		cx = defaultSize
+	}
+	if cy == 0 {
+		cy = defaultSize
+	}
+	return ox, oy, cx, cy
+}
+
 // buildAudioPicFragment 返回 PowerPoint/WPS 均接受的 audio 形状片段。
 //
 // 结构合规性（ADR-025）：`p:nvPicPr` 必须含 `p:nvPr`（CT_PictureNonVisual 的
 // 三项均为 minOccurs=1），且音频引用 `<a:audioFile>` 属于 **nvPr** 而非
 // blipFill，其 `r:link` 是必需属性（CT_AudioFile）。缺任何一项时 PowerPoint
 // 会判定整包损坏（0x80070570 "文件或目录损坏"），而 WPS 宽容不报错。
-func buildAudioPicFragment(id int64, name, rid, ext string) string {
+func buildAudioPicFragment(id int64, name, rid, ext string, ox, oy, cx, cy int64) string {
 	_ = ext // 媒体类型由 Part 关系与 Content_Types 承载，片段内不再声明
 	var sb strings.Builder
 	sb.WriteString(`<p:pic>`)
@@ -471,8 +502,17 @@ func buildAudioPicFragment(id int64, name, rid, ext string) string {
 	sb.WriteString(`<a:blip r:embed="`)
 	sb.WriteString(rid)
 	sb.WriteString(`"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>`)
-	// 占位几何：0×0 EMU；调用方一般随后调 Geometry/Move。
-	sb.WriteString(`<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>`)
+	// 几何框由调用方经 AudioSpec.X/Y/Width/Height 提供；全零时由 AddAudio
+	// 填入默认值（1in×1in @ 1in,1in），避免不可见的 0×0 形状。
+	sb.WriteString(`<p:spPr><a:xfrm><a:off x="`)
+	sb.WriteString(strconv.FormatInt(ox, 10))
+	sb.WriteString(`" y="`)
+	sb.WriteString(strconv.FormatInt(oy, 10))
+	sb.WriteString(`"/><a:ext cx="`)
+	sb.WriteString(strconv.FormatInt(cx, 10))
+	sb.WriteString(`" cy="`)
+	sb.WriteString(strconv.FormatInt(cy, 10))
+	sb.WriteString(`"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>`)
 	sb.WriteString(`</p:pic>`)
 	return sb.String()
 }

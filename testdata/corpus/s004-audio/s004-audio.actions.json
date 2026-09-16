@@ -1,13 +1,13 @@
 [
   {
     "action": "ReplaceText",
-    "old": "Audio Sample (s004-audio)",
-    "new": "Audio Test (Q3-2026)",
-    "scope": "all AutoShape text frames",
     "expected": {
       "matches": 1,
       "replaced": 1,
       "validate_error_count": 0
-    }
+    },
+    "new": "Audio Test (Q3-2026)",
+    "old": "Audio Sample (s004-audio)",
+    "scope": "all AutoShape text frames"
   }
 ]

@@ -25,7 +25,7 @@ import (
 
 // TestBuildAudioPicFragmentIsSchemaCompliant 断言 audio 形状片段的结构合规性。
 func TestBuildAudioPicFragmentIsSchemaCompliant(t *testing.T) {
-	frag := buildAudioPicFragment(11, "Audio 11", "rId2", "wav")
+	frag := buildAudioPicFragment(11, "Audio 11", "rId2", "wav", 914400, 914400, 914400, 914400)
 
 	// 1) p:nvPr 存在（CT_PictureNonVisual 三项均 minOccurs=1）。
 	if !strings.Contains(frag, "<p:nvPr>") {
@@ -48,6 +48,94 @@ func TestBuildAudioPicFragmentIsSchemaCompliant(t *testing.T) {
 	// 3) blipFill 保留 a:blip 引用。
 	if !strings.Contains(frag, `<a:blip r:embed="rId2"/>`) {
 		t.Errorf("fragment lacks a:blip reference: %s", frag)
+	}
+	// 4) 几何框必须写为调用方提供的非零值（历史上硬编码 0×0 导致
+	//    客户端打开后看不到音频图标）。
+	for _, want := range []string{
+		`<a:off x="914400" y="914400"/>`,
+		`<a:ext cx="914400" cy="914400"/>`,
+	} {
+		if !strings.Contains(frag, want) {
+			t.Errorf("fragment lacks geometry %q: %s", want, frag)
+		}
+	}
+	if strings.Contains(frag, `<a:ext cx="0" cy="0"/>`) {
+		t.Errorf("fragment must not carry zero-size geometry: %s", frag)
+	}
+}
+
+// TestAudioGeometryDefaults 断言 AudioSpec 全零几何时补默认可见尺寸，
+// 避免生成 0×0 的不可见音频形状。
+func TestAudioGeometryDefaults(t *testing.T) {
+	cases := []struct {
+		name           string
+		spec           AudioSpec
+		ox, oy, cx, cy int64
+	}{
+		{"all zero -> defaults", AudioSpec{}, 914400, 914400, 914400, 914400},
+		{"explicit bounds preserved", AudioSpec{X: 100, Y: 200, Width: 300, Height: 400}, 100, 200, 300, 400},
+		{"position set, size zero", AudioSpec{X: 100, Y: 200}, 100, 200, 914400, 914400},
+		{"size set, position zero", AudioSpec{Width: 300, Height: 400}, 914400, 914400, 300, 400},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ox, oy, cx, cy := audioGeometry(tc.spec)
+			if ox != tc.ox || oy != tc.oy || cx != tc.cx || cy != tc.cy {
+				t.Errorf("audioGeometry = (%d,%d,%d,%d), want (%d,%d,%d,%d)",
+					ox, oy, cx, cy, tc.ox, tc.oy, tc.cx, tc.cy)
+			}
+			if cx <= 0 || cy <= 0 {
+				t.Errorf("geometry must be visible (cx=%d cy=%d)", cx, cy)
+			}
+		})
+	}
+}
+
+// TestAudioShapeHasVisibleBounds 端到端断言 AddAudio 产出的形状具有
+// 非零几何（经幻灯片 XML 文本核对）。
+func TestAudioShapeHasVisibleBounds(t *testing.T) {
+	p, err := New()
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer p.Close()
+	layouts, err := p.Layouts()
+	if err != nil {
+		t.Fatalf("Layouts: %v", err)
+	}
+	slide, err := p.AddSlide(layouts[0])
+	if err != nil {
+		t.Fatalf("AddSlide: %v", err)
+	}
+	if _, err := slide.AddAudio(context.Background(), BytesMedia(minimalWAV(64), "audio/wav"), AudioSpec{
+		TrackKey: "k1",
+		Role:     AudioRoleNarration,
+		Source:   BytesMedia(minimalWAV(64), "audio/wav"),
+	}); err != nil {
+		t.Fatalf("AddAudio: %v", err)
+	}
+	doc, _, err := slide.slideTree()
+	if err != nil {
+		t.Fatalf("slideTree: %v", err)
+	}
+	xml := string(doc.Original())
+	// 定位音频 p:pic 片段（以 a:audioFile 为锚），只在该片段内断言几何——
+	// 幻灯片根的 p:grpSpPr 合法地是 0×0，不能全局断言。
+	anchor := strings.Index(xml, `<a:audioFile r:link=`)
+	if anchor < 0 {
+		t.Fatalf("audio shape missing a:audioFile r:link: %s", xml)
+	}
+	segStart := strings.LastIndex(xml[:anchor], `<p:pic>`)
+	segEnd := strings.Index(xml[anchor:], `</p:pic>`)
+	if segStart < 0 || segEnd < 0 {
+		t.Fatalf("cannot delimit audio p:pic fragment: %s", xml)
+	}
+	frag := xml[segStart : anchor+segEnd+len(`</p:pic>`)]
+	if strings.Contains(frag, `<a:ext cx="0" cy="0"/>`) {
+		t.Errorf("audio shape still has zero-size geometry: %s", frag)
+	}
+	if !strings.Contains(frag, `<a:ext cx="914400" cy="914400"/>`) {
+		t.Errorf("audio shape lacks default 1in×1in geometry: %s", frag)
 	}
 }
 
