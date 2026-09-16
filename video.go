@@ -473,17 +473,13 @@ func (s *Slide) lastVideoHandle(hasPoster bool) (*VideoShape, error) {
 }
 
 // hasVideoFile 检查 pic 元素是否含 p:videoFile（blipFill 子树）。
+// hasVideoFile 检查 pic 元素是否含视频引用。
+//
+// 复用 picMediaKind（正确位置 p:nvPr 优先，兼容 v1.0.5 及更早的
+// p:blipFill 内 p:videoFile 写法）——不要在此另写一份探测，历史上正是
+// 这类重复实现导致 audio/video 两处各自漂移（ADR-025 / ADR-026）。
 func hasVideoFile(doc *xmlstore.XMLDocument, pic *xmlstore.NodeRecord) bool {
-	for _, cid := range pic.Children {
-		c := doc.Node(cid)
-		if c == nil || c.Namespace != nsPresentationML || c.Local() != "blipFill" {
-			continue
-		}
-		if childOfKind(doc, c, nsPresentationML, "videoFile", 0) != nil {
-			return true
-		}
-	}
-	return false
+	return picMediaKind(doc, pic) == "video"
 }
 
 // findRoleForVideo 默认 main（未解析）。
@@ -626,20 +622,19 @@ func buildVideoPicFragment(id int64, name, rid, ext string, ox, oy, cx, cy int64
 		sb.WriteString(esc)
 		sb.WriteString(`"`)
 	}
-	sb.WriteString(`/><p:cNvPicPr/></p:nvPicPr>`)
-	sb.WriteString(`<p:blipFill>`)
-	sb.WriteString(`<a:blip r:embed="`)
+	sb.WriteString(`/><p:cNvPicPr/>`)
+	// ADR-026：与 audio 同源的两处合规要求（依据 PowerPoint 原生插入视频的
+	// 实包取证 `<p:nvPr><a:videoFile r:link="rId2"/></p:nvPr>`）——
+	//  ① p:nvPr 是 CT_PictureNonVisual 的必需项（minOccurs=1）；
+	//  ② 视频引用是 **a:videoFile**（DrawingML 命名空间）且 r:link 为必需属性，
+	//     且位于 p:nvPr 内（不是在 p:blipFill 里）。
+	// 缺任何一项时 PowerPoint 判整包损坏（0x80070570），WPS 宽容不报。
+	sb.WriteString(`<p:nvPr><a:videoFile r:link="`)
 	sb.WriteString(rid)
-	sb.WriteString(`"/>`)
-	switch ext {
-	case "mp4":
-		sb.WriteString(`<p:videoFile contentType="video/mp4"/>`)
-	case "webm":
-		sb.WriteString(`<p:videoFile contentType="video/webm"/>`)
-	default:
-		sb.WriteString(`<p:videoFile/>`)
-	}
-	sb.WriteString(`</p:blipFill>`)
+	sb.WriteString(`"/></p:nvPr></p:nvPicPr>`)
+	sb.WriteString(`<p:blipFill><a:blip r:embed="`)
+	sb.WriteString(rid)
+	sb.WriteString(`"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>`)
 	sb.WriteString(`<p:spPr><a:xfrm><a:off x="`)
 	sb.WriteString(strconv.FormatInt(ox, 10))
 	sb.WriteString(`" y="`)

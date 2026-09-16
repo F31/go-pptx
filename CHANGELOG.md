@@ -55,6 +55,24 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
     既有测试 `TestSlideAddVideo_PicClassifiedAsVideo` / `TestSlideClone_PreservesVideoProfile`
     立即变红，已回退；待先确认真实产物的 video 写法。
 
+- **含视频的产物在 PowerPoint 下被判"文件或目录损坏"（高危，ADR-026，与 ADR-025 同源）**：
+  修复 audio 后顺带排查发现视频形状存在**同构缺陷**——`buildVideoPicFragment` 同样缺必需的
+  `p:nvPr`，且视频引用写成 `p:videoFile`（**命名空间错**）、缺必需的 `r:link`、位置错
+  （应在 `p:nvPr` 内）。实测：`s001-text.video.pptx` 在 PowerPoint 报 `0x80070570`，
+  WPS 则 `OPEN=ok` 但只认作 `type=13` —— 与 audio 修复前逐项一致。
+  正确形式经 PowerPoint 原生 `AddMediaObject2` 的实包取证确认：
+  `<p:nvPr><a:videoFile r:link="rId2"/></p:nvPr>`。
+  - 修复：补 `p:nvPr`；视频引用改为 `<a:videoFile r:link="rIdX"/>` 并移入 `p:nvPr`；
+    读侧 `picMediaKind` **追加**正确命名空间探测并**保留**旧 `p:videoFile` 分支（兼容
+    v1.0.5 及更早产物）；`hasVideoFile` 改为复用 `picMediaKind`，消除重复实现。
+  - **真机复验**：修复后 PowerPoint 与 WPS 均 `OPEN=ok`，`Video 11` 均为
+    **`type=16 (msoMedia)`**（修复前 WPS 只认作 type=13）。
+  - 新增 `video_ooxml_compliance_test.go`（片段合规 + 读侧双形式兼容，4 子用例），
+    **注入退化验证必红**。
+  - **教训**：这是一**类**缺陷而非两个独立事故 —— 同一套错误写法被复制到 audio / video
+    两个函数，读侧也各维护一份重复探测；**真机验证必须覆盖每一个复制点**，代码级测试
+    只断言"自己生成的形态"，发现不了"生成的形态本身不合规"。
+
 ### Verification
 
 - **配音证据链推进到自动化极限**（§15.3 第 3 条；详见 `docs/client-compat-matrix.md` §第三轮）：

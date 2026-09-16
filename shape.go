@@ -678,15 +678,13 @@ func classifyShape(p *Presentation, part opc.PartName, doc *xmlstore.XMLDocument
 // picMediaKind 返回 pic 内的媒体类别（"video"/"audio"/""）。
 // 返回 "" 表示普通图片或未探测。
 //
-// 探测位置（ADR-025）：音频引用 `<a:audioFile>` 的 OOXML 语义位置是
-// **p:nvPicPr > p:nvPr**（不在 p:blipFill）。本函数先按正确位置探测 audio，
-// 再回退到 p:blipFill —— 后者是 v1.0.5 及更早产物写出的位置，保留探测以便
-// 把旧产物读回（写入侧已改为正确位置）。
-//
-// 注：video 的探测沿用既有实现（p:videoFile + p:blipFill 位置），未在本次
-// 改动范围内；其命名空间/位置是否同样需要修正另议（须先确认真实产物的写法）。
+// 探测位置（ADR-025 / ADR-026）：`a:audioFile` 与 `a:videoFile` 的 OOXML
+// 语义位置都是 **p:nvPicPr > p:nvPr**（DrawingML 命名空间，带 r:link），
+// 不在 p:blipFill 里。本函数先按正确位置探测，再回退到旧位置——
+// v1.0.5 及更早产物把 `p:videoFile` / `a:audioFile` 写在 p:blipFill 内，
+// 保留该分支以便把旧产物读回（写入侧已改为正确形式）。
 func picMediaKind(doc *xmlstore.XMLDocument, pic *xmlstore.NodeRecord) string {
-	// 1) 正确位置：p:nvPicPr > p:nvPr（audio）
+	// 1) 正确位置：p:nvPicPr > p:nvPr
 	for _, cid := range pic.Children {
 		c := doc.Node(cid)
 		if c == nil || c.Namespace != nsPresentationML || c.Local() != "nvPicPr" {
@@ -696,20 +694,23 @@ func picMediaKind(doc *xmlstore.XMLDocument, pic *xmlstore.NodeRecord) string {
 		if nvPr == nil {
 			continue
 		}
-		if childOfKind(doc, nvPr, nsPresentationML, "videoFile", 0) != nil {
+		if childOfKind(doc, nvPr, nsDrawingML, "videoFile", 0) != nil {
 			return "video"
 		}
 		if childOfKind(doc, nvPr, nsDrawingML, "audioFile", 0) != nil {
 			return "audio"
 		}
 	}
-	// 2) 兼容旧位置：p:blipFill（v1.0.5 及更早产物）
+	// 2) 兼容旧位置：p:blipFill（v1.0.5 及更早产物；含旧版 p: 前缀写法）
 	for _, cid := range pic.Children {
 		c := doc.Node(cid)
 		if c == nil || c.Namespace != nsPresentationML || c.Local() != "blipFill" {
 			continue
 		}
 		if childOfKind(doc, c, nsPresentationML, "videoFile", 0) != nil {
+			return "video"
+		}
+		if childOfKind(doc, c, nsDrawingML, "videoFile", 0) != nil {
 			return "video"
 		}
 		if childOfKind(doc, c, nsDrawingML, "audioFile", 0) != nil {
