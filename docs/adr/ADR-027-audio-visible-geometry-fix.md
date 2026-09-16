@@ -1,7 +1,7 @@
-# ADR-027: 音频形状可见几何修复（AudioSpec 补齐 X/Y/Width/Height）
+# ADR-027: 音频形状可见性修复（几何框 + poster 图标）
 
 - 状态：**已实施**（2026-09-16）
-- 严重级别：**中**——音频可播放但图标不可见（0×0），影响可用性
+- 严重级别：**中**——音频可播放但图标不可见（0×0 且 blip 指向音频），影响可用性
 - 关联：[ADR-025](ADR-025-audio-ooxml-compliance-fix.md)（audio 合规修复）、[ADR-026](ADR-026-video-ooxml-compliance-fix.md)（video 同源修复）
 
 ## 上下文
@@ -53,3 +53,55 @@
 
 1. 真机打开 `s004-audio.pptx` 确认图标可见、点击可播放（需 Office 环境）。
 2. 排查其它 media 类形状是否同样缺几何字段（如未来新增的 OLE / `p:media`）。
+
+---
+
+## 续：poster 图标（`a:blip` 指向音频而非图片）
+
+几何修复后**仍不可见**——真机复查确认另有根因。
+
+### 第二个根因
+
+`buildAudioPicFragment` 把 `p:blipFill/a:blip@r:embed` 指向**音频关系**（`.../audio` → `audio1.wav`）：
+
+```xml
+<Relationship Id="rId2" Type=".../audio" Target="../media/audio1.wav"/>
+...
+<a:blip r:embed="rId2"/>     <!-- 把 WAV 当图片嵌入 → PowerPoint 无法解码 → 图标空白 -->
+```
+
+PowerPoint 的音频形状是 `p:pic`：`a:blip` 必须指向一张**图片（poster 图标）**作为可见的喇叭按钮，音频本身只经 `p:nvPr/a:audioFile@r:link` 关联。取证：PowerPoint 原生插入音频的实包（`.l3-output/ref-ppt-inserted.pptx`）：
+
+```xml
+<p:pic>
+  <p:nvPicPr>
+    <p:cNvPr id="2" name="ref-audio">
+      <a:hlinkClick r:id="" action="ppaction://media"/>          <!-- 可点击播放 -->
+    </p:cNvPr>
+    <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>
+    <p:nvPr><a:audioFile r:link="rId2"/></p:nvPr>                <!-- 音频 -->
+  </p:nvPicPr>
+  <p:blipFill><a:blip r:embed="rId4"/></p:blipFill>              <!-- rId4 → image1.png (图标) -->
+  <p:spPr>…<a:ext cx="406400" cy="406400"/></p:spPr>
+</p:pic>
+```
+
+关系表：`rId2`=audio→wav、`rId4`=image→png。
+
+### 决策（续）
+
+1. **嵌入内置喇叭图标** `assets/audio-speaker.png`（64×64，1.8 KB，`//go:embed`）作为 poster；经 `planMedia`（IMAGE-01 同源去重/命名）与 `relImage` 关系嵌入。
+2. **`a:blip` 改指向图标图片**，`a:audioFile` 仍指向音频。
+3. **补 `<a:hlinkClick action="ppaction://media"/>`**（`p:cNvPr`）与 `<a:picLocks noChangeAspect="1"/>`（`p:cNvPicPr`）。
+4. 不引入 `p14:media` 扩展（ADR-025 已证非必需）。
+
+### 验证（续）
+
+- 生成物关系：`rId2`(audio→wav) + `rId3`(image→png)，`a:blip r:embed="rId3"`、`a:audioFile r:link="rId2"`。
+- `TestBuildAudioPicFragmentIsSchemaCompliant` 扩展断言：`a:blip` 必指向 iconRid 且**不得**指向 audioRid；含 `ppaction://media` 与 `picLocks`。
+- 全量测试 + corpus（37 样本 0 错误）全绿。
+
+### 后果（续）
+
+- 音频/视频/media 系列至此共四处同类遗漏（ADR-025 schema、026 命名空间、027 几何、027 续 blip 目标）。共同教训：**media pic 片段必须逐一对照客户端原生产物**；"文件能打开"（ADR-025 的最小实验只验证了不判损）**不等于**"图标可见/可交互"。
+- 内置图标是库级资源，后续若需主题化（深浅色/自定义）可扩展为可配置 poster（对应 `VideoSpec.PosterSource` 的音频版）。

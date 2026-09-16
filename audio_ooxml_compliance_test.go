@@ -25,7 +25,7 @@ import (
 
 // TestBuildAudioPicFragmentIsSchemaCompliant 断言 audio 形状片段的结构合规性。
 func TestBuildAudioPicFragmentIsSchemaCompliant(t *testing.T) {
-	frag := buildAudioPicFragment(11, "Audio 11", "rId2", "wav", 914400, 914400, 914400, 914400)
+	frag := buildAudioPicFragment(11, "Audio 11", "rId2", "rId3", "wav", 914400, 914400, 914400, 914400)
 
 	// 1) p:nvPr 存在（CT_PictureNonVisual 三项均 minOccurs=1）。
 	if !strings.Contains(frag, "<p:nvPr>") {
@@ -45,11 +45,22 @@ func TestBuildAudioPicFragmentIsSchemaCompliant(t *testing.T) {
 	if blipStart >= 0 && blipEnd >= 0 && audio > blipStart && audio < blipEnd {
 		t.Errorf("a:audioFile must not live inside p:blipFill: %s", frag)
 	}
-	// 3) blipFill 保留 a:blip 引用。
-	if !strings.Contains(frag, `<a:blip r:embed="rId2"/>`) {
-		t.Errorf("fragment lacks a:blip reference: %s", frag)
+	// 3) blipFill 的 a:blip 必须指向**图标图片**（iconRid=rId3），
+	//    而非音频关系（历史上指向音频 → PowerPoint 无法渲染图标）。
+	if !strings.Contains(frag, `<a:blip r:embed="rId3"/>`) {
+		t.Errorf("fragment's a:blip must reference the poster icon (rId3): %s", frag)
 	}
-	// 4) 几何框必须写为调用方提供的非零值（历史上硬编码 0×0 导致
+	if strings.Contains(frag, `<a:blip r:embed="rId2"/>`) {
+		t.Errorf("a:blip must not reference the audio relationship: %s", frag)
+	}
+	// 4) 可点击媒体：cNvPr 带 ppaction://media 超链接；cNvPicPr 带 picLocks。
+	if !strings.Contains(frag, `<a:hlinkClick r:id="" action="ppaction://media"/>`) {
+		t.Errorf("fragment lacks ppaction://media hlinkClick: %s", frag)
+	}
+	if !strings.Contains(frag, `<a:picLocks noChangeAspect="1"/>`) {
+		t.Errorf("fragment lacks picLocks: %s", frag)
+	}
+	// 5) 几何框必须写为调用方提供的非零值（历史上硬编码 0×0 导致
 	//    客户端打开后看不到音频图标）。
 	for _, want := range []string{
 		`<a:off x="914400" y="914400"/>`,

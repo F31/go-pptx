@@ -214,7 +214,8 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddAudio")
 	}
-	// 4) slide 关系指向媒体。
+	// 4) slide 关系：音频（p:nvPr/a:audioFile）与内置喇叭图标
+	//    （p:blipFill/a:blip 必须指向图片，否则 PowerPoint 无法渲染图标）。
 	relsOut, err := relsXML(p, s.part)
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddAudio")
@@ -230,6 +231,16 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 		rid = nextRID(relsOut)
 		relsOut = insertRel(relsOut, `<Relationship Id="`+rid+`" Type="`+relType+`" Target="../media/`+slideName(mediaName)+`"/>`)
 	}
+	// 4a) 内置图标作为图片 Part 嵌入（走 IMAGE-01 同源去重/命名）。
+	iconName, iconOp, err := p.planMedia(audioSpeakerIconPNG, audioSpeakerIconKind)
+	if err != nil {
+		return nil, Annotate(err, "Slide.AddAudio")
+	}
+	iconRid := findInternalRelID(curRels, ok, relImage, iconName)
+	if iconRid == "" {
+		iconRid = nextRID(relsOut)
+		relsOut = insertRel(relsOut, `<Relationship Id="`+iconRid+`" Type="`+relImage+`" Target="../media/`+slideName(iconName)+`"/>`)
+	}
 	// 5) 插入 p:pic 形式的音频形状。
 	doc, tree, err := s.slideTree()
 	if err != nil {
@@ -238,7 +249,7 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 	id := nextShapeID(doc, tree)
 	name := "Audio " + strconv.FormatInt(id, 10)
 	ox, oy, cx, cy := audioGeometry(spec)
-	frag := buildAudioPicFragment(id, name, rid, ext, ox, oy, cx, cy)
+	frag := buildAudioPicFragment(id, name, rid, iconRid, ext, ox, oy, cx, cy)
 	ap, err := xmlstore.AppendChild(tree, []byte(frag))
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Slide.AddAudio")
@@ -247,9 +258,12 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Slide.AddAudio")
 	}
-	ops := make([]editplan.Operation, 0, 3)
+	ops := make([]editplan.Operation, 0, 4)
 	if mediaOp != nil {
 		ops = append(ops, *mediaOp)
+	}
+	if iconOp != nil {
+		ops = append(ops, *iconOp)
 	}
 	if !bytes.Equal(relsOut, relsBase) {
 		ops = append(ops, relsPlanOp(p, s.part, relsOut))
@@ -483,11 +497,17 @@ func audioGeometry(spec AudioSpec) (ox, oy, cx, cy int64) {
 
 // buildAudioPicFragment 返回 PowerPoint/WPS 均接受的 audio 形状片段。
 //
-// 结构合规性（ADR-025）：`p:nvPicPr` 必须含 `p:nvPr`（CT_PictureNonVisual 的
-// 三项均为 minOccurs=1），且音频引用 `<a:audioFile>` 属于 **nvPr** 而非
-// blipFill，其 `r:link` 是必需属性（CT_AudioFile）。缺任何一项时 PowerPoint
-// 会判定整包损坏（0x80070570 "文件或目录损坏"），而 WPS 宽容不报错。
-func buildAudioPicFragment(id int64, name, rid, ext string, ox, oy, cx, cy int64) string {
+// 结构合规性（ADR-025 / ADR-027 续）：
+//   - `p:nvPicPr` 必须含 `p:nvPr`（CT_PictureNonVisual 三项 minOccurs=1），
+//     音频引用 `<a:audioFile r:link>` 属于 **nvPr** 而非 blipFill；
+//   - `p:blipFill/a:blip@r:embed` 必须指向 **图片（poster 图标）**，
+//     由它渲染可见的喇叭按钮——指向音频文件时图标不可见；
+//   - `p:cNvPr` 带 `<a:hlinkClick action="ppaction://media"/>`，使图标成为
+//     可点击播放的媒体对象（PowerPoint 原生插入的等价形式）。
+//
+// 缺任一项时客户端表现异常：PowerPoint 判整包损坏（0x80070570）或图标
+// 不可见，而 WPS 宽容不报错。
+func buildAudioPicFragment(id int64, name, audioRid, iconRid, ext string, ox, oy, cx, cy int64) string {
 	_ = ext // 媒体类型由 Part 关系与 Content_Types 承载，片段内不再声明
 	var sb strings.Builder
 	sb.WriteString(`<p:pic>`)
@@ -495,12 +515,14 @@ func buildAudioPicFragment(id int64, name, rid, ext string, ox, oy, cx, cy int64
 	sb.WriteString(strconv.FormatInt(id, 10))
 	sb.WriteString(`" name="`)
 	xmlEscapeAttr(&sb, name)
-	sb.WriteString(`"/><p:cNvPicPr/><p:nvPr><a:audioFile r:link="`)
-	sb.WriteString(rid)
+	sb.WriteString(`"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`)
+	sb.WriteString(`<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>`)
+	sb.WriteString(`<p:nvPr><a:audioFile r:link="`)
+	sb.WriteString(audioRid)
 	sb.WriteString(`"/></p:nvPr></p:nvPicPr>`)
 	sb.WriteString(`<p:blipFill>`)
 	sb.WriteString(`<a:blip r:embed="`)
-	sb.WriteString(rid)
+	sb.WriteString(iconRid)
 	sb.WriteString(`"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>`)
 	// 几何框由调用方经 AudioSpec.X/Y/Width/Height 提供；全零时由 AddAudio
 	// 填入默认值（1in×1in @ 1in,1in），避免不可见的 0×0 形状。
