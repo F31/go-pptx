@@ -12,11 +12,15 @@
 #   COV-04  低层格式包                  >= 90%   （audioprobe 依 B-2 决策豁免 90）
 #   ir / render / chart                 行为优先，门槛取防回归下界
 #
+# 完整性校验：`go list ./...` 中每个包必须出现在 FLOORS（百分比门槛）或
+# SKIP（无可测语句 / 一次性工具包，须注明理由）。否则 FAIL——堵住「新包静默
+# 不受检」（v2.0 试点期曾三次新增包后忘加门槛）。
+#
 # 用法：
 #   scripts/coverage/gate.sh
 #   TOLERANCE=0.5 scripts/coverage/gate.sh     # 放宽测量容差（默认 0）
 #
-# 退出码：0=全部达标；1=有包跌破门槛或有门槛包缺失。
+# 退出码：0=全部达标；1=有包跌破门槛、有门槛包缺失、或有包未登记。
 set -u
 
 TOLERANCE="${TOLERANCE:-0.0}"
@@ -40,6 +44,14 @@ FLOORS=(
   "github.com/F31/go-pptx/internal/bind=90"
   "github.com/F31/go-pptx/internal/style=90"
   "github.com/F31/go-pptx/render=84"
+)
+
+# 显式豁免：无需百分比门槛的包（须注明理由，完整性校验据此放行）。
+SKIP=(
+  "github.com/F31/go-pptx/internal/document"  # 纯接口/类型声明，无可测语句
+  "github.com/F31/go-pptx/internal/ooxmlns"   # 纯命名空间常量，无可测语句
+  "github.com/F31/go-pptx/scripts/gen_audio"  # 一次性生成工具（package main）
+  "github.com/F31/go-pptx/scripts/gen_media"  # 一次性生成工具（package main）
 )
 
 tags_flag=()
@@ -67,6 +79,26 @@ while IFS= read -r line; do
 done < <(printf '%s\n' "$RAW" | grep -E '^ok[[:space:]]')
 
 fail=0
+
+# ── 完整性校验：go list ./... 中每个包必须出现在 FLOORS 或 SKIP ──────────
+declare -A KNOWN
+for entry in "${FLOORS[@]}"; do KNOWN["${entry%=*}"]=1; done
+for pkg in "${SKIP[@]}"; do KNOWN["$pkg"]=1; done
+
+missing=()
+while IFS= read -r pkg; do
+  [ -n "$pkg" ] || continue
+  [ -n "${KNOWN[$pkg]:-}" ] || missing+=("$pkg")
+done < <(go list ./... 2>/dev/null)
+
+if [ "${#missing[@]}" -gt 0 ]; then
+  echo
+  echo "COVERAGE GATE: 以下包既未列入 FLOORS 也未登记 SKIP（静默不受检）："
+  printf '  - %s\n' "${missing[@]}"
+  echo "  请加入 FLOORS（有百分比门槛）或 SKIP（无可测语句/工具包，须注明理由）。"
+  fail=1
+fi
+
 printf '%-46s %9s %9s  %s\n' "package" "cover" "floor" "status"
 printf '%-46s %9s %9s  %s\n' "----------------------------------------------" "---------" "---------" "------"
 for entry in "${FLOORS[@]}"; do
