@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/style"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -60,7 +61,7 @@ func masterClrMap(doc *xmlstore.XMLDocument) map[string]string {
 // textStyleNode 返回母版 txStyles 中 class 对应的样式节点
 // （CT_TextListStyle：直接含 a:lvlNpPr）。无 txStyles 或无该 class
 // 返回 nil。
-func textStyleNode(doc *xmlstore.XMLDocument, class textClass) *xmlstore.NodeRecord {
+func textStyleNode(doc *xmlstore.XMLDocument, class style.TextClass) *xmlstore.NodeRecord {
 	if doc == nil {
 		return nil
 	}

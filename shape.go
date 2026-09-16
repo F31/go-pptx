@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/style"
 	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -288,31 +289,31 @@ func shapeNodeIDFromRecord(doc *xmlstore.XMLDocument, id xmlstore.NodeID) ShapeI
 }
 
 // shapePhKey 读取形状元素的占位符键；非占位符返回 ok=false。
-// 与 phKeyOf（style.go，仅 p:sp）同规约，泛化到全部形状容器。
-func shapePhKey(doc *xmlstore.XMLDocument, el *xmlstore.NodeRecord) (phKey, bool) {
+// 与 style.PhKeyOf（internal/style，仅 p:sp）同规约，泛化到全部形状容器。
+func shapePhKey(doc *xmlstore.XMLDocument, el *xmlstore.NodeRecord) (style.PhKey, bool) {
 	cont := nvPrContainer(el.Local())
 	if cont == "" {
-		return phKey{}, false
+		return style.PhKey{}, false
 	}
 	c := childOfKind(doc, el, nsPresentationML, cont, 0)
 	if c == nil {
-		return phKey{}, false
+		return style.PhKey{}, false
 	}
 	nvPr := childOfKind(doc, c, nsPresentationML, "nvPr", 0)
 	if nvPr == nil {
-		return phKey{}, false
+		return style.PhKey{}, false
 	}
 	ph := childOfKind(doc, nvPr, nsPresentationML, "ph", 0)
 	if ph == nil {
-		return phKey{}, false
+		return style.PhKey{}, false
 	}
-	k := phKey{typ: "obj", idx: 0}
+	k := style.PhKey{Typ: "obj", Idx: 0}
 	if t, ok := ph.Attr("", "type"); ok {
-		k.typ = t
+		k.Typ = t
 	}
 	if s, ok := ph.Attr("", "idx"); ok {
 		if v, err := parseUint32(s); err == nil {
-			k.idx = v
+			k.Idx = v
 		}
 	}
 	return k, true
@@ -611,8 +612,8 @@ func (s *Slide) Placeholders() ([]*Placeholder, error) {
 			continue
 		}
 		out = append(out, &Placeholder{
-			Type:  k.typ,
-			Index: k.idx,
+			Type:  k.Typ,
+			Index: k.Idx,
 			Shape: classifyShape(s.p, s.part, doc, c),
 		})
 	}
@@ -844,7 +845,7 @@ func (a *AutoShape) Placeholder() (typ string, idx uint32, ok bool) {
 	if !ok {
 		return "", 0, false
 	}
-	return k.typ, k.idx, true
+	return k.Typ, k.Idx, true
 }
 
 // ---------- OpaqueShape ----------

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/style"
 )
 
 // ---------- STYLE-01 EffectiveFont 测试 ----------
@@ -137,8 +138,8 @@ func tfByPh(t *testing.T, s *Slide, typ string, idx uint32) *TextFrame {
 			if sp.Namespace != nsPresentationML || sp.Local() != "sp" {
 				continue
 			}
-			k, ok := phKeyOf(doc, sp)
-			if !ok || k.typ != typ || k.idx != idx {
+			k, ok := style.PhKeyOf(doc, sp)
+			if !ok || k.Typ != typ || k.Idx != idx {
 				continue
 			}
 			tx := childOfKind(doc, sp, nsPresentationML, "txBody", 0)
@@ -167,7 +168,7 @@ func tfNthPlain(t *testing.T, s *Slide, nth int) *TextFrame {
 			if sp.Namespace != nsPresentationML || sp.Local() != "sp" {
 				continue
 			}
-			if _, ok := phKeyOf(doc, sp); ok {
+			if _, ok := style.PhKeyOf(doc, sp); ok {
 				continue
 			}
 			if seen != nth {

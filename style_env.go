@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/style"
 )
 
 // 本文件是 STYLE-01 的**样式环境**：styleEnv（slide→layout→master→theme 链）
@@ -9,7 +10,7 @@ import (
 
 // styleEnv 是从某 Part 出发可达的样式链环境（缺失环节留空）。
 type styleEnv struct {
-	kind   string // styleKindSlide / styleKindNotes
+	kind   string // style.StyleKindSlide / style.StyleKindNotes
 	layout opc.PartName
 	master opc.PartName
 	theme  opc.PartName
@@ -18,7 +19,7 @@ type styleEnv struct {
 // styleEnv 沿真实关系图解析样式链（读取视图，含已提交 rels 补丁）：
 // slide → slideLayout → slideMaster → theme；notesSlide → notesMaster → theme。
 func (p *Presentation) styleEnv(part opc.PartName) (*styleEnv, error) {
-	env := &styleEnv{kind: styleKindSlide}
+	env := &styleEnv{kind: style.StyleKindSlide}
 	rels, ok, err := p.relsOf(part)
 	if err != nil || !ok {
 		return env, err
@@ -30,7 +31,7 @@ func (p *Presentation) styleEnv(part opc.PartName) (*styleEnv, error) {
 		}
 		switch rel.Type {
 		case relNotesMaster:
-			env.kind = styleKindNotes
+			env.kind = style.StyleKindNotes
 			master = rel.TargetPart
 		case opc.RelSlideLayout:
 			if layout == "" {
@@ -39,7 +40,7 @@ func (p *Presentation) styleEnv(part opc.PartName) (*styleEnv, error) {
 		}
 	}
 	env.layout = layout
-	if env.kind == styleKindSlide && layout != "" {
+	if env.kind == style.StyleKindSlide && layout != "" {
 		if lm, ok, err := p.relsOf(layout); err == nil && ok {
 			for _, rel := range lm {
 				if rel.Mode == opc.TargetInternal && rel.Type == opc.RelSlideMaster {

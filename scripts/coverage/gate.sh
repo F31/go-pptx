@@ -38,6 +38,7 @@ FLOORS=(
   "github.com/F31/go-pptx/ir=85"
   "github.com/F31/go-pptx/internal/textutil=82"
   "github.com/F31/go-pptx/internal/bind=90"
+  "github.com/F31/go-pptx/internal/style=90"
   "github.com/F31/go-pptx/render=84"
 )
 

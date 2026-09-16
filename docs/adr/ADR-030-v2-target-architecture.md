@@ -224,6 +224,35 @@ format 76.5 / chart 77.5 / theme 78.9 / clone 81.5 **应先补测试再搬**。
 - 关键约束复证：**Go 方法必须在类型所在包定义**——`bindScanner` 系列方法（bind_body/
   table/chart/resolve）仍无法迁出（其类型定义在根包 `bind.go`），故 bind 域只能逐文件
   渐进而非整域搬迁。本批证明「零方法 + 零根类型依赖」的文件可独立迁出。
+
+### 试点续二：共享 helper 下沉 + `theme_placeholder.go` → `internal/style/`（2026-09-16 第三批）
+
+**前置：共享 helper 下沉**（commit `c20e9f5`）。前两批迁出后，剩余「零方法」文件都依赖
+根包 helper（`childOfKind` 172 处、`ns*` 41 文件、`parseUint32`、`styleKind*`），直接迁会
+因 root↔internal 双向 import 成环。故先把跨包 helper 下沉：
+
+- `internal/xmlstore/dom.go`：`ChildOfKind` / `CountKind` / `ParseUint32`（+包内测试）
+- `internal/ooxmlns/ns.go`：OOXML/OPC 命名空间 URI 常量
+- 根包改薄委托/别名（零调用方改动）；`internal/chart` 的重复实现同步收敛
+
+**迁移：`theme_placeholder.go` → `internal/style/placeholder.go`**（135 行）。与前两批不同，
+本文件的类型（`phKey`/`textClass`）虽非公开，但被根包 `shape.go`/`style_resolve.go`/
+`theme_resolve.go` 使用，需**导出类型与字段**（`PhKey{Typ,Idx}`、`TextClass`、`StyleKind*`、
+`ClassTitle/Body/Other/Notes`）并更新调用方：
+
+- 导出：`PhKey` / `PhKeyOf` / `FindPlaceholderShape` / `AncestorShape` / `RunPara` /
+  `ParaLevel` / `TextClass` / `ClassOf` / `StyleKindSlide` / `StyleKindNotes`
+- 调用方更新：`style_resolve.go`（含 effState 字段类型）、`shape.go`（`shapePhKey`）、
+  `theme_resolve.go`、`style_env.go`、`style.go`（移除 styleKind 常量）、`style_test.go`、
+  `table_style_test.go`
+- 测试随迁：`internal/style/placeholder_test.go`，覆盖率 **94.6%**；gate 新增
+  `internal/style=90`
+- 守恒：`go test ./...` 与 `-tags=corpus` **17/17** 全绿；`api_surface_test` golden 不变
+
+**小结**：三批试点共迁出 3 个文件 + 建立 3 个共享/内部包。剩余「零方法」文件
+（`geom_parse/fill/effect.go`、`chart_frag.go`、`media_audioicon.go`）**全部引用根包
+公开类型**（`GeometryInfo`/`FillInfo`/`EffectInfo`/`ChartData`/`imageKind` 等），在 v1.x
+冻结面内**无法迁出**——它们要等 v2.0 破坏性版本连同公共类型一起搬。**clean 迁移集已尽。**
 - **render 决策**（启动前定案）：删 / 留公共+指定消费者 / 降 `internal/render` 三选一；
 - 启动时同步维护 1.x→2.0 迁移文档（import 路径改写 + golden 计数随迁）。
 

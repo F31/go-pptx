@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/style"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -26,9 +27,9 @@ type effState struct {
 	doc *xmlstore.XMLDocument
 	run *xmlstore.NodeRecord
 
-	class   textClass
+	class   style.TextClass
 	lvl     int
-	phKey   phKey
+	phKey   style.PhKey
 	isPh    bool
 	sources []famSource // L1..L3
 	res     map[string]bool
@@ -42,16 +43,16 @@ func newEffState(p *Presentation, ctx ResolveContext, env *styleEnv, doc *xmlsto
 		res: make(map[string]bool),
 	}
 	// 占位符与 class。
-	if sp := ancestorShape(doc, run); sp != nil {
-		if k, ok := phKeyOf(doc, sp); ok {
+	if sp := style.AncestorShape(doc, run); sp != nil {
+		if k, ok := style.PhKeyOf(doc, sp); ok {
 			st.phKey, st.isPh = k, true
 		}
 	}
-	st.class = classOf(st.phKey, st.isPh, env.kind)
+	st.class = style.ClassOf(st.phKey, st.isPh, env.kind)
 	// 级别（L3 需要）。
 	var para *xmlstore.NodeRecord
-	if para = runPara(doc, run); para != nil {
-		st.lvl = paraLevel(doc, para)
+	if para = style.RunPara(doc, run); para != nil {
+		st.lvl = style.ParaLevel(doc, para)
 	}
 	// L1 run rPr。
 	if rPr := childOfKind(doc, run, nsDrawingML, "rPr", 0); rPr != nil {
@@ -85,7 +86,7 @@ func (st *effState) appendListSources() {
 	if st.isPh {
 		if st.env.layout != "" {
 			if ldoc, err := p.docOf(st.env.layout); err == nil {
-				if sp := findPlaceholderShape(ldoc, st.phKey); sp != nil {
+				if sp := style.FindPlaceholderShape(ldoc, st.phKey); sp != nil {
 					if d := defRPrAtLevel(ldoc, lstStyleOf(ldoc, sp), st.lvl); d != nil {
 						st.sources = append(st.sources, famSource{
 							style: parseLocalFont(ldoc, d),
@@ -98,7 +99,7 @@ func (st *effState) appendListSources() {
 		}
 		if st.env.master != "" {
 			if mdoc := p.masterDoc(st.env); mdoc != nil {
-				if sp := findPlaceholderShape(mdoc, st.phKey); sp != nil {
+				if sp := style.FindPlaceholderShape(mdoc, st.phKey); sp != nil {
 					if d := defRPrAtLevel(mdoc, lstStyleOf(mdoc, sp), st.lvl); d != nil {
 						st.sources = append(st.sources, famSource{
 							style: parseLocalFont(mdoc, d),
@@ -127,7 +128,7 @@ func (st *effState) appendListSources() {
 
 // phDetail 生成占位符描述（Detail 用）。
 func (st *effState) phDetail() string {
-	return "ph type=" + st.phKey.typ + " idx=" + strconv.FormatUint(uint64(st.phKey.idx), 10)
+	return "ph type=" + st.phKey.Typ + " idx=" + strconv.FormatUint(uint64(st.phKey.Idx), 10)
 }
 
 // note 记录属性族是否解析成功。
@@ -229,7 +230,7 @@ func (st *effState) resolveTypeface(name, kind string, pick func(FontStyle) Opti
 	}
 	// 主题缺省字体（L4）。
 	if tdoc != nil {
-		major := st.class == classTitle
+		major := st.class == style.ClassTitle
 		if face, found := themeFontFace(tdoc, major, kind); found && face != "" {
 			st.note(name, true)
 			return ResolvedValue[string]{Value: face, Resolved: true, Trace: []StyleStep{{

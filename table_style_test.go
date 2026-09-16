@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/style"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -26,7 +27,7 @@ func TestResolveColorSpec(t *testing.T) {
 	p := openDocProps(t, minimalTemplateParts())
 	defer p.Close()
 	env := &styleEnv{
-		kind:   styleKindSlide,
+		kind:   style.StyleKindSlide,
 		master: opc.PartName("/ppt/slideMasters/slideMaster1.xml"),
 		theme:  opc.PartName("/ppt/theme/theme1.xml"),
 	}
@@ -76,7 +77,7 @@ func TestResolveColorSpec(t *testing.T) {
 	// 无主题环境（env.theme/env.master 为空）：schemeClr 部分解析降级。
 	doc, fill := resolveColorSpecFillDoc(t, `<a:schemeClr val="accent1"/>`)
 	var diags []Diagnostic
-	rc := p.resolveColorSpec(doc, &styleEnv{kind: styleKindSlide}, fill, "part", &diags)
+	rc := p.resolveColorSpec(doc, &styleEnv{kind: style.StyleKindSlide}, fill, "part", &diags)
 	if rc.Resolved || rc.RGB != "" {
 		t.Errorf("no-theme schemeClr: %+v, want unresolved empty", rc)
 	}

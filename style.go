@@ -183,9 +183,3 @@ func (r *TextRun) EffectiveFont(ctx ResolveContext) (ResolvedFont, []Diagnostic,
 var propNames = []string{"bold", "italic", "size", "color", "latin", "ea", "cs"}
 
 // ---------- 解析环境与关系读取视图 ----------
-
-// styleKind 区分正文页面与备注页（样式源宿主不同）。
-const (
-	styleKindSlide = "slide"
-	styleKindNotes = "notes"
-)
