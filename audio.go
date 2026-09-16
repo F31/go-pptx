@@ -150,6 +150,19 @@ func (p *Presentation) debugAddedParts() []string {
 	return out
 }
 
+// PowerPoint 2010+ 用于把 p:pic 的 poster 图片与媒体文件关联的扩展与关系
+// （ADR-027 续三）。缺 p14:media 时，含 poster 图标的 audio p:pic 会被
+// PowerPoint 判为不可用（WPS 宽容）。
+const (
+	// nsPowerPoint2010 是 p14 命名空间前缀对应的 URI。
+	nsPowerPoint2010 = "http://schemas.microsoft.com/office/powerpoint/2010/main"
+	// relMedia2007 是 p14:media 引用的媒体关系类型（Microsoft 扩展命名空间，
+	// 区别于标准 relMedia）。
+	relMedia2007 = "http://schemas.microsoft.com/office/2007/relationships/media"
+	// mediaExtURI 是承载 p14:media 的 p:ext@uri（PowerPoint 固定值）。
+	mediaExtURI = "{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}"
+)
+
 // AddAudio 在页面上嵌入音频：基于源字节探测类型与时长（若调用方未指定），// 创建媒体 Part 与页面关系，插入 p:pic 形式的音频形状，记录 AudioProfile。
 //
 // 同一 TrackKey 重复调用返回 ErrUnsupportedEdit（AT-08 语义由
@@ -231,7 +244,14 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 		rid = nextRID(relsOut)
 		relsOut = insertRel(relsOut, `<Relationship Id="`+rid+`" Type="`+relType+`" Target="../media/`+slideName(mediaName)+`"/>`)
 	}
-	// 4a) 内置图标作为图片 Part 嵌入（走 IMAGE-01 同源去重/命名）。
+	// 4a) p14:media 媒体关系（Microsoft 2007 类型）——poster 图片 + 媒体的
+	//     关联；缺它时 PowerPoint 拒绝含 poster 的 audio p:pic。
+	mediaRid := findInternalRelID(curRels, ok, relMedia2007, mediaName)
+	if mediaRid == "" {
+		mediaRid = nextRID(relsOut)
+		relsOut = insertRel(relsOut, `<Relationship Id="`+mediaRid+`" Type="`+relMedia2007+`" Target="../media/`+slideName(mediaName)+`"/>`)
+	}
+	// 4b) 内置图标作为图片 Part 嵌入（走 IMAGE-01 同源去重/命名）。
 	iconName, iconOp, err := p.planMedia(audioSpeakerIconPNG, audioSpeakerIconKind)
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddAudio")
@@ -250,7 +270,7 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 	name := "Audio " + strconv.FormatInt(id, 10)
 	sw, sh := p.slideSize()
 	ox, oy, cx, cy := audioGeometry(spec, sw, sh)
-	frag := buildAudioPicFragment(id, name, rid, iconRid, ext, ox, oy, cx, cy)
+	frag := buildAudioPicFragment(id, name, rid, mediaRid, iconRid, ext, ox, oy, cx, cy)
 	ap, err := xmlstore.AppendChild(tree, []byte(frag))
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Slide.AddAudio")
@@ -538,12 +558,15 @@ func audioGeometry(spec AudioSpec, slideW, slideH int64) (ox, oy, cx, cy int64) 
 //     音频引用 `<a:audioFile r:link>` 属于 **nvPr** 而非 blipFill；
 //   - `p:blipFill/a:blip@r:embed` 必须指向 **图片（poster 图标）**，
 //     由它渲染可见的喇叭按钮——指向音频文件时图标不可见；
+//   - `p:nvPr` 必须带 `p:extLst/p:ext/p14:media@r:embed`（Microsoft 2007
+//     media 关系）——poster 图片与媒体文件的关联，缺它时 PowerPoint
+//     拒绝打开含 poster 的 audio p:pic；
 //   - `p:cNvPr` 带 `<a:hlinkClick action="ppaction://media"/>`，使图标成为
 //     可点击播放的媒体对象（PowerPoint 原生插入的等价形式）。
 //
 // 缺任一项时客户端表现异常：PowerPoint 判整包损坏（0x80070570）或图标
-// 不可见，而 WPS 宽容不报错。
-func buildAudioPicFragment(id int64, name, audioRid, iconRid, ext string, ox, oy, cx, cy int64) string {
+// 不可见/无声，而 WPS 宽容不报错。
+func buildAudioPicFragment(id int64, name, audioRid, mediaRid, iconRid, ext string, ox, oy, cx, cy int64) string {
 	_ = ext // 媒体类型由 Part 关系与 Content_Types 承载，片段内不再声明
 	var sb strings.Builder
 	sb.WriteString(`<p:pic>`)
@@ -555,7 +578,13 @@ func buildAudioPicFragment(id int64, name, audioRid, iconRid, ext string, ox, oy
 	sb.WriteString(`<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>`)
 	sb.WriteString(`<p:nvPr><a:audioFile r:link="`)
 	sb.WriteString(audioRid)
-	sb.WriteString(`"/></p:nvPr></p:nvPicPr>`)
+	sb.WriteString(`"/><p:extLst><p:ext uri="`)
+	sb.WriteString(mediaExtURI)
+	sb.WriteString(`"><p14:media xmlns:p14="`)
+	sb.WriteString(nsPowerPoint2010)
+	sb.WriteString(`" r:embed="`)
+	sb.WriteString(mediaRid)
+	sb.WriteString(`"/></p:ext></p:extLst></p:nvPr></p:nvPicPr>`)
 	sb.WriteString(`<p:blipFill>`)
 	sb.WriteString(`<a:blip r:embed="`)
 	sb.WriteString(iconRid)

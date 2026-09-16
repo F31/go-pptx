@@ -131,3 +131,49 @@ PowerPoint 的音频形状是 `p:pic`：`a:blip` 必须指向一张**图片（po
 
 - 这是 audio 系列的**第五处**遗漏，且性质升级：前四处只影响"能否打开/是否可见"，本处影响**功能可用性（有声/无声）**。
 - 一般化教训：**枚举/百分比类属性必须核对 XSD 类型与量纲**；`vol` 的 0..100000 千分比与直觉的 0..100 相差三个数量级，`80` 与 `80000` 在文本上极不显眼，代码级测试若只断言"存在 cMediaNode"则完全抓不到。
+
+---
+
+## 续三：PowerPoint 打不开（缺 `p14:media` 关联）
+
+poster 图标 + 右下角定位 + `vol=80000` 后，真机反馈：**WPS 能打开，PowerPoint 打不开**。
+
+### 第四个根因
+
+`p:nvPr` 只有 `<a:audioFile r:link>`，缺 **`p14:media` 扩展**——poster 图片与媒体文件的关联。取证对照：
+
+| 样本 | `a:blip` 指向 | `p14:media` | PowerPoint |
+|---|---|---|---|
+| `s001-text.video.fixed.pptx`（ADR-026，已验） | 视频关系 | 无 | ✅ 打开 |
+| `ref-ppt-inserted.pptx`（原生） | 图片 | **有** | ✅ 打开 |
+| 本 ADR 续二版 s004-audio | 图片 | 无 | ❌ **打不开** |
+
+规律：**当 `a:blip` 指向图片（poster）时，PowerPoint 要求 `p:nvPr/p:extLst/p14:media` 关联媒体**；缺它则判包不可用（WPS 宽容）。此前 ADR-026 决定"不引入 p14:media"仅对 `blip→媒体文件` 成立（video 路线），不适用于 `blip→图片`（audio 路线）。
+
+### 决策（续三）
+
+按原生结构补全（`audio.go`）：
+
+```xml
+<Relationship Id="rId2" Type=".../relationships/audio" Target="../media/audio1.wav"/>
+<Relationship Id="rId3" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="../media/audio1.wav"/>
+<Relationship Id="rId4" Type=".../relationships/image" Target="../media/image1.png"/>
+...
+<p:nvPr><a:audioFile r:link="rId2"/>
+  <p:extLst><p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">
+    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="rId3"/>
+  </p:ext></p:extLst></p:nvPr>
+```
+
+新增常量 `nsPowerPoint2010` / `relMedia2007` / `mediaExtURI`（`audio.go`）。**连带修复**：`clone.go` 的 `classifyCloneRel` 需把 `relMedia2007` 归入 media（否则克隆含音频页面时报"unsupported internal relationship type"）。
+
+### 验证（续三）
+
+- 生成物 rels：`rId2`(audio) + `rId3`(media 2007) + `rId4`(image)，pic 结构与原生逐项一致。
+- 守门：`TestBuildAudioPicFragmentIsSchemaCompliant` 增加 `p14:media` 与 ext uri 断言。
+- SDK 回读：`AudioShape` 仍正确分类（kind=audio、profile track/duration/role、`AudioSource` 可读）、`Validate` 0 错误。
+- 全量 + corpus（37 样本 0 错误）全绿。
+
+### 后果（续三）
+
+- audio 系列累计**六处**遗漏。本处再次印证：**"能打开"与"可见/可交互/有声"是三套独立的客户端约束**，必须逐项对照原生实包；且 ADR 的"最小改动"结论有**适用边界**（`blip→媒体` vs `blip→图片`），换路线后需重新取证。

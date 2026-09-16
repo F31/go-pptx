@@ -25,7 +25,7 @@ import (
 
 // TestBuildAudioPicFragmentIsSchemaCompliant 断言 audio 形状片段的结构合规性。
 func TestBuildAudioPicFragmentIsSchemaCompliant(t *testing.T) {
-	frag := buildAudioPicFragment(11, "Audio 11", "rId2", "rId3", "wav", 914400, 914400, 914400, 914400)
+	frag := buildAudioPicFragment(11, "Audio 11", "rId2", "rId4", "rId3", "wav", 914400, 914400, 914400, 914400)
 
 	// 1) p:nvPr 存在（CT_PictureNonVisual 三项均 minOccurs=1）。
 	if !strings.Contains(frag, "<p:nvPr>") {
@@ -59,6 +59,14 @@ func TestBuildAudioPicFragmentIsSchemaCompliant(t *testing.T) {
 	}
 	if !strings.Contains(frag, `<a:picLocks noChangeAspect="1"/>`) {
 		t.Errorf("fragment lacks picLocks: %s", frag)
+	}
+	// 5) p14:media 关联（Microsoft 2007 media 关系）——poster 图片与媒体
+	//    的绑定，缺它时 PowerPoint 拒绝打开含 poster 的 audio p:pic。
+	if !strings.Contains(frag, `<p14:media xmlns:p14="`+nsPowerPoint2010+`" r:embed="rId4"/>`) {
+		t.Errorf("fragment lacks p14:media association: %s", frag)
+	}
+	if !strings.Contains(frag, `uri="`+mediaExtURI+`"`) {
+		t.Errorf("fragment lacks media extension URI: %s", frag)
 	}
 	// 5) 几何框必须写为调用方提供的非零值（历史上硬编码 0×0 导致
 	//    客户端打开后看不到音频图标）。

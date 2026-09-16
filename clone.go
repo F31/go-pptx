@@ -389,7 +389,7 @@ func classifyCloneRel(relType, container string) string {
 	switch relType {
 	case opc.RelSlideLayout, relNotesMaster:
 		return "reuse"
-	case relImage, relAudio, relVideo, relMedia:
+	case relImage, relAudio, relVideo, relMedia, relMedia2007:
 		return "media"
 	case opc.RelNotesSlide:
 		if container == "slide" {
