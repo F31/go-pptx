@@ -1,5 +1,7 @@
 package pptx
 
+import "github.com/F31/go-pptx/internal/xmlstore"
+
 // 本文件是 M3 的**Run 高级属性**：baseline/spc/highlight/caps/sym → RunProps。
 
 // ---------- Run 高级属性 ----------
@@ -69,9 +71,9 @@ func (r *TextRun) AdvancedProps() (RunProps, []Diagnostic, error) {
 		}
 		switch a.RawName {
 		case "baseline":
-			out.Baseline = intAttr(a.Value)
+			out.Baseline = xmlstore.IntAttr(a.Value)
 		case "spc":
-			out.Spacing = float64(intAttr(a.Value)) / 100
+			out.Spacing = float64(xmlstore.IntAttr(a.Value)) / 100
 		case "cap":
 			out.Caps = a.Value
 		case "strike":
@@ -83,7 +85,7 @@ func (r *TextRun) AdvancedProps() (RunProps, []Diagnostic, error) {
 		case "altLang":
 			out.AltLanguage = a.Value
 		case "kern":
-			out.Kern = float64(intAttr(a.Value)) / 100
+			out.Kern = float64(xmlstore.IntAttr(a.Value)) / 100
 		case "dirty":
 			out.Dirty = a.Value == "1" || a.Value == "true"
 		case "spellErr":

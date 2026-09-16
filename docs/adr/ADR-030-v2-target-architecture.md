@@ -315,6 +315,23 @@ format 76.5 / chart 77.5 / theme 78.9 / clone 81.5 **应先补测试再搬**。
   未命名结构体字面量 → 改 keyed
 - 守恒：`go test ./...` 与 `-tags=corpus` **19/19** 全绿；`api_surface_test` golden 不变
 
+### 域搬迁 2：style（切片 1：段落属性）（2026-09-16）
+
+style 域庞大且与 `Presentation`/`styleEnv` 深度耦合，按切片推进。切片 1 取**零根类型
+依赖**的段落属性解析：
+
+- 前置：`EMU` 从 geometry 迁至 **`internal/document/model`**（共享度量单位；geometry
+  内部以 `type EMU = model.EMU` 别名继续使用，根包 alias 指向 model）
+- 前置：通用 `intAttr` 下沉为 `xmlstore.IntAttr`（4 处调用点更新）
+- 迁出：`Spacing` / `BulletKind`(+`String`) / `Bullet` / `TabStop` / `ParagraphProps`
+  + `ParseParagraphProps`（原 `Paragraph.Props()` 的解析体）→ `internal/document/style`
+- 根包：`format_paraprops.go` 改 alias + `Paragraph.Props()` 薄委托
+- 测试随迁 `internal/document/style/paraprops_test.go`（**94.9%**）；gate 增
+  `internal/document/style=90`
+- 附带：新增 `xmlstore.IntAttr` 使 xmlstore 覆盖率短暂跌破 90（ADR-016 陷阱），补
+  `TestIntAttr` 后回到 **90.7%**
+- 守恒：`go test ./...` 与 `-tags=corpus` **21/21** 全绿；`api_surface_test` golden 不变
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

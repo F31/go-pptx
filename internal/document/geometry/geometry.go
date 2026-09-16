@@ -2,24 +2,13 @@
 // custGeom 路径）。本包不依赖根包——写入侧仍由根包 / xmlstore 承担。
 package geometry
 
-import "github.com/F31/go-pptx/internal/diag"
-
-// EMU 是 English Metric Unit（1/914400 英寸），OOXML 的长度基本单位。
-//
-// Stable（经根包 alias 暴露）：int64 别名类型——基本类型不变即契约稳定。
-// 所有几何运算（Point / Rect / Quad）均以 EMU 为基本单位。
-type EMU int64
-
-const (
-	emuPerInch  = 914400
-	emuPerPoint = 12700
+import (
+	"github.com/F31/go-pptx/internal/diag"
+	"github.com/F31/go-pptx/internal/document/model"
 )
 
-// Inches 返回英寸表示的浮点值。
-func (e EMU) Inches() float64 { return float64(e) / float64(emuPerInch) }
-
-// Points 返回磅表示的浮点值。
-func (e EMU) Points() float64 { return float64(e) / float64(emuPerPoint) }
+// EMU 是共享度量单位，定义在 internal/document/model。
+type EMU = model.EMU
 
 // Point 是 EMU 坐标点（y 向下为正）。
 type Point struct {

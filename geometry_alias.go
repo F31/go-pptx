@@ -1,6 +1,9 @@
 package pptx
 
-import "github.com/F31/go-pptx/internal/document/geometry"
+import (
+	"github.com/F31/go-pptx/internal/document/geometry"
+	"github.com/F31/go-pptx/internal/document/model"
+)
 
 // v2.0：几何值类型定义在 internal/document/geometry，此处以 alias 暴露
 // （唯一公共导入路径仍为 github.com/F31/go-pptx/pptx）。
@@ -11,7 +14,7 @@ import "github.com/F31/go-pptx/internal/document/geometry"
 // Stable: int64 别名类型——基本类型不变即契约稳定。所有几何运算（Point /
 // Rect / Quad）均以 EMU 为基本单位；EMU/EMU/Pt/Inch/Cm 等构造器与常数
 // 在 v1.0 后锁死。下游代码可直接以 EMU 字面量做算术（em := EMU(12700)）。
-type EMU = geometry.EMU
+type EMU = model.EMU
 
 // Point 是 EMU 坐标点（y 向下为正）。
 //

@@ -68,3 +68,23 @@ func TestParseUint32(t *testing.T) {
 		}
 	}
 }
+
+func TestIntAttr(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want int32
+	}{
+		{"0", 0},
+		{"42", 42},
+		{"-7", -7},
+		{"2147483647", 2147483647},
+		{"", 0},
+		{"abc", 0},
+		{"12x", 0},
+		{"99999999999", 0},
+	} {
+		if got := IntAttr(tc.in); got != tc.want {
+			t.Errorf("IntAttr(%q) = %d, want %d", tc.in, got, tc.want)
+		}
+	}
+}

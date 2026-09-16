@@ -151,7 +151,7 @@ func parseBodyProps(doc *xmlstore.XMLDocument, bp *xmlstore.NodeRecord) BodyProp
 		}
 		switch a.RawName {
 		case "numCol":
-			out.Columns = Optional[int]{Value: int(intAttr(a.Value)), Set: true}
+			out.Columns = Optional[int]{Value: int(xmlstore.IntAttr(a.Value)), Set: true}
 		case "vert":
 			out.Vertical = Optional[string]{Value: a.Value, Set: true}
 		case "anchorCtr":

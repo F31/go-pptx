@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"fmt"
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // 本文件是 M3 的**主题样式矩阵**：a:fmtScheme 与 styleMatrixReference
@@ -105,7 +106,7 @@ func (s *shapeNode) StyleMatrixRefs() ([]StyleMatrixRef, []Diagnostic, error) {
 		idxRaw := ""
 		if v, ok := c.Attr("", "idx"); ok {
 			idxRaw = v
-			ref.Index = intAttr(v)
+			ref.Index = xmlstore.IntAttr(v)
 		}
 		ref.Color = s.p.parseColorNode(doc, env, string(s.part), colorChildOf(doc, c), &diags)
 		ref.ThemeEntry, ref.Resolved = s.p.themeMatrixEntry(env, kind, ref.Index)

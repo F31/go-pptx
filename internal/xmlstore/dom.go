@@ -3,6 +3,7 @@ package xmlstore
 import (
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 // 本文件提供与具体 OOXML 命名空间无关的 DOM 导航与属性解析辅助，
@@ -54,4 +55,14 @@ func ParseUint32(s string) (uint32, error) {
 		}
 	}
 	return uint32(v), nil
+}
+
+// IntAttr 解析十进制 32 位有符号整数属性值；空串或非法返回 0（属性缺省/
+// 损坏时按零值处理，不臆测）。
+func IntAttr(s string) int32 {
+	v, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		return 0
+	}
+	return int32(v)
 }
