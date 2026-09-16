@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/F31/go-pptx/internal/editplan"
+	"github.com/F31/go-pptx/internal/ooxmlns"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -34,10 +35,10 @@ import (
 
 // core/扩展/自定义属性涉及的命名空间与内容类型。
 const (
-	nsDCTerms      = "http://purl.org/dc/terms/"
-	nsXSI          = "http://www.w3.org/2001/XMLSchema-instance"
-	nsCustomProps  = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
-	nsVTypes       = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
+	nsDCTerms      = ooxmlns.DCTerms
+	nsXSI          = ooxmlns.XSI
+	nsCustomProps  = ooxmlns.CustomProps
+	nsVTypes       = ooxmlns.VTypes
 	ctCustomProps  = "application/vnd.openxmlformats-officedocument.custom-properties+xml"
 	relCoreProps   = opc.RelTypePrefix + "core-properties"
 	relExtProps    = opc.RelTypePrefix + "extended-properties"

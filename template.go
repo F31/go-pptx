@@ -1,6 +1,9 @@
 package pptx
 
-import "github.com/F31/go-pptx/internal/opc"
+import (
+	"github.com/F31/go-pptx/internal/ooxmlns"
+	"github.com/F31/go-pptx/internal/opc"
+)
 
 // 本文件提供 New() 使用的库内合法最小模板（方案 §5：New() 使用库内合法
 // 最小模板或调用方模板，模板分发需附许可信息）。
@@ -15,14 +18,14 @@ import "github.com/F31/go-pptx/internal/opc"
 // 模板中的命名空间 URI（与 opc 层保持字面一致；opc 不暴露 PresentationML
 // 常量，业务命名空间归根包所有）。
 const (
-	nsPresentationML = "http://schemas.openxmlformats.org/presentationml/2006/main"
-	nsDrawingML      = "http://schemas.openxmlformats.org/drawingml/2006/main"
-	nsOfficeDocument = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+	nsPresentationML = ooxmlns.PresentationML
+	nsDrawingML      = ooxmlns.DrawingML
+	nsOfficeDocument = ooxmlns.OfficeDocument
 	nsPkgRels        = opc.NsRelationships
 	nsContentTypes   = opc.NsContentTypes
-	nsExtendedProps  = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
-	nsCoreProps      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
-	nsDC             = "http://purl.org/dc/elements/1.1/"
+	nsExtendedProps  = ooxmlns.ExtendedProps
+	nsCoreProps      = ooxmlns.CoreProps
+	nsDC             = ooxmlns.DC
 )
 
 // 模板常用内容类型。

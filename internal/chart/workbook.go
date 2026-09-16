@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/ooxmlns"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -14,7 +15,7 @@ import (
 // 修改时务必同步根包 internal/opc 与 template.go；任何不一致会破坏 xlsx
 // 字节（B1 黄金语料哈希 regression）。
 const (
-	nsSpreadsheetML = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+	nsSpreadsheetML = ooxmlns.SpreadsheetML
 	nsPkgRels       = "http://schemas.openxmlformats.org/package/2006/relationships"
 	nsContentTypes  = "application/vnd.openxmlformats-package.relationships+xml"
 )

@@ -16,20 +16,10 @@ import (
 
 // childOfKind 返回 parent 下第 nth 个（0 基）ns/local 匹配的子元素。
 //
-// 等同根包 text.go childOfKind 的最小复刻（13 行）。维护时务必同步
-// 根包实现（语义锁死：nth=0 取首个匹配，nth>=匹配数返回 nil）。
+// 实现已下沉至 xmlstore.ChildOfKind（供根包与本包共用），语义锁死：
+// nth=0 取首个匹配，nth>=匹配数返回 nil。
 func childOfKind(doc *xmlstore.XMLDocument, parent *xmlstore.NodeRecord, ns, local string, nth int) *xmlstore.NodeRecord {
-	seen := 0
-	for _, cid := range parent.Children {
-		c := doc.Node(cid)
-		if c.Namespace == ns && c.Local() == local {
-			if seen == nth {
-				return c
-			}
-			seen++
-		}
-	}
-	return nil
+	return xmlstore.ChildOfKind(doc, parent, ns, local, nth)
 }
 
 // childText 返回第 nth 个 ns/local 匹配子元素的 val 属性文本。

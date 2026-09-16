@@ -175,30 +175,15 @@ func recordPath(doc *xmlstore.XMLDocument, id xmlstore.NodeID) []nodeStep {
 }
 
 // childOfKind 返回 parent 下第 nth 个（0 基）ns/local 匹配的子元素。
+// 实现已下沉至 xmlstore.ChildOfKind（供根包与 internal 子包共用）。
 func childOfKind(doc *xmlstore.XMLDocument, parent *xmlstore.NodeRecord, ns, local string, nth int) *xmlstore.NodeRecord {
-	seen := 0
-	for _, cid := range parent.Children {
-		c := doc.Node(cid)
-		if c.Namespace == ns && c.Local() == local {
-			if seen == nth {
-				return c
-			}
-			seen++
-		}
-	}
-	return nil
+	return xmlstore.ChildOfKind(doc, parent, ns, local, nth)
 }
 
 // countKind 统计 parent 下 ns/local 匹配的子元素数。
+// 实现已下沉至 xmlstore.CountKind。
 func countKind(doc *xmlstore.XMLDocument, parent *xmlstore.NodeRecord, ns, local string) int {
-	n := 0
-	for _, cid := range parent.Children {
-		c := doc.Node(cid)
-		if c.Namespace == ns && c.Local() == local {
-			n++
-		}
-	}
-	return n
+	return xmlstore.CountKind(doc, parent, ns, local)
 }
 
 // kindIndex 返回 child 在其 parent 同名单元素兄弟中的序号（0 基）。

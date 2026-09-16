@@ -528,22 +528,10 @@ func sortPartNames(names []opc.PartName) {
 	}
 }
 
+// parseUint32 解析十进制无符号 32 位整数。
+// 实现已下沉至 xmlstore.ParseUint32（供根包与 internal 子包共用）。
 func parseUint32(s string) (uint32, error) {
-	if s == "" {
-		return 0, errors.New("empty")
-	}
-	var v uint64
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c < '0' || c > '9' {
-			return 0, fmt.Errorf("non-digit %q", c)
-		}
-		v = v*10 + uint64(c-'0')
-		if v > 1<<32-1 {
-			return 0, fmt.Errorf("overflow")
-		}
-	}
-	return uint32(v), nil
+	return xmlstore.ParseUint32(s)
 }
 
 // mapOCError 把 opc 层错误映射为根包稳定错误码（§20.4）。

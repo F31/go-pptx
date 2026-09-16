@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/ooxmlns"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -11,9 +12,9 @@ import (
 // 在 internal/chart 内部维护一份。修改根包常量值时务必同步此处；任何
 // 不一致都会破坏 chart Part 字面输出（B1 黄金语料哈希 regression）。
 const (
-	nsChartML        = "http://schemas.openxmlformats.org/drawingml/2006/chart"
-	nsDrawingML      = "http://schemas.openxmlformats.org/drawingml/2006/main"
-	nsOfficeDocument = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+	nsChartML        = ooxmlns.ChartML
+	nsDrawingML      = ooxmlns.DrawingML
+	nsOfficeDocument = ooxmlns.OfficeDocument
 )
 
 // BuildChartSpaceXML 生成规范布局的 c:chartSpace（受限三类）。
