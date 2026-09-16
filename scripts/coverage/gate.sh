@@ -44,6 +44,7 @@ FLOORS=(
   "github.com/F31/go-pptx/internal/bind=90"
   "github.com/F31/go-pptx/internal/style=90"
   "github.com/F31/go-pptx/internal/diag=90"
+  "github.com/F31/go-pptx/internal/document/geometry=90"
   "github.com/F31/go-pptx/render=84"
 )
 

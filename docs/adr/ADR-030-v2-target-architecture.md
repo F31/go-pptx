@@ -296,6 +296,25 @@ format 76.5 / chart 77.5 / theme 78.9 / clone 81.5 **应先补测试再搬**。
 - gate：`internal/diag=90`（实测 100%）、`internal/document/model` 无可测语句入 SKIP
 - 守恒：`go test ./...` 与 `-tags=corpus` **18/18** 全绿；`api_surface_test` golden 不变
 
+### 域搬迁 1：geometry → `internal/document/geometry`（2026-09-16）
+
+第一个域。边界：**纯几何**（度量单位 + prstGeom/custGeom 只读解析）；填充/效果解析
+（依赖 `styleEnv`）随 style 域后迁。
+
+- 迁出：`EMU`（+`Inches`/`Points`）、`Point`、`GeometryKind`（+`String`）、`GeometryInfo`、
+  `GeomAdjust`、`GeomGuide`、`GeomPath`、`PathCommand`；`geom_parse.go` 全部解析
+  （`ParseShapeGeometry` + adjust/guide/path/command/point 辅助）
+- 根包：`geometry_alias.go` 以 alias 暴露上述 DTO（`EMU`/`Point` 的 Stable 文档段保留）；
+  `geom_parse.go` 瘦身为仅 `spPrOf`/`fillContainer`（填充/效果解析仍在本包）；
+  `shapeNode.Geometry()` 转调 `geometry.ParseShapeGeometry`
+- `EMUFromInches`/`EMUFromPoints`/`scaleEMU` 暂留根包（依赖公共错误类型
+  `OperationError`/`ErrInvalidArgument`/`ErrLimitExceeded`——错误类型下沉是独立地基项）
+- 测试随迁：`internal/document/geometry/parse_test.go`，覆盖率 **91.2%**；gate 增
+  `internal/document/geometry=90`
+- 附带清理：别名使 `Point` 成跨包类型，`go vet` 的 composites 规则暴露 `geom_test.go`
+  未命名结构体字面量 → 改 keyed
+- 守恒：`go test ./...` 与 `-tags=corpus` **19/19** 全绿；`api_surface_test` golden 不变
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

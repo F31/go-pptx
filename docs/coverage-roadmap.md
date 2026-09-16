@@ -118,6 +118,7 @@ python3 -m py_compile scripts/gen_corpus/corpus.py
 | `internal/chart` / `ir` / `render` | 90 / 85 / 84% | 行为优先，取防回归下界 |
 | `internal/textutil` / `bind` / `style` | 90% | v2.0 试点新增包（测试随包走） |
 | `internal/diag` | 90% | v2.0 地基包（跨层诊断类型，实测 100%） |
+| `internal/document/geometry` | 90% | v2.0 域搬迁 1（纯几何只读解析，实测 91.2%） |
 
 **完整性校验**（2026-09-16）：`go list ./...` 中每个包必须出现在 `FLOORS`
 （百分比门槛）或 `SKIP`（无可测语句 / 一次性工具包，须注明理由），否则

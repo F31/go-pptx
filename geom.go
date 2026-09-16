@@ -25,13 +25,7 @@ import (
 
 // ---------- 单位（§5.2） ----------
 
-// EMU 是 OOXML 长度单位（English Metric Unit，int64）。
-// 1 in = 914400 EMU，1 pt = 12700 EMU；形状坐标、尺寸均以 EMU 表示。
-//
-// Stable: int64 别名类型——基本类型不变即契约稳定。所有几何运算（Point /
-// Rect / Quad）均以 EMU 为基本单位；EMU/EMU/Pt/Inch/Cm 等构造器与常数
-// 在 v1.0 后锁死。下游代码可直接以 EMU 字面量做算术（em := EMU(12700)）。
-type EMU int64
+// EMU 定义见 geometry_alias.go（v2.0 起定义在 internal/document/geometry）。
 
 const (
 	// EMUPerInch 是一英寸的 EMU 值。
@@ -65,22 +59,9 @@ func scaleEMU(v, per float64) (EMU, error) {
 	return EMU(int64(r)), nil
 }
 
-// Inches 返回英寸表示的浮点值。
-func (e EMU) Inches() float64 { return float64(e) / float64(EMUPerInch) }
-
-// Points 返回磅表示的浮点值。
-func (e EMU) Points() float64 { return float64(e) / float64(EMUPerPoint) }
-
 // ---------- 几何值类型 ----------
 
-// Point 是 EMU 坐标点（y 向下为正）。
-//
-// Stable: 字段集（X / Y）在 v1.0 后保持稳定——下游几何运算（如两点的距离、
-// 矩形包含判断、变换矩阵）均依赖此结构。仅允许追加新字段（向后兼容）。
-type Point struct {
-	X EMU
-	Y EMU
-}
+// Point / Rect / Quad 等值类型定义见 geometry_alias.go（v2.0 起定义在 internal/document/geometry）。
 
 // Rect 是轴对齐矩形（X/Y 为左上角，W/H 为宽高，非负）。
 //

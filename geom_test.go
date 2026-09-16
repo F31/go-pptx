@@ -182,10 +182,10 @@ func TestShapeBoundsTopLevel(t *testing.T) {
 		t.Fatalf("WorldQuad: %v", err)
 	}
 	wantQ := Quad{
-		TopLeft:     Point{1000, 2000},
-		TopRight:    Point{4000, 2000},
-		BottomRight: Point{4000, 3500},
-		BottomLeft:  Point{1000, 3500},
+		TopLeft:     Point{X: 1000, Y: 2000},
+		TopRight:    Point{X: 4000, Y: 2000},
+		BottomRight: Point{X: 4000, Y: 3500},
+		BottomLeft:  Point{X: 1000, Y: 3500},
 	}
 	eqQuad(t, q, wantQ)
 	ab, err := shp.WorldAABB()
@@ -257,10 +257,10 @@ func TestShapeWorldQuadFlipH(t *testing.T) {
 		t.Fatalf("WorldQuad: %v", err)
 	}
 	want := Quad{
-		TopLeft:     Point{3000, 2000}, // 原 TR
-		TopRight:    Point{1000, 2000}, // 原 TL
-		BottomRight: Point{1000, 3000},
-		BottomLeft:  Point{3000, 3000},
+		TopLeft:     Point{X: 3000, Y: 2000}, // 原 TR
+		TopRight:    Point{X: 1000, Y: 2000}, // 原 TL
+		BottomRight: Point{X: 1000, Y: 3000},
+		BottomLeft:  Point{X: 3000, Y: 3000},
 	}
 	eqQuad(t, q, want)
 }
@@ -315,10 +315,10 @@ func TestGroupScaleTranslate(t *testing.T) {
 		t.Fatalf("child WorldQuad: %v", err)
 	}
 	want := Quad{
-		TopLeft:     Point{10000 + 400/2, 20000 + 200/2},
-		TopRight:    Point{10000 + (400+1000)/2, 20000 + 200/2},
-		BottomRight: Point{10000 + (400+1000)/2, 20000 + (200+500)/2},
-		BottomLeft:  Point{10000 + 400/2, 20000 + (200+500)/2},
+		TopLeft:     Point{X: 10000 + 400/2, Y: 20000 + 200/2},
+		TopRight:    Point{X: 10000 + (400+1000)/2, Y: 20000 + 200/2},
+		BottomRight: Point{X: 10000 + (400+1000)/2, Y: 20000 + (200+500)/2},
+		BottomLeft:  Point{X: 10000 + 400/2, Y: 20000 + (200+500)/2},
 	}
 	eqQuad(t, q, want)
 }
@@ -340,10 +340,10 @@ func TestGroupFlipHAfterMap(t *testing.T) {
 	}
 	// 组中心 C=(1000,500)。子形状经 G(恒等) 后原四角，再 x 镜像绕 C。
 	want := Quad{
-		TopLeft:     Point{1600, 200}, // 原 (400,200) → 2000-400=1600
-		TopRight:    Point{600, 200},  // 原 (1400,200) → 2000-1400=600
-		BottomRight: Point{600, 700},
-		BottomLeft:  Point{1600, 700},
+		TopLeft:     Point{X: 1600, Y: 200}, // 原 (400,200) → 2000-400=1600
+		TopRight:    Point{X: 600, Y: 200},  // 原 (1400,200) → 2000-1400=600
+		BottomRight: Point{X: 600, Y: 700},
+		BottomLeft:  Point{X: 1600, Y: 700},
 	}
 	eqQuad(t, q, want)
 }
@@ -369,18 +369,18 @@ func TestGroupNonUniformScaleChildRotation(t *testing.T) {
 	//   TL(0,0)→(1000,1500)? 手算：
 	// 绕 C=(1000,500)：(x,y)→(C.x-(y-C.y), C.y+(x-C.x))
 	rotQ := Quad{
-		TopLeft:     Point{1000 - (0 - 500), 500 + (0 - 1000)},       // (1500,-500)
-		TopRight:    Point{1000 - (0 - 500), 500 + (2000 - 1000)},    // (1500,1500)
-		BottomRight: Point{1000 - (1000 - 500), 500 + (2000 - 1000)}, // (500,1500)
-		BottomLeft:  Point{1000 - (1000 - 500), 500 + (0 - 1000)},    // (500,-500)
+		TopLeft:     Point{X: 1000 - (0 - 500), Y: 500 + (0 - 1000)},       // (1500,-500)
+		TopRight:    Point{X: 1000 - (0 - 500), Y: 500 + (2000 - 1000)},    // (1500,1500)
+		BottomRight: Point{X: 1000 - (1000 - 500), Y: 500 + (2000 - 1000)}, // (500,1500)
+		BottomLeft:  Point{X: 1000 - (1000 - 500), Y: 500 + (0 - 1000)},    // (500,-500)
 	}
 	_ = rotQ
 	// G 应用：(x,y)→(x/2, y)。上面角点 → (750,-500),(750,1500),(250,1500),(250,-500)。
 	want := Quad{
-		TopLeft:     Point{1500 / 2, -500},
-		TopRight:    Point{1500 / 2, 1500},
-		BottomRight: Point{500 / 2, 1500},
-		BottomLeft:  Point{500 / 2, -500},
+		TopLeft:     Point{X: 1500 / 2, Y: -500},
+		TopRight:    Point{X: 1500 / 2, Y: 1500},
+		BottomRight: Point{X: 500 / 2, Y: 1500},
+		BottomLeft:  Point{X: 500 / 2, Y: -500},
 	}
 	eqQuad(t, q, want)
 }
@@ -412,10 +412,10 @@ func TestNestedGroupLeftMultiply(t *testing.T) {
 		t.Fatalf("leaf WorldQuad: %v", err)
 	}
 	want := Quad{
-		TopLeft:     Point{1100, 1100},
-		TopRight:    Point{1500, 1100},
-		BottomRight: Point{1500, 1300},
-		BottomLeft:  Point{1100, 1300},
+		TopLeft:     Point{X: 1100, Y: 1100},
+		TopRight:    Point{X: 1500, Y: 1100},
+		BottomRight: Point{X: 1500, Y: 1300},
+		BottomLeft:  Point{X: 1100, Y: 1300},
 	}
 	eqQuad(t, q, want)
 }
