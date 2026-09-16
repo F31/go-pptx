@@ -1,0 +1,34 @@
+{
+  "id": "s004-audio",
+  "description": "Audio sample with narration and auto-advance",
+  "source": "SDK generated",
+  "generator": "go-pptx SDK",
+  "generator_version": "v1.0.6",
+  "platform": "Linux",
+  "font_environment": "Default",
+  "ooxml_type": "Transitional",
+  "feature_tags": ["audio", "narration", "auto-advance"],
+  "files": {
+    "pptx": {
+      "path": "s004-audio.pptx",
+      "sha256": "980293d17800f8466ce9015905547906b587374593f9cf0852d68adfc494423e"
+    },
+    "edited_pptx": {
+      "path": "s004-audio.edited.pptx",
+      "sha256": "1c102a259ce8adda5298891e4a8d402119d93338bf40b00df990959c7ae4d1fc"
+    },
+    "actions_json": {
+      "path": "s004-audio.actions.json"
+    },
+    "compat_smoke": {
+      "path": "compat-smoke.json"
+    }
+  },
+  "expected_assertions": {
+    "open": "No repair prompts",
+    "edit": "Text box added",
+    "save": "Valid PPTX output",
+    "playback": "Audio plays correctly"
+  },
+  "known_issues": "None"
+}

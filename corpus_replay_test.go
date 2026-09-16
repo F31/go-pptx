@@ -37,7 +37,7 @@ import (
 // 才跑——通过绝对路径 + os.IsNotExist 在 loadCorpusSourcePath 处自动 Skip，
 // 无需新增 manifest 字段。任何样本缺 actions.json / compat-smoke.json 也
 // 自动 Skip（无契约性输入则无可断言内容）。后续 dev 补齐文件即可自动启用。
-var corpusSamples = []string{"s001-text", "s002-table", "s003-image", "ext-0024"}
+var corpusSamples = []string{"s001-text", "s002-table", "s003-image", "s004-audio", "ext-0024"}
 
 // corpusManifest 仅解码 replay 所需的 pptx 路径字段，其他字段忽略。
 type corpusManifest struct {

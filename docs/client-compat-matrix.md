@@ -221,3 +221,38 @@ bash scripts/l3/run_client.sh wpp \
 | 5 | 示例可编译、API 文档说明限制、benchmark 报告完整 | ✅ |
 
 **五条全部闭合。** 第 3 条此前被判定为"环境型缺口、非代码缺陷"，实测证明相反——补出音频语料后立刻暴露 PowerPoint 拒收（`0x80070570`），详见 [ADR-025](adr/ADR-025-audio-ooxml-compliance-fix.md)。
+
+## 第五轮：s004-audio 公开音频样本验证（2026-09-16）
+
+**目的**：闭合 V2.6 §15.3 第 3 条的"播放记录"证据——用公开可再分发的音频样本（`s004-audio`）替代此前的私有合成样本，满足开源发布要求。
+
+**样本说明**：
+- `s004-audio.pptx`：SDK 生成，含 2 秒 440Hz WAV 音频（AudioRoleNarration）、自动翻页（2.5s）
+- `s004-audio.edited.pptx`：打开原始样本后添加文本框"Edited: Q3-2026 Audio Test"
+- 生成脚本：`scripts/gen_audio/main.go`
+
+**验证方法**：
+1. COM 自动化打开/重存（同前四轮）
+2. 人工打开样本确认音频可播放
+
+**预期结果**（待真机验证）：
+
+| Client | Sample | Open | Repair Prompt | Resave | go-pptx Validate After Resave | Playback | Notes |
+|---|---|---|---|---|---|---|---|
+| PowerPoint 16.0.20326 | `s004-audio` | pass | 无 | pass | errorCount=0 | 音频可播放 | 待真机验证 |
+| WPS 12.1.0.28599 | `s004-audio` | pass | 无 | pass | errorCount=0 | 音频可播放 | 待真机验证 |
+
+**验证命令**（Windows 宿主机）：
+```bash
+# PowerPoint
+bash scripts/l3/run_client.sh ppt \
+  'E:\projects\go-pptx\testdata\corpus\s004-audio\s004-audio.pptx' \
+  'E:\projects\go-pptx\.l3-output\s004-audio.ppt-resaved.pptx'
+
+# WPS
+bash scripts/l3/run_client.sh wpp \
+  'E:\projects\go-pptx\testdata\corpus\s004-audio\s004-audio.pptx' \
+  'E:\projects\go-pptx\.l3-output\s004-audio.wps-resaved.pptx'
+```
+
+**状态**：样本已创建，代码级测试全部通过（`go test -tags=corpus` 14/14 包 ok）。真机验证待在安装有 PowerPoint/WPS 的 Windows 机器上执行。

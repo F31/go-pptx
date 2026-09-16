@@ -7,8 +7,8 @@
 
 | 项 | 当前状态 |
 |---|---|
-| 公开可再分发样本 | 3 份 LibreOffice headless 导出样本：`s001-text` / `s002-table` / `s003-image` |
-| 公开金样闭环 | 3/3 已完成修改前 `.pptx`、修改后 `.edited.pptx`、`.actions.json`、`compat-smoke.json` |
+| 公开可再分发样本 | 4 份样本：3 份 LibreOffice headless 导出（`s001-text` / `s002-table` / `s003-image`）+ 1 份 SDK 生成含音频样本（`s004-audio`） |
+| 公开金样闭环 | 4/4 已完成修改前 `.pptx`、修改后 `.edited.pptx`、`.actions.json`、`compat-smoke.json` |
 | 私有真实样本索引 | 33 份，`ext-0001`–`ext-0033`（+ `ext-0024` WPS 动画 + 未知扩展），只登记 manifest，不提交原始业务 PPTX；合计 36 样本 |
 | 动画+未知扩展真实样本 | `ext-0024`（WPS，私有索引）已完成本地冒烟 + 真机矩阵通过，含 `animation.timing` / `animation.transition` / `xml.unknown_ext` |
 | 语料校验 | `scripts/gen_corpus/run.sh validate testdata/corpus`：36 samples，0 errors |

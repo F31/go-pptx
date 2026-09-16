@@ -42,7 +42,7 @@ import (
 
 // verticalRealPublicSamples 是参与垂直验证的公开样本 ID（与 testdata/corpus/
 // 子目录对齐，与 corpus_replay_test.go 的公开样本一致）。
-var verticalRealPublicSamples = []string{"s001-text", "s002-table", "s003-image"}
+var verticalRealPublicSamples = []string{"s001-text", "s002-table", "s003-image", "s004-audio"}
 
 // verticalRealExt0024Paths 是私有真实样本 ext-0024（WPS）的本机候选路径。
 // Git Bash / WSL 把 E:\ 挂载为 /e/；Go 进程走 Windows API 需要 Windows 风格
