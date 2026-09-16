@@ -46,7 +46,7 @@ import (
 // 模板标记与行循环临时包装（声明 DrawingML 为默认命名空间，兼容
 // 源文档使用前缀或默认命名空间的两种写法）。
 const (
-	tplWrapOpen  = `<tplwrap xmlns="` + nsDrawingML + `" xmlns:a="` + nsDrawingML +
+	tplWrapOpen = `<tplwrap xmlns="` + nsDrawingML + `" xmlns:a="` + nsDrawingML +
 		`" xmlns:p="` + nsPresentationML + `" xmlns:r="` + nsOfficeDocument + `">`
 	tplWrapClose = `</tplwrap>`
 )
