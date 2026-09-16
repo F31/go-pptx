@@ -2,6 +2,11 @@
 
 Date: 2026-09-11
 
+> **Update 2026-09-16**: 本基线记录的是抽取起步态。之后已完成 P3 文件拆分、文件名域前缀
+> 归一化、以及 v2.0 架构试点（`text_util`/`bind_marker`/`theme_placeholder` 迁出 + 共享
+> helper 下沉）。当前包清单与依赖方向见文末 [Update 2026-09-16](#update-2026-09-16)。
+> 上文基线表**保留原样**以对照进展，勿当作当前值。
+
 This document records the current architecture before the next refactoring phase. It is a baseline for measuring whether future internal package extraction improves maintainability without changing the public SDK surface.
 
 ## Package Layout
@@ -115,3 +120,67 @@ go test ./...
 scripts/gen_corpus/run.sh validate testdata/corpus
 python3 -m py_compile scripts/gen_corpus/corpus.py
 ```
+
+---
+
+## Update 2026-09-16
+
+基线（2026-09-11）之后的进展：P3 根包大文件拆分（ADR-029）、文件名域前缀归一化、
+以及 **v2.0 架构试点**（ADR-030）——3 个「零导出/零方法」文件迁出根包，并把跨包
+helper 下沉为共享 internal 包。
+
+### 当前包清单
+
+| Package | Role | Go files | Test files |
+|---|---:|---:|---:|
+| `github.com/F31/go-pptx` | Public SDK facade + domain implementation | 60 | 50 |
+| `github.com/F31/go-pptx/internal/opc` | OPC package loading, relationships, content types, save planning | 9 | 11 |
+| `github.com/F31/go-pptx/internal/xmlstore` | XML scanner, indexed tree, span patch engine, DOM helpers | 7 | 6 |
+| `github.com/F31/go-pptx/internal/chart` | Chart XML model, workbook, canonical validation, fragments | 11 | 4 |
+| `github.com/F31/go-pptx/internal/document` | Minimal store interfaces for document edits | 1 | 1 |
+| `github.com/F31/go-pptx/internal/editplan` | Single-part and multi-part edit plans | 2 | 2 |
+| `github.com/F31/go-pptx/internal/textmap` | Text rune mapping and span location primitives | 1 | 1 |
+| `github.com/F31/go-pptx/internal/audioprobe` | Audio container probing | 4 | 1 |
+| `github.com/F31/go-pptx/internal/videoprobe` | Video container probing | 4 | 1 |
+| `github.com/F31/go-pptx/internal/textutil` | XML patch/escape helpers (v2.0 试点) | 1 | 2 |
+| `github.com/F31/go-pptx/internal/bind` | Template marker scan/directive (v2.0 试点) | 1 | 1 |
+| `github.com/F31/go-pptx/internal/style` | Placeholder key/class resolution (v2.0 试点) | 1 | 1 |
+| `github.com/F31/go-pptx/internal/ooxmlns` | Shared OOXML/OPC namespace URIs | 1 | 0 |
+| `github.com/F31/go-pptx/ir` | Read-only intermediate representation, timing IR, semantic diff | 3 | 4 |
+| `github.com/F31/go-pptx/cmd/pptx` | CLI workflow entry point | 12 | 5 |
+| `github.com/F31/go-pptx/wasm/check` | Browser/WASM check facade | 1 | 1 |
+| `github.com/F31/go-pptx/render` | Rendering adapter **interface contract** (M8 RENDER-01; no impl) | 1 | 1 |
+| `github.com/F31/go-pptx/scripts/perf/summarize` | Performance summary helper | 1 | 1 |
+
+根包非测试文件：基线 41 → 现 **60**（P3 拆分把 `text`/`bind`/`geomadv`/`format`/`style`
+各拆为多文件，新增数大于 3 个试点迁出数，故总数上升）；**平均行数 932 → 353**
+（拆分与迁移共同下降），非测试总行数 21,163。
+
+### 当前依赖方向（`go list` 实测，2026-09-16）
+
+```text
+pptx           -> internal/{audioprobe, bind, chart, document, editplan, ooxmlns,
+                            opc, style, textmap, textutil, videoprobe, xmlstore}
+cmd/pptx       -> pptx, ir
+wasm/check     -> pptx, ir
+render         -> pptx                       # 公共契约；门面不反向依赖 render
+ir             -> pptx, internal/xmlstore    # 待 v2.0 改造为只吃 ooxml（ADR-030）
+internal/chart -> internal/{ooxmlns, textutil, xmlstore}
+internal/style -> internal/{ooxmlns, xmlstore}
+internal/bind  -> internal/xmlstore
+internal/textutil -> internal/xmlstore
+internal/editplan -> internal/{document, opc}
+internal/document -> internal/{opc, xmlstore}
+internal/opc   -> internal/xmlstore
+internal/ooxmlns / textmap / audioprobe / videoprobe -> (无 go-pptx 依赖)
+```
+
+规则不变：**internal 不得反向 import 根包**（现满足；`ir` 例外，属名义公共包，
+v2.0 改造项）。v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
+
+### 剩余「压力点」处置
+
+基线所列 5 项：`internal/chart` 抽取 **DONE**（ADR-017）；`internal/textmap` **DONE**；
+`internal/document` `PartStore` **DONE**（接口 + 编译期断言）；Shape capability 接口
+**DONE**（ADR-021）；corpus matrix **DONE**（`docs/client-compat-matrix.md`）。
+新增压力点：根包仍 60 文件（ADR-030 触发阈值 80，未命中）。
