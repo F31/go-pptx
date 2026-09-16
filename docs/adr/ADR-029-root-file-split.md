@@ -55,3 +55,19 @@
 - 拆分为纯机械搬运，**review 成本低、回归风险≈0**（无逻辑改动、声明计数守恒、覆盖率不变）。
 - 后续同类大文件（`geomadv.go` 1122 / `format.go` 1102 / `style.go` 1004）可按同一策略处理；若某文件内部出现"可独立复用子系统"，再走 ADR-016 的 internal 抽取路径。
 - 拆分脚本未入库（一次性工具）；策略与边界已固化于本 ADR，后续按此执行。
+
+## 续：第二批（geomadv.go / format.go / style.go）
+
+同策略处理剩余三个千行文件：
+
+| 原文件 | 行 | 拆分 |
+|---|---:|---|
+| `geomadv.go` | 1122 | `geomadv.go`(类型+访问器) + `geomparse.go` + `fillparse.go` + `effectparse.go` |
+| `format.go` | 1102 | `colorparse.go` + `format.go`(线条) + `paraprops.go` + `runprops.go` + `stylematrix.go` |
+| `style.go` | 1004 | `style.go`(类型+入口) + `styleenv.go` + `placeholder.go` + `themeresolve.go` + `effresolve.go` |
+
+守恒验证：声明数 geomadv 49→49、format 38→38、style 53→53；`go test ./...` 与
+`-tags=corpus` 14/14 全绿；覆盖率门禁 PASS。
+
+**根包非测试文件累计**：63 文件 / 平均 **342 行**（起点 ~932）；最大的 `docProps.go`
+951 行（原 top3 均已退出前列）。

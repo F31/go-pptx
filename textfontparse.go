@@ -11,6 +11,7 @@ import (
 // （parseLocalFont/parseSolidFill/parseCentipoints/rPrChildRank）与
 // rPr/填充片段构造（buildRPrFragment/solidFillFragment/fillChildOf）。
 // 写入路径见 textfont.go。
+
 // anyChildSet 报告 style 是否含子元素类字段。
 func (f FontStyle) anyChildSet() bool {
 	return f.Color.Set || f.Latin.Set || f.EastAsian.Set || f.ComplexScript.Set

@@ -26,8 +26,7 @@ import (
 // 在模型中保留，不扁平化成 []string；Text() 仅拼接普通 Run 的 a:t
 // 文本，a:br/a:fld 等内联节点的展示规则随 TEXT-02 textmap 落地。
 
-// nodeStep 是从根元素到目标元素路径上的一步：[ns,local] 匹配父元素
-// 的第 nth 个同名单元素子节点（0 基序号）。
+// ---------- TextFrame ----------
 
 // Stable: TextFrame 是文本操作三层入口（TextFrame → Paragraph → TextRun）
 // 之一，类比 Presentation/Slide/Shape 同级别。0 公开字段（私有字段仅用于

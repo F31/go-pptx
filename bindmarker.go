@@ -9,6 +9,9 @@ import (
 // 本文件是模板绑定的**占位符词法与 XML 补丁辅助**：内联模板 token 扫描
 // （tplToken/scanInline）、指令解析（parseDirective）与删除/空段/子元素
 // 补丁构造（deletePatch/emptyParaPatch/childElems）。
+
+// ---------- 模板语法 ----------
+
 // tplToken 是一个内联占位符：literal 为文档中的原始字面量。
 type tplToken struct {
 	literal string

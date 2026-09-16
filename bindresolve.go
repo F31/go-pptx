@@ -11,6 +11,9 @@ import (
 // 本文件是模板绑定的**数据源解析与取值**：点分路径解析（resolve）、
 // 集合迭代（resolveItems）、map/切片/结构体成员访问（member/asSlice）、
 // 真值判定（truthy）与字符串化（formatBindValue）。
+
+// ---------- 数据解析 ----------
+
 // resolve 解析点分路径：首段先在 scope（行循环条目）中查找，未命中则
 // 回退到根数据源；支持 map 键、切片下标与结构体字段。
 func (s *bindScanner) resolve(scope any, path string) (any, bool, error) {
@@ -225,5 +228,3 @@ func formatBindValue(v any) (string, bool) {
 	}
 	return "", false
 }
-
-// ---------- 模板语法 ----------

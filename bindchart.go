@@ -6,6 +6,9 @@ import (
 
 // 本文件是模板绑定的**图表处理**：同名 ChartData 查找与预检
 // （bindChart/chartBindPreflight）。
+
+// ---------- 图表绑定 ----------
+
 // bindChart 若数据源中存在与图表同名的 ChartData，则预检并登记绑定。
 func (s *bindScanner) bindChart(c *ChartShape) error {
 	const op = "Presentation.Bind"
@@ -75,5 +78,3 @@ func chartBindPreflight(c *ChartShape, cd ChartData) error {
 	}
 	return nil
 }
-
-// ---------- 数据解析 ----------

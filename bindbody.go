@@ -6,8 +6,9 @@ import (
 )
 
 // 本文件是模板绑定的**形状扫描与正文绑定**：递归扫描形状/组（scanShapes）、
-// 段落级绑定（bindBody）、空段删除（applyDeletions）与单段内联替换
-// （substitute）。表格绑定见 bindtable.go，图表见 bindchart.go。
+// 段落级绑定（bindBody）、空段删除（applyDeletions）与单段内联替换（substitute）。
+// 表格绑定见 bindtable.go，图表见 bindchart.go。
+
 // scanShapes 递归扫描形状（含组形状，深度上限 8）。
 func (s *bindScanner) scanShapes(shapes []Shape, depth int) error {
 	if depth > 8 {
@@ -199,5 +200,3 @@ func (s *bindScanner) substitute(para *Paragraph, text string, scope any, label 
 	}
 	return nil
 }
-
-// ---------- 表格行循环 ----------

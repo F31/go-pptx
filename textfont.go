@@ -11,6 +11,7 @@ import (
 // 辅助（buildFontPatches/patchExistingRPr/setRPrAttr/insertRPrChild/
 // expandSelfClosingRPr/rPrChildrenFragment）。
 // a:rPr 的解析与片段构建见 textfontparse.go；通用补丁/转义见 textutil.go。
+
 // ExplicitFont 返回 Run 的本地字符格式（a:rPr 中显式出现的属性）；
 // 未出现的属性 Set=false（样式链解析属 STYLE-01）。
 func (r *TextRun) ExplicitFont() (FontStyle, error) {

@@ -13,6 +13,9 @@ import (
 // textNode 公共载体（含 shapeHint 的 STALE-GUARD 判定）与路径解析辅助
 // （resolvePath/recordPath/childOfKind/countKind/kindIndex）。
 // 句柄整体语义（不缓存 NodeID、按稳定路径重定位）见 text.go 文件头。
+
+// nodeStep 是从根元素到目标元素路径上的一步：[ns,local] 匹配父元素
+// 的第 nth 个同名单元素子节点（0 基序号）。
 type nodeStep struct {
 	ns    string
 	local string
@@ -216,5 +219,3 @@ func kindIndex(doc *xmlstore.XMLDocument, child *xmlstore.NodeRecord) int {
 	}
 	return n
 }
-
-// ---------- TextFrame ----------

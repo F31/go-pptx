@@ -11,6 +11,9 @@ import (
 
 // 本文件是模板绑定的**表格处理**：行循环模板行识别与逐格绑定（bindTable）、
 // 行模板渲染（buildRowPatch/renderRow）。正文绑定见 bindbody.go。
+
+// ---------- 表格行循环 ----------
+
 // bindTable 处理一个表格：先识别行循环模板行，再逐个单元格绑定。
 func (s *bindScanner) bindTable(t *TableShape) error {
 	const op = "Presentation.Bind"
@@ -261,5 +264,3 @@ func tmpNodeAt(doc *xmlstore.XMLDocument, start int) *xmlstore.NodeRecord {
 	}
 	return nil
 }
-
-// ---------- 图表绑定 ----------
