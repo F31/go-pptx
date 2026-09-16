@@ -209,7 +209,7 @@ func timingAudioOnly(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord) bool {
 //
 //	<p:tnLst><p:par><p:cTn id dur="indefinite" restart="never" nodeType="tmRoot">
 //	  <p:childTnLst>
-//	    <p:audio><p:cMediaNode vol="80">
+//	    <p:audio><p:cMediaNode vol="80000">
 //	      <p:cTn id fill="hold" display="0"><p:stCondLst><p:cond delay="MS"/></p:stCondLst></p:cTn>
 //	      <p:tgtEl><p:spTgt spid="SHAPEID"/></p:tgtEl>
 //	    </p:cMediaNode></p:audio>
@@ -229,7 +229,7 @@ func audioTimingFragment(p *Presentation, slide opc.PartName) (string, error) {
 			cond = fmt.Sprintf(`<p:cond evt="onClick" delay="0"/>`)
 		}
 		fmt.Fprintf(&sb,
-			`<p:audio><p:cMediaNode vol="80">`+
+			`<p:audio><p:cMediaNode vol="80000">`+
 				`<p:cTn id="%d" fill="hold" display="0"><p:stCondLst>%s</p:stCondLst></p:cTn>`+
 				`<p:tgtEl><p:spTgt spid="%d"/></p:tgtEl>`+
 				`</p:cMediaNode></p:audio>`,

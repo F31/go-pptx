@@ -62,6 +62,14 @@ func TestSetPlayback_AppendsTiming(t *testing.T) {
 			t.Errorf("slide XML missing %q:\n%s", want, xb)
 		}
 	}
+	// 音量必须是 ST_PositiveFixedPercentage（0..100000）的 80% —— 历史
+	// 上写成 vol="80"（=0.08%，客户端表现为静音）。
+	if !strings.Contains(xb, `<p:cMediaNode vol="80000">`) {
+		t.Errorf("cMediaNode must carry vol=80000 (80%%), got:\n%s", xb)
+	}
+	if strings.Contains(xb, `<p:cMediaNode vol="80">`) {
+		t.Errorf("cMediaNode must not carry vol=80 (effectively muted):\n%s", xb)
+	}
 	// 生成的 XML 必须可再解析（结构合法）。
 	if _, err := xmlstore.Index([]byte(xb)); err != nil {
 		t.Fatalf("re-parse slide: %v", err)

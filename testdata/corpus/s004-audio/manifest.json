@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-09-16T05:05:31Z",
+  "created_at": "2026-09-16T05:11:25Z",
   "creation_steps": [
     "go run ./scripts/gen_audio"
   ],
@@ -18,12 +18,12 @@
   "files": {
     "edited_pptx": {
       "path": "s004-audio.edited.pptx",
-      "sha256": "75a8db5c004988854050dda2621458dc44b8d8eefb7ac3acc167e1d40f8dfe55",
-      "size": 14022
+      "sha256": "a5a27756cfdaa6e481c7c10afef46c6eccb499c99a56e8635b48967572ee3c7f",
+      "size": 14023
     },
     "pptx": {
       "path": "s004-audio.pptx",
-      "sha256": "0c6dd0cd6c2b9496f40b322c3f85f21433b6927c8075d2e75b4ba6c6b62d2282",
+      "sha256": "bc468c3944868b661bce8e603f2b10d5fe4f24ece1a0e1706f825e9966fbe932",
       "size": 14023
     }
   },
