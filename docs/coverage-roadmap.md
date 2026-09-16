@@ -105,6 +105,31 @@ scripts/gen_corpus/run.sh validate testdata/corpus
 python3 -m py_compile scripts/gen_corpus/corpus.py
 ```
 
+## Coverage Gate (CI)
+
+`scripts/coverage/gate.sh` 把各包门槛写成**断言**，已接入 CI job `coverage-gate`：
+
+| 包 | 门槛 | 依据 |
+|---|---:|---|
+| root `pptx` | 82% | COV-02（85% 已决策推迟） |
+| `cmd/pptx` / `wasm/check` / `scripts/perf/summarize` | 85% | COV-03 |
+| `internal/opc` / `xmlstore` / `videoprobe` / `textmap` / `editplan` | 90% | COV-04 |
+| `internal/audioprobe` | 86% | B-2 决策豁免 90（不可达防御代码） |
+| `internal/chart` / `ir` / `render` | 90 / 85 / 84% | 行为优先，取防回归下界 |
+
+动机是 [Fourth refresh](#) 的静默回归：ADR-018 Tier 2 的新安全门限分支零测试，
+`internal/opc` 从 90.4% 跌到 89.5%、**三天无人察觉**——因为 CI 只跑
+build/test/vet。门禁让这类回归**立即变红**。
+
+```bash
+scripts/coverage/gate.sh                    # 本地；退出码 0=全达标
+TOLERANCE=0.5 scripts/coverage/gate.sh      # 放宽测量容差（默认 0）
+GOFLAGS_TAGS=corpus scripts/coverage/gate.sh # corpus 口径
+```
+
+> 门槛即文档化的里程碑值（本就紧凑：`xmlstore` 90.2% vs 90%）。若某包**合理**
+> 下移，须同步更新本表与 `gate.sh`，不允许只改其一。
+
 ## Current Conclusion
 
 COV-01 (full total >= 80%), COV-02 (root >= 82%), and COV-03 (command/helper >= 85%) were reached on 2026-09-11. As of 2026-09-12 afternoon (after the 5-package behavior-first push), full-repo weighted total is **84.4%**, root is **82.8%**, all three command/helper packages are between 87.2% and 89.5%.

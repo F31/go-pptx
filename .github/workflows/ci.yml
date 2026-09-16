@@ -166,3 +166,30 @@ jobs:
           cache: true
       - name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
         run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build ./...
+
+  # COV-01..04 覆盖率门槛守门（P2）。
+  # 背景：ADR-018 Tier 2 新增的 opc 安全门限分支零测试覆盖，使 internal/opc
+  # 从 90.4% 静默跌到 89.5%、跌破 COV-04 门槛三天无人察觉（CI 当时不跑覆盖率）。
+  # 本 job 把各包门槛写成断言（scripts/coverage/gate.sh），任何包跌破即 FAIL。
+  # 门槛表与 docs/coverage-roadmap.md 一一对应；audioprobe 依 B-2 决策豁免 90。
+  coverage-gate:
+    name: coverage-gate
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+      - name: Coverage gate (per-package floors)
+        run: scripts/coverage/gate.sh | tee coverage-gate.log
+      - name: Upload coverage gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-gate-log
+          path: coverage-gate.log
+          if-no-files-found: ignore
+          retention-days: 14
