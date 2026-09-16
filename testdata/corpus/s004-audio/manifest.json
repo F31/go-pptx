@@ -31,7 +31,7 @@
   "generator": {
     "name": "go-pptx SDK",
     "platform": "Linux",
-    "version": "v1.0.6"
+    "version": "v1.0.7"
   },
   "known_issues": [
     "True client playback (PowerPoint/WPS) still requires a machine with an office suite installed"

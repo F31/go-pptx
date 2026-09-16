@@ -247,7 +247,7 @@ func main() {
 		},
 		"generator": map[string]any{
 			"name":     "go-pptx SDK",
-			"version":  "v1.0.6",
+			"version":  "v1.0.7",
 			"platform": "Linux",
 		},
 		"creation_steps":   []string{"go run ./scripts/gen_audio"},

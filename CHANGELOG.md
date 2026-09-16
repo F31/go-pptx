@@ -7,6 +7,46 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md).
 
+## [1.0.7] - 2026-09-16
+
+**v1.0.6 后的第七个 patch release，定位为"音频形状可用性修复"。修复 6 处独立缺陷，使音频形状从"能生成但客户端三态各异"（能否打开 / 图标是否可见 / 是否有声彼此独立）变为 **PowerPoint 与 WPS 均可打开、喇叭图标可见、F5 放映自动出声**。唯一公共 API 变化是 `AudioSpec` 追加位置/尺寸字段（仅追加，binary-compat with v1.0.0–v1.0.6）。**
+
+### Added
+
+- **`AudioSpec.X/Y/Width/Height`（EMU，仅追加）**：音频形状在页面上的位置与尺寸。全零时默认 `1in×1in` 并定位到**页面右下角**（距右/下边各 0.25in）——此前音频形状恒为 `0×0`（不可见）。新增 `audioGeometry` 与 `Presentation.slideSize()`（读 `presentation.xml` 的 `p:sldSz`，缺失回退 16:9）。
+- **内置喇叭图标** `assets/audio-speaker.png`（64×64 PNG，`//go:embed`，`audio_icon.go`）：作为音频 `p:pic` 的 poster 图标。
+- **公开音频样本** `testdata/corpus/s004-audio/`（`.pptx`/`.edited.pptx`/`.actions.json`/`compat-smoke.json`/`manifest.json` + 生成脚本 `scripts/gen_audio/main.go`）：公开语料 36 → **37** 样本，闭合 V2.6 §15.3 第 3 条。
+
+### Fixed
+
+- **音频形状 `0×0` 导致客户端不可见（中，ADR-027）**：`buildAudioPicFragment` 硬编码 `a:ext cx="0" cy="0"`，而 `AudioSpec` 无几何字段、库亦无设置形状几何的写 API（`MoveShape` 仅调 z-order）→ 形状永久 0×0。
+- **`a:blip` 指向音频文件导致无 poster 图标（中，ADR-027 续）**：客户端音频 `p:pic` 要求 `p:blipFill/a:blip` 指向**图片**（图标），音频仅经 `p:nvPr/a:audioFile@r:link` 关联；同时补 `<a:hlinkClick action="ppaction://media"/>`（可点击播放）与 `<a:picLocks noChangeAspect="1"/>`。
+- **`p:cMediaNode vol="80"` 量纲错误导致静音（中，ADR-027 续二）**：`vol` 的 XSD 类型是 `ST_PositiveFixedPercentage`（0..100000 千分比），`80` = **0.08%**；改为 `vol="80000"`（80%）。
+- **PowerPoint 打不开含 poster 的音频（高，ADR-027 续三）**：`a:blip` 指向图片时，`p:nvPr` 必须带 `p14:media`（Microsoft 2007 `.../relationships/media`）关联媒体；缺它 PowerPoint 判包不可用（WPS 宽容）。**该结论有适用边界**：`blip→媒体文件` 不需要 `p14:media`（video 路线，ADR-026），`blip→图片` 才需要。
+- **WPS 不自动播放（中，ADR-027 续四）**：极简 `p:audio`+`delay="0"` 形态仅 PowerPoint 自动触发；WPS 需要显式播放命令。计时结构改为 PowerPoint 原生媒体播放形态：`p:seq`（`mainSeq`/`interactiveSeq`）→ `mediacall` 效果（`withEffect`/`clickEffect`）→ `p:cmd type="call" cmd="playFrom(0.0)"`，外加 `p:audio/p:cMediaNode`（`delay="indefinite"` + `onStopAudio`）；节点 ID 改 `900000+ShapeID*100`；`timingAudioSafeLocals` 白名单扩展。
+- **`clone` 不认识新媒体关系类型（连带修复）**：`classifyCloneRel` 归类 `.../2007/relationships/media`（否则克隆含音频页面报 "unsupported internal relationship type"）。
+- **（行为变更）音频默认定位**：由"不可见的 0×0"改为"可见的右下角 1in×1in"。仅影响此前实际不可用的音频形状，无破坏性。
+
+### L3 真机客户端矩阵（第五轮）
+
+| 验证项 | 结果 |
+|---|---|
+| `s004-audio`（公开样本） | PowerPoint 16.0.20326 + WPS 12.1.0.28599 均 `OPEN=ok`、图标可见、**F5 自动出声**（2026-09-16 用户确认） |
+
+### Verification
+
+```bash
+go test ./...                                     # 全包 PASS
+go test -tags=corpus ./...                        # 含 B1 金样比对（37 样本）
+go test -run 'TestAPIFrozen|TestErrorSentinels|TestNoBuildConstraints' -v .   # AST 守门
+go run ./scripts/gen_audio                        # 复现 s004-audio 样本
+```
+
+### Compatibility
+
+- **v1.0.6 → v1.0.7：binary-compatible + API-compatible（仅 `AudioSpec` 追加字段）**——无 Stable 段/符号/方法/哨兵变化（163 type / 40 段 / 60 符号 / 131 方法 / 17 哨兵不变）。
+- 下游升级动作：**建议**。任何生成含音频 PPTX 的下游都应升级——否则产物在客户端表现为图标不可见 / 无 poster / 静音 / PowerPoint 拒开 / WPS 不自动播放。
+
 ## [1.0.6] - 2026-09-16
 
 **v1.0.5 后的第六个 patch release，纯 bug-fix（ADR-025 配音 / ADR-026 视频两条 OOXML 合规修复），公共 API 表面与 v1.0.5 逐项一致、binary-compat with v1.0.0–v1.0.5，输出字节布局不变。**
