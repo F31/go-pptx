@@ -55,6 +55,7 @@
 ### 发布级缺口（已登记）
 
 - ~~**L3 客户端矩阵**（PowerPoint/WPS 真机验证）~~：**2026-09-11 完成**——Windows 11 宿主机 COM 自动化 8/8 组合通过，无修复提示 + 重存 + go-pptx 回验 0 错误；证据见 `docs/client-compat-matrix.md`（复现工具 `scripts/l3/run_client.sh`）。剩余仅为可选的 GUI 截图证据。
+- ~~**VIDEO-01 视频嵌入真机播放验证**~~：**2026-09-16 闭合**——ADR-026 修复 video `p:pic` 同源缺陷后，用户确认含视频文档在客户端可正常播放（打开/识别/播放三项通过）；证据见 `docs/client-compat-matrix.md` 第五轮。
 - **覆盖率 85.6%**（cmd/pptx）/ 82.0%（根包）/ full total 83.2%：V2.6 §15.3 的 90% 门槛经 **COV-04 评估（2026-09-11）放弃统一口径**——90% 仅保留给低层格式包（opc/xmlstore/videoprobe/audioprobe/textmap/editplan），根包目标 85%、command/helper 85%；COV-01（full >=80%）、COV-02（root >=82%）、COV-03（command/helper >=85%）均已达成，详见 `docs/coverage-roadmap.md`。
 
 ### v1.0 tag 流程清单（[freeze list §E](v1.0-freeze-list.md)）

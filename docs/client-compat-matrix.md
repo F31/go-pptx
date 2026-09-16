@@ -162,6 +162,25 @@ go run .l3-output/zz_mp4probe.go -f x.mp4     # AUDIO_TRACK_PRESENT=false 属预
 
 > 步骤 4 的**音频源选择是关键**：录制"系统声音"时，音轨内容即客户端输出，是"配音确实播放"的直接证据；若录的是麦克风，则需扬声器外放才能捕获，证据强度降为间接。
 
+## 第五轮：视频真机播放验证（2026-09-16，用户确认）
+
+**目的**：闭环 ADR-026 的"真机验证必须覆盖每一个复制点"——video 形状同源缺陷已修（`buildVideoPicFragment` 补 `p:nvPr` + 把 `a:videoFile r:link` 移入 `p:nvPr`），现确认视频在客户端**实际可播放**（而非仅能打开/识别）。
+
+**方法**：在真机放映 go-pptx 生成的含视频文档（`.l3-output/s001-text.video.fixed.pptx`，由 `AddVideo` 嵌入 mp4 产物），用户确认视频画面正常播放。
+
+**结果**：
+- ✅ **用户确认视频可以正常播放**（2026-09-16）。
+- 结构验证（ADR-026 修复后）：PowerPoint 16.0.20326 + WPS 12.1.0.28599 均 `OPEN=ok` + `SAVE=ok`，`Video 11` 均识别为 `type=16 (msoMedia)`（修复前 WPS 仅认 type=13）。
+
+**结论**：VIDEO-01 同源缺陷修复在真机层面闭合（打开/识别/播放三项通过）。与 §15.3 第 3 条（音频）共用同一套证据链方法（对照实验 + 人工真机确认）。
+
+**复现**：
+
+```bash
+go run .l3-output/zz_genvideo.go -input testdata/corpus/s001-text/s001-text.pptx -output .l3-output/s001-text.video.fixed.pptx
+# 用 PowerPoint / WPS 打开并放映，确认视频可播放
+```
+
 ## 执行步骤
 1. 运行 `scripts/gen_corpus/run.sh validate testdata/corpus` 确认本地语料索引有效。
 2. 对公开样本使用 `*.edited.pptx` 作为客户端打开输入。
