@@ -1,7 +1,8 @@
 # ADR-030: v2.0 目标架构——分层元仓库（layered meta-repo）
 
-- **状态**: Proposed（提案，v2.0 目标态，未实施）
+- **状态**: **In Progress**（v2.0 实施中；2026-09-16 经用户决策正式启动，**不承诺 v1.x 兼容**——允许一次性破坏性变更与 import 路径迁移）
 - **日期**: 2026-09-16
+- **修订**: 2026-09-16 第 3 轮——状态 Proposed→In Progress；新增 §别名策略（DTO 用 alias、句柄类型用真实类型 + 薄委托）；落地地基包 `internal/document/model` + `internal/diag`
 - **修订**: 2026-09-16 第 1 轮（依据外部评审）——基线校正（行数/方法数）、机制 2 重写为只读投影、补新包门槛档位与验收口径、试点选型改为 bind 私有实现、ir/render 定性修正
 - **修订**: 2026-09-16 第 2 轮——三批试点完成（textutil/bind/style）；`render` 定性由「死代码待三选一」更正为「有意发布的公共契约，保留」（见验收口径 §4）；`ir` 与 `render` 依赖方向在图中分列
 - **关联设计**: 《go-pptx 完整设计方案 V2.6 开发实施版》§3（总体架构）、§4（写入路径）
@@ -109,6 +110,8 @@ internal/diag / internal/capa ─→ 仅被门面与工具消费
 ### 演进顺序（v2.0 启动后按此推进）
 
 1. **立 `ooxml/schema` 生成管线**（只读投影，见机制 2；最慢、最独立，可并行推进）。
+   _2026-09-16 实测：ECMA-376 官方 XSD 下载链接失效，输入获取待解——本步**不阻塞**
+   逐域搬迁，先并行推进第 2 步。_
 2. **逐域搬迁**：`geometry` → `style` → `text` → `media` → `table/chart` → `bind`，每域一个 PR，白盒测试随行（ADR-016 陷阱免疫）。
 3. **收敛门面**：根包 → `pptx/` 子包（唯一的 breaking 点），同步迁移 `api_surface_test`；中间态按验收口径 §2 维护 golden。
 4. **收编/处置顶层包**：`ir/` 改造入 `internal/ir`（**依赖第 3 步门面收敛**——现 import 根包，须先有 `pptx/` 门面可依赖）；`render/` **保留**（有意发布的公共契约，见需求边界表；非意外死代码）。
@@ -266,6 +269,32 @@ format 76.5 / chart 77.5 / theme 78.9 / clone 81.5 **应先补测试再搬**。
 冻结面内**无法迁出**——它们要等 v2.0 破坏性版本连同公共类型一起搬。**clean 迁移集已尽。**
 - **render 决策**（2026-09-16 已定案）：**保留**为公共契约（理由见验收口径 §4）；
 - 启动时同步维护 1.x→2.0 迁移文档（import 路径改写 + golden 计数随迁）。
+
+### 别名策略（2026-09-16 第 3 轮明确）
+
+早先表述「不是 alias，是真实移动 + 薄委托」需按类型性质二分（Go 语言约束所致）：
+
+| 类型性质 | 例 | 策略 | 理由 |
+|---|---|---|---|
+| **句柄/行为类型** | `Presentation` / `Slide` / `Shape` / `TextFrame` / `TableShape` | **门面真实定义**（struct 持 internal 状态），方法体 ≈ 1 行转调 `internal/document` | 方法必须定义在类型所在包；alias 无法附加方法，做不了薄委托 |
+| **DTO/值类型** | `Diagnostic` / `Severity` / `SlideID` / `GeometryInfo` / `Point` / `EMU` | internal 定义 + 门面 `type X = pkg.X` **alias 暴露** | 纯数据无行为；alias 零成本、零转换、零重复定义。若强行"真实移动 + 转换"，将为 ~160 个 DTO 制造双份定义与逐字段转换样板，违背可维护性 |
+
+配套：`api_surface_test` 升级为**别名感知**（`addAliasMethods` 解析根包 import 的
+模块内包，按接收者类型名补入 alias 目标的导出方法），保证 DTO alias 不丢公共方法面。
+
+### 地基包：`internal/document/model` + `internal/diag`（2026-09-16 第 3 轮）
+
+逐域搬迁前必须先立被多域共享的底层类型包——否则域包无法命名 `Diagnostic` /
+`SlideID` 等公共面类型（internal 不得 import 根包，ADR-016 陷阱的变体）：
+
+- `internal/document/model`：`SlideID` / `ShapeID`（纯标识值类型，零依赖）
+- `internal/diag`：`Severity` / `Diagnostic` / `ValidationReport`（跨层诊断，只被向上
+  消费；依赖 model）
+- 根包 `ids.go` / `diagnostics.go` 改 alias 暴露（Stable 文档段保留）；**零调用方改动**
+- `api_surface_test` 升级为别名感知（见上）；golden（163 type / 40 Stable 段 / 60 符号
+  / 131 方法 / 17 哨兵）**零变更**
+- gate：`internal/diag=90`（实测 100%）、`internal/document/model` 无可测语句入 SKIP
+- 守恒：`go test ./...` 与 `-tags=corpus` **18/18** 全绿；`api_surface_test` golden 不变
 
 ## 参考
 

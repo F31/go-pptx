@@ -1,5 +1,7 @@
 package pptx
 
+import "github.com/F31/go-pptx/internal/document/model"
+
 // SlideID 是演示文稿范围内的页面标识，取自 presentation.xml 中 sldId 的 id。
 //
 // 作用域与排序语义（方案 §19.2）：slide id 按规范合法区间分配并检查耗尽；
@@ -7,7 +9,10 @@ package pptx
 //
 // Stable: 类型定义与文档语义（持久化到 OOXML、归属 presentation 级别、不
 // 表示页面顺序）在 v1.0 后锁死；底层 uint32 表示不变。仅允许追加文档备注。
-type SlideID uint32
+//
+// v2.0：定义在 internal/document/model，此处以 alias 暴露（唯一公共导入
+// 路径仍为 github.com/F31/go-pptx/pptx）。
+type SlideID = model.SlideID
 
 // ShapeID 是形状树适用作用域内的形状标识，对应 OOXML ShapeID。
 //
@@ -16,4 +21,6 @@ type SlideID uint32
 //
 // Stable: 类型定义与文档语义（持久化到 OOXML、与 NodeID 互相独立、引用
 // 重映射须同步）在 v1.0 后锁死；底层 uint32 表示不变。
-type ShapeID uint32
+//
+// v2.0：定义在 internal/document/model，此处以 alias 暴露。
+type ShapeID = model.ShapeID

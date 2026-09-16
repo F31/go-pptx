@@ -188,6 +188,11 @@ func loadAPISurface(t *testing.T) apiSurface {
 	sort.Strings(names)
 	s.files = len(names)
 
+	// aliasNames 记录根包中的导出 type alias（`type X = pkg.Y`）。v2.0 起
+	// DTO 类型经 internal 包定义、根包 alias 暴露，其方法不再声明于根包；
+	// 方法收集阶段需下沉到 alias 目标包（见下）。
+	aliasNames := map[string]bool{}
+
 	for _, fname := range names {
 		for _, d := range pkg.Files[fname].Decls {
 			gd, ok := d.(*ast.GenDecl)
@@ -201,6 +206,9 @@ func loadAPISurface(t *testing.T) apiSurface {
 					ts := spec.(*ast.TypeSpec)
 					if ts.Name.IsExported() {
 						decl = append(decl, ts.Name.Name)
+						if ts.Assign.IsValid() {
+							aliasNames[ts.Name.Name] = true
+						}
 					}
 				}
 				s.types = append(s.types, decl...)
@@ -235,6 +243,13 @@ func loadAPISurface(t *testing.T) apiSurface {
 	for _, n := range s.stableSyms {
 		stable[n] = true
 	}
+	seenMethod := map[string]bool{}
+	addMethod := func(full string) {
+		if !seenMethod[full] {
+			seenMethod[full] = true
+			s.stableMethod = append(s.stableMethod, full)
+		}
+	}
 	for _, fname := range names {
 		for _, d := range pkg.Files[fname].Decls {
 			fd, ok := d.(*ast.FuncDecl)
@@ -243,10 +258,13 @@ func loadAPISurface(t *testing.T) apiSurface {
 			}
 			recv := strings.TrimPrefix(recvTypeName(fd.Recv.List[0].Type), "*")
 			if stable[recv] {
-				s.stableMethod = append(s.stableMethod, recv+"."+fd.Name.Name)
+				addMethod(recv + "." + fd.Name.Name)
 			}
 		}
 	}
+	// v2.0：DTO 类型经 internal 包定义、根包 alias 暴露——其方法声明在目标包。
+	// 解析根包 import 的模块内包，按接收者类型名（== 别名名）补入。
+	addAliasMethods(t, fset, pkg, stable, aliasNames, addMethod)
 
 	for _, sl := range [][]string{s.types, s.stableSyms, s.expSyms, s.stableMethod, s.sentinels} {
 		sort.Strings(sl)
@@ -291,6 +309,53 @@ func pkgNames(m map[string]*ast.Package) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// modulePath 是 go.mod 的模块路径；用于识别根包 import 的模块内包。
+const modulePath = "github.com/F31/go-pptx"
+
+// addAliasMethods 解析根包 import 的模块内包，把 alias Stable 类型的方法
+// 以其"公开别名名.方法名"补入 stableMethod——使 v2.0「DTO 定义在 internal、
+// 根包 alias 暴露」不丢公共方法面。
+func addAliasMethods(t *testing.T, fset *token.FileSet, rootPkg *ast.Package,
+	stable, aliasNames map[string]bool, add func(string)) {
+	t.Helper()
+	dirs := map[string]bool{}
+	for _, f := range rootPkg.Files {
+		for _, imp := range f.Imports {
+			path := strings.Trim(imp.Path.Value, `"`)
+			if strings.HasPrefix(path, modulePath+"/") {
+				dirs[strings.TrimPrefix(path, modulePath+"/")] = true
+			}
+		}
+	}
+	dirList := make([]string, 0, len(dirs))
+	for d := range dirs {
+		dirList = append(dirList, d)
+	}
+	sort.Strings(dirList)
+	for _, dir := range dirList {
+		pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
+			return !strings.HasSuffix(fi.Name(), "_test.go")
+		}, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", dir, err)
+		}
+		for _, p := range pkgs {
+			for _, f := range p.Files {
+				for _, d := range f.Decls {
+					fd, ok := d.(*ast.FuncDecl)
+					if !ok || fd.Recv == nil || !fd.Name.IsExported() || len(fd.Recv.List) == 0 {
+						continue
+					}
+					recv := strings.TrimPrefix(recvTypeName(fd.Recv.List[0].Type), "*")
+					if stable[recv] && aliasNames[recv] {
+						add(recv + "." + fd.Name.Name)
+					}
+				}
+			}
+		}
+	}
 }
 
 // diffSorted 给出 want 与 got 的差集，用于产出可读的失败信息。
