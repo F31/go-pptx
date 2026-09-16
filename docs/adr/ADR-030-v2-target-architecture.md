@@ -2,6 +2,7 @@
 
 - **状态**: Proposed（提案，v2.0 目标态，未实施）
 - **日期**: 2026-09-16
+- **修订**: 2026-09-16 第 1 轮（依据外部评审）——基线校正（行数/方法数）、机制 2 重写为只读投影、补新包门槛档位与验收口径、试点选型改为 bind 私有实现、ir/render 定性修正
 - **关联设计**: 《go-pptx 完整设计方案 V2.6 开发实施版》§3（总体架构）、§4（写入路径）
 - **替代/废止**: 无（本 ADR 为 v2.0 演进目标；落地时取代 ADR-014 §1、ADR-016、ADR-029 的 v1.x 拆分策略条款）
 - **关联 ADR**: ADR-014（根包内部包策略）、ADR-015（API 稳定性分级）、ADR-016（渐进式 internal 抽取）、ADR-029（同包拆文件）
@@ -14,7 +15,7 @@
 
 | 位置 | 内容 |
 |---|---|
-| 根包 `pptx` | 63 非测试文件 / 21,534 行 / **128 个 Presentation+Slide 方法**，公共类型（Presentation/Slide/Shape/TextRun/…）与业务实现 100% 纠缠 |
+| 根包 `pptx` | 63 非测试文件 / 21,560 行 / **129 个 Presentation+Slide 方法**（Presentation 86 + Slide 43），公共类型（Presentation/Slide/Shape/TextRun/…）与业务实现 100% 纠缠 |
 | 顶层 `ir/`、`render/` | **名义公共包**，实际仅被 `cmd/pptx` 与 `wasm/check` 引用（ADR-014 已记录）——公开暴露但无人从外部用 |
 | `internal/` | 已有雏形：`opc` / `xmlstore` / `document` / `chart` / `editplan` / `audioprobe` / `videoprobe` / `textmap` |
 | `cmd/` | `pptx`（CLI 六子命令）、`pptx_check`（WASM） |
@@ -22,8 +23,8 @@
 
 ### 问题的本质
 
-- 早期把公共对象模型放进根包并冻结（ADR-015）后，**实现被永久焊死在门面上**：`internal/style`、`geom`、`textmap` 等被 ADR-014 否决抽取，理由正是"公共类型必须在根包"——v1.x 内该结论正确，代价是没有层。
-- ADR-029 的域前缀拆分（`text_*`/`style_*`/…）是冻结面内的**权宜**：改善了导航，但 63 个文件仍同属一个无层包，128 个门面方法仍与实现同文件共生。
+- 早期把公共对象模型放进根包并冻结（ADR-015）后，**实现被永久焊死在门面上**：`internal/style`、`geom`、`validate` 被 ADR-014 §1 判为"永久不拆"，理由正是"公共类型必须在根包"——v1.x 内该结论正确，代价是没有层。（注：ADR-014 §1 把已由 ADR-016 抽出的 `textmap` 误列入"永久不拆"清单，与其自身状态表矛盾——此处不采信其对 `textmap` 的表述。）
+- 文件层面的归一化是冻结面内的**权宜**：ADR-029 §决策先做同包拆文件（连写命名，如 `textfontparse.go`），"续二"（commit `13fc964`）才引入 `text_*`/`style_*` 等域前缀——两者都改善了导航，但 63 个文件仍同属一个无层包，129 个门面方法仍与实现同文件共生。
 - 症状（可量化）：门面方法数 = 实现函数数（无委托层）；改动门面签名必然触碰实现；新增能力只能继续堆进根包。
 
 ### 为何 v2.0 是正确时点
@@ -68,9 +69,9 @@ go-pptx/
 ### 六条关键机制
 
 1. **门面薄、域厚**。`pptx/` 只放稳定类型与薄委托（方法体 ≈ 1 行，转调 `internal/document`）；业务逻辑全部下沉。公共签名冻结后实现可无限迭代。参照 python-pptx 内部结构（`pptx/` + `pptx/oxml/` + `pptx/opc/`）。
-2. **OOXML 类型生成 = 最大杠杆**。淘汰"stringly-typed XML"反模式——几十个手写 `*_parse.go` / `text_node.go` nodeStep 路径，替换为从 ECMA-376 XSD 生成的 typed `encoding/xml` 结构（同 excelize 路线），配少量微软扩展补丁（p14/morph）。`schema/` 一个目录替代全部手写解析。
+2. **OOXML 类型生成 = 最大杠杆（限只读投影）**。淘汰"stringly-typed XML"反模式——几十个手写 `*_parse.go` / `text_node.go` nodeStep 路径，替换为从 ECMA-376 XSD 生成的 typed `encoding/xml` 结构（同 excelize 路线），配少量微软扩展补丁（p14/morph）。`schema/` 一个目录替代全部手写解析。**硬约束：生成类型仅用于只读投影（替换手写 parse），不得进入写路径**——`encoding/xml` 往返不保证属性序、命名空间前缀选择、自闭合形式与空白不变；一旦生成类型参与写入，`corpus_b1_test.go`（空变更集→字节恒等）、`internal/opc/saveplan_test.go:TestSavePlanUnchangedIsB1`、ext-0024 单 Run 替换 1 字节差异这三条字节级保真证据立即失效。**写路径维持 `xmlstore` span 补丁 + 未修改 Part 字节拷贝。**
 3. **测试随包走**。每个 internal 子包自带白盒测试 → **ADR-016 覆盖率归属陷阱从根上消失**（代码与测试一起搬，覆盖率按包归属天然正确）。`internal/chart` 5.5% 的历史悲剧不再复现。
-4. **依赖单向、CI 强制**。门面→域→格式→传输；`ir/diff/render` 只吃 `ooxml`；`diag/capa` 只向上。用 `go-arch-lint`（或 import 规则 job）在 CI 执行，防回潮。
+4. **依赖单向、CI 强制**。门面→域→格式→传输；`ir/diff/render` 只吃 `ooxml`；`diag/capa` 只向上。用 **std-lib 自建依赖规则 job**（`go/parser` + `go list`，与 `api_surface_test.go` 同手法）在 CI 执行，防回潮——**不引入 `go-arch-lint` 等外部工具**，遵守 `ci.yml` 零依赖政策。
 5. **cmd/wasm 共享 engine**。CLI 六子命令与 WASM check 不再各自贴门面，统一编排 `internal/engine`。
 6. **模块根变元仓库**。`internal/` 受语言级保护；公共面收窄为一个 `pptx/` 子包——"63 文件根包"的结构压力自动归零，未来文件增长被分摊到各子域包。
 
@@ -81,9 +82,10 @@ go-pptx/
 | 根包 63 文件 | 拆分：`pptx/` 门面（≈8-10 文件）+ `internal/document/*` | 公共类型搬门面，业务/私有实现下沉 |
 | `internal/opc` / `xmlstore` | 保留 | 传输/存储层，位置不动 |
 | `internal/document` | 扩容为域层根 | 吸纳根包全部业务逻辑 |
-| `internal/chart` | 并回 `document/chart` | 自带测试后覆盖率问题消解 |
+| `internal/chart` | 并回 `document/chart` | 聚合为域层一部分（当前 90.8% 已达标，非为救覆盖率） |
 | `internal/audioprobe` / `videoprobe` / `textmap` / `editplan` | 归入 `document/media` / `document/text` / `engine` | 按功能收编 |
-| 顶层 `ir/`、`render/` | 移入 `internal/ir`、`internal/render` | 只被 cmd/wasm 引用，撤销名义公共面 |
+| 顶层 `ir/` | 移入 `internal/ir` | **实为改造**：现 `ir/ir.go`、`ir/diff.go` import 根包，须重写为只吃 `ooxml`，且依赖演进第 3 步门面收敛 |
+| 顶层 `render/` | 待决策 | **死代码**（零包外引用）——删 / 留公共+指定消费者 / 降 internal 三选一，见验收口径 §4 |
 | `api_surface_test.go` 黄金计数 | 随迁 `pptx/` 门面包 | 计数语义不变 |
 | ADR-029（同包拆文件） | v1.x 权宜，v2.0 由分层拆分取代 | 策略边界见本 ADR |
 | `docs/` / `scripts/` / `wasm/site/` / `testdata/` | 保留 | 工程层不受影响 |
@@ -102,12 +104,50 @@ internal/diag / internal/capa ─→ 仅被门面与工具消费
 
 ### 演进顺序（v2.0 启动后按此推进）
 
-1. **立 `ooxml/schema` 生成管线**（最慢、最独立，可并行推进）。
+1. **立 `ooxml/schema` 生成管线**（只读投影，见机制 2；最慢、最独立，可并行推进）。
 2. **逐域搬迁**：`geometry` → `style` → `text` → `media` → `table/chart` → `bind`，每域一个 PR，白盒测试随行（ADR-016 陷阱免疫）。
-3. **收敛门面**：根包 → `pptx/` 子包（唯一的 breaking 点），同步迁移 `api_surface_test`。
-4. **收编名义公共包**：`ir/`、`render/` → `internal/`。
+3. **收敛门面**：根包 → `pptx/` 子包（唯一的 breaking 点），同步迁移 `api_surface_test`；中间态按验收口径 §2 维护 golden。
+4. **收编/处置顶层包**：`ir/` 改造入 `internal/ir`（**依赖第 3 步门面收敛**——现 import 根包，须先有 `pptx/` 门面可依赖）；`render/` 按验收口径 §4 三选一定案。
 5. **engine 化 cmd/wasm**：CLI 与 WASM 改编排 `internal/engine`。
-6. **CI 加依赖方向校验**（go-arch-lint / import 规则）。
+6. **CI 加依赖方向校验**（std-lib 自建规则 job，零新依赖，见机制 4）。
+7. **gate 完整性收口**：`go list ./...` 集合 ⊄ FLOORS → FAIL（堵住新包静默不受检），新包按门槛档位表入表。
+
+### 新包覆盖率门槛档位（2026-09-16 补齐，阻塞项）
+
+现状 `scripts/coverage/gate.sh` 的 `FLOORS` 是**白名单**：未列包**静默不受检**，且档位只有 root/cmd/低层格式三档。v2.0 逐域搬迁会不断产生新包，必须先定义档位：
+
+| 档位 | 门槛 | 适用包 |
+|---|---|---|
+| T1 公共门面 | ≥82 | `pptx/`（承接现 root 档） |
+| T2 域层包 | ≥85 | `internal/document/*`、`internal/bind`、`internal/engine` |
+| T3 低层格式包 | ≥90 | `internal/ooxml/*`、`opc`、`xmlstore`、`textmap`、`editplan` |
+| T4 工具/只读包 | ≥85 | `internal/ir`、`internal/diff`、`cmd/*`、`wasm/check` |
+| 防回归下界 | 取现测值 | `chart`（90.8）、`render`（84，视决策）等行为优先包 |
+
+搬迁时点依据（2026-09-16 按域归集：语句数 / 域覆盖率 / 搬走后 root 覆盖率）：
+
+```
+  media  1519/85.3% → root 83.6%     style   410/85.9% → 83.8%
+  text   1436/82.7% → root 84.2%     clone   378/81.5% → 84.0%
+  table   690/85.4% → root 83.8%     format  370/76.5% → 84.2%
+  geom    613/87.3% → root 83.6%     chart   213/77.5% → 84.1%
+  bind    575/86.4% → root 83.7%     theme   204/78.9% → 84.0%
+```
+
+推论：任何单域搬走，root 覆盖率**上升或持平**（83.6–84.2%，均 ≥82% 门槛）——
+ADR-016 归属陷阱在「单域 + 测试随迁」下不发作；但若新包套用 T3（≥90%），上表
+无一域一次达标（最高 geom 87.3%），故域层包定 **T2（≥85%）**。最差四域
+format 76.5 / chart 77.5 / theme 78.9 / clone 81.5 **应先补测试再搬**。
+
+### 零外部依赖不变量
+
+仓库现状零外部依赖（`go.mod` 无 `require`、无 `go.sum`；`go list -m all` 仅主模块）。
+本 ADR 将「**运行时 + 构建期零外部依赖**（工具链仅 Go 标准库）」立为不变量：
+
+- 依赖方向校验用 std-lib 自建 job（机制 4），不引入 `go-arch-lint`；
+- `ooxml/schema` 生成管线若实现，优先自研最小 XSD→Go 生成器（XSD 本身是 XML，
+  `encoding/xml` 可解析）；确需现成工具时放独立 tool module（不进主 `go.mod`/`go.sum`）；
+- 新代码引入任何第三方包前须先走 ADR 评审。
 
 ## 后果
 
@@ -116,7 +156,7 @@ internal/diag / internal/capa ─→ 仅被门面与工具消费
 - 层存在：门面签名与实现解耦，v2.1+ 的能力扩展不再堆进单一无层包；
 - 覆盖率归属正确：测试随包走，各 internal 包独立达标，ADR-016 陷阱根除；
 - 公共面收窄且可审计：外部可见符号 = `pptx/` 一个包，capability manifest 与文档一致性维护成本下降；
-- 类型安全提升：XSD 生成的 CT_* 类型消灭手写 nodeStep/解析，字节级保真由类型层兜底。
+- 类型安全提升：XSD 生成的 CT_* 类型消灭手写 nodeStep/解析（**只读投影**）；写入侧字节级保真仍由 `xmlstore` 补丁与 Part 字节拷贝保障（见机制 2 硬约束）。
 
 ### 负面 / 风险
 
@@ -125,18 +165,38 @@ internal/diag / internal/capa ─→ 仅被门面与工具消费
 - 历史文档/脚本中旧路径引用需随迁（ADR-029 已记录同名问题的处理口径）；
 - `ooxml/schema` 生成器是长期资产，短期投入大、见效慢——属 v2.0 周期的前期投入。
 
+### 验收口径（v2.0 启动前必须补齐）
+
+1. **新包门槛档位表**：见 §决策——按 T1..T4 入表，gate 完整性校验同步落地（阻塞项）。
+2. **中间态 golden 维护**：逐域搬迁期间长期存在「部分类型在 `pptx/`、部分在根包」的
+   双门面，`api_surface_test` 黄金计数（158 类型 / 506 导出函数 / 131 Stable 方法）与
+   ADR-015 分级如何跨中间态维护——每个搬迁 PR 的验收必须含「golden 不变或按 ADR 流程
+   显式变更」声明。
+3. **ir 重写依赖**：`ir` 从 import 根包改为只吃 `ooxml`，须在门面收敛（演进第 3 步）后
+   进行；提前迁移将无 `pptx/` 门面可依赖。
+4. **render 决策**：死代码三选一（删 / 留公共+指定消费者 / 降 internal），启动前定案；
+   「降 internal 藏死代码」不推荐。
+
 ### 触发条件（何时正式启动 v2.0）
 
-任一命中即启动：
+任一命中即启动（**2026-09-16 实测：三条均未命中**）：
 
-1. **v1.x 出现需要动门面签名的新能力**（当前所有工作包均为追加式，未触发）；
-2. **根包编译/导航成本明确受限**（如增量编译 > 5s，或根包非测试文件 > 80 个）；
-3. **外部明确需要 `ir` / `render` 作为公共 API**（则直接放 `internal/` 之外并按 ADR-015 定级，而非维持现状的名义公共包）。
+1. **v1.x 出现需要动门面签名的新能力**——最近提交均为文档/重构收尾，无门面签名变更，未触发；
+2. **根包编译/导航成本明确受限**——实测热重建 0.29s ≪ 5s、根包非测试文件 63 < 80，未触发；
+3. **外部明确需要 `ir` / `render` 作为公共 API**——实测 `render` 零包外引用、`ir` 仅被 `cmd/pptx` 与 `wasm/check` 引用，未触发。
 
 ### 后续动作
 
 - 本文为 v2.0 **提案**；v1.x 期间不实施，继续按 ADR-014/029 维护；
-- 候选先行试点：以 `geometry` 或 `style` 单域做一次"搬迁可行性试点"，验证测试随包走的覆盖率表现与依赖方向，为正式启动积累数据；
+- **试点（2026-09-16 修订后选定）：`bind` 私有实现实搬**——`bind_body`/`bind_table`/
+  `bind_chart`/`bind_resolve`/`bind_marker` 五文件均**零导出声明**（v1.x 可安全搬、
+  公共 API 零变更），合计 467 语句 / 域覆盖 86.4%，bind 符号仅被 1-3 个 root 测试文件
+  引用（对比 text 34 / media 19 / geom 18），测试随迁成本最低。试点只验两件事：
+  ① 测试随包走 → 覆盖率归属正确；② 依赖方向可强制。**边界：验不了 v2.0 核心前提
+  「公共类型真实移动 + 薄委托门面」**——那只在真 breaking 版本验，不混入本次试点。
+  试点还将暴露跨域耦合，已知一例：`deletePatch`（bind_marker/bind_table）被 `create.go`
+  调用（core→bind 反向依赖，归属待裁决，建议入共享层）。
+- **render 决策**（启动前定案）：删 / 留公共+指定消费者 / 降 `internal/render` 三选一；
 - 启动时同步维护 1.x→2.0 迁移文档（import 路径改写 + golden 计数随迁）。
 
 ## 参考
