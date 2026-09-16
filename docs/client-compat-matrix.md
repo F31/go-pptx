@@ -233,14 +233,16 @@ bash scripts/l3/run_client.sh wpp \
 
 **验证方法**：
 1. COM 自动化打开/重存（同前四轮）
-2. 人工打开样本确认音频可播放
+2. **人工 F5 放映确认自动播放出声**
 
-**预期结果**（待真机验证）：
+**结果（2026-09-16 真机验证通过）**：
 
-| Client | Sample | Open | Repair Prompt | Resave | go-pptx Validate After Resave | Playback | Notes |
+| Client | Sample | Open | Repair Prompt | Resave | go-pptx Validate After Resave | F5 Playback | Notes |
 |---|---|---|---|---|---|---|---|
-| PowerPoint 16.0.20326 | `s004-audio` | pass | 无 | pass | errorCount=0 | 音频可播放 | 待真机验证 |
-| WPS 12.1.0.28599 | `s004-audio` | pass | 无 | pass | errorCount=0 | 音频可播放 | 待真机验证 |
+| PowerPoint 16.0.20326 | `s004-audio` | pass | 无 | pass | errorCount=0 | ✅ **自动出声** | 用户确认 |
+| WPS 12.1.0.28599 | `s004-audio` | pass | 无 | pass | errorCount=0 | ✅ **自动出声** | 用户确认 |
+
+> 本轮同时验证了 **ADR-027 系列的四项修复**：① 音频形状几何（0×0 → 右下角 1in×1in，图标可见）；② poster 图标（`a:blip` 指向 `image1.png` 而非音频）；③ `p14:media` 关联（PowerPoint 不再拒开）；④ 原生媒体播放结构（`p:seq` + `p:cmd playFrom(0.0)`，WPS 自动播放）。**两家客户端 F5 均能听到播放声音。**
 
 **验证命令**（Windows 宿主机）：
 ```bash
@@ -255,4 +257,4 @@ bash scripts/l3/run_client.sh wpp \
   'E:\projects\go-pptx\.l3-output\s004-audio.wps-resaved.pptx'
 ```
 
-**状态**：样本已创建，代码级测试全部通过（`go test -tags=corpus` 14/14 包 ok）。真机验证待在安装有 PowerPoint/WPS 的 Windows 机器上执行。
+**状态**：✅ **已闭合**（2026-09-16 用户真机确认 F5 自动出声）。代码级测试全绿（`go test -tags=corpus` 14/14 包 ok）。
