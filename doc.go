@@ -129,6 +129,32 @@
 // "go-pptx.diff/1.0"；`pptx diff` CLI 入口（只读）。
 // 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》。
 //
+// # 文件组织（2026-09-16 域前缀归一化，ADR-029 续）
+//
+// 非测试文件按功能域分组；核心入口文件不设前缀，其余按 `<域>_<stem>.go`
+// 命名，使文件树按字母序即呈现分组：
+//
+//	core（无前缀）  doc.go / presentation.go / slide.go / pages.go / shape.go /
+//	  shape_capability.go / save.go / options.go / errors.go / diagnostics.go /
+//	  ids.go / create.go / template.go / document_store.go / docProps.go /
+//	  capability.go / clone.go / layout_report.go
+//	text_*  text.go（入口）+ text_node / text_font / text_fontparse /
+//	  text_fonttypes / text_util / text_adv / text_notes / text_replace
+//	style_*  style.go（入口）+ style_adv / style_env / style_matrix / style_resolve
+//	theme_*  theme_resolve / theme_placeholder
+//	geom_*   geom.go（入口）+ geom_adv / geom_parse / geom_fill / geom_effect
+//	format_* format.go（入口）+ format_color / format_paraprops / format_runprops
+//	bind_*   bind.go（入口）+ bind_body / bind_table / bind_chart /
+//	  bind_resolve / bind_marker
+//	media_*  media.go（入口）+ media_audio / media_audioicon /
+//	  media_audiotiming / media_video / media_picture
+//	table_*  table.go（入口）+ table_style
+//	chart_*  chart.go（入口）+ chart_adv / chart_book / chart_frag
+//	anim_*   anim_timing / anim_transition
+//
+// 测试文件与被测代码同目录（Go 约定），命名与被测源文件对应（`*_test.go`）。
+// 分组边界与理由见 docs/adr/ADR-029-root-file-split.md §续二。
+//
 // # API 稳定性承诺（ADR-014 / ADR-015）
 //
 // 包内导出符号按三级分级（以 godoc 段落标签 "Stable:" / "Experimental:"
