@@ -7,7 +7,9 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md).
 
-## [Unreleased]
+## [1.0.6] - 2026-09-16
+
+**v1.0.5 后的第六个 patch release，纯 bug-fix（ADR-025 配音 / ADR-026 视频两条 OOXML 合规修复），公共 API 表面与 v1.0.5 逐项一致、binary-compat with v1.0.0–v1.0.5，输出字节布局不变。**
 
 ### Fixed
 
