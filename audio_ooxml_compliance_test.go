@@ -76,21 +76,23 @@ func TestBuildAudioPicFragmentIsSchemaCompliant(t *testing.T) {
 }
 
 // TestAudioGeometryDefaults 断言 AudioSpec 全零几何时补默认可见尺寸，
-// 避免生成 0×0 的不可见音频形状。
+// 并定位到页面右下角（距右/下边各 0.25in），避免 0×0 不可见或遮挡正文。
 func TestAudioGeometryDefaults(t *testing.T) {
+	const sw, sh = 12192000, 6858000 // 16:9
+	const size, margin = 914400, 228600
 	cases := []struct {
 		name           string
 		spec           AudioSpec
 		ox, oy, cx, cy int64
 	}{
-		{"all zero -> defaults", AudioSpec{}, 914400, 914400, 914400, 914400},
+		{"all zero -> bottom-right", AudioSpec{}, sw - margin - size, sh - margin - size, size, size},
 		{"explicit bounds preserved", AudioSpec{X: 100, Y: 200, Width: 300, Height: 400}, 100, 200, 300, 400},
-		{"position set, size zero", AudioSpec{X: 100, Y: 200}, 100, 200, 914400, 914400},
-		{"size set, position zero", AudioSpec{Width: 300, Height: 400}, 914400, 914400, 300, 400},
+		{"position set, size zero", AudioSpec{X: 100, Y: 200}, 100, 200, size, size},
+		{"size set, position zero", AudioSpec{Width: 300, Height: 400}, sw - margin - 300, sh - margin - 400, 300, 400},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ox, oy, cx, cy := audioGeometry(tc.spec)
+			ox, oy, cx, cy := audioGeometry(tc.spec, sw, sh)
 			if ox != tc.ox || oy != tc.oy || cx != tc.cx || cy != tc.cy {
 				t.Errorf("audioGeometry = (%d,%d,%d,%d), want (%d,%d,%d,%d)",
 					ox, oy, cx, cy, tc.ox, tc.oy, tc.cx, tc.cy)
@@ -147,6 +149,10 @@ func TestAudioShapeHasVisibleBounds(t *testing.T) {
 	}
 	if !strings.Contains(frag, `<a:ext cx="914400" cy="914400"/>`) {
 		t.Errorf("audio shape lacks default 1in×1in geometry: %s", frag)
+	}
+	// 默认定位：右下角（12192000/6858000 - 228600 - 914400）。
+	if !strings.Contains(frag, `<a:off x="11049000" y="5715000"/>`) {
+		t.Errorf("audio shape not at default bottom-right position: %s", frag)
 	}
 }
 

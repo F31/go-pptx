@@ -67,8 +67,8 @@ type AudioSpec struct {
 	Source   MediaSource
 	// X/Y/Width/Height（EMU）：音频形状在页面上的位置与尺寸（对应
 	// p:spPr/a:xfrm 框）。全零时采用默认 914400×914400 EMU（1in×1in）
-	// 并放置在 (914400, 914400)——与 PowerPoint 插入音频的默认位置一致，
-	// 避免产生不可见的 0×0 形状。
+	// 并定位到**页面右下角**（距右/下边各 0.25in）——与 PowerPoint
+	// 插入音频的习惯一致，避免不可见的 0×0 形状或遮挡正文。
 	X, Y          int64
 	Width, Height int64
 	// Duration 可选：调用方已知时长。Set=false 时由 probe 解出；probe
@@ -248,7 +248,8 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 	}
 	id := nextShapeID(doc, tree)
 	name := "Audio " + strconv.FormatInt(id, 10)
-	ox, oy, cx, cy := audioGeometry(spec)
+	sw, sh := p.slideSize()
+	ox, oy, cx, cy := audioGeometry(spec, sw, sh)
 	frag := buildAudioPicFragment(id, name, rid, iconRid, ext, ox, oy, cx, cy)
 	ap, err := xmlstore.AppendChild(tree, []byte(frag))
 	if err != nil {
@@ -471,26 +472,61 @@ func (p *Presentation) planAudioMedia(data []byte, sum [32]byte, ext, ct string)
 
 // ---------- p:pic 形音频片段 ----------
 
+// slideSize 返回 presentation.xml 中 p:sldSz 的尺寸（EMU）。缺失/非法时
+// 回退到 16:9 标准尺寸（12192000×6858000）。
+func (p *Presentation) slideSize() (int64, int64) {
+	const defW, defH = 12192000, 6858000
+	doc, err := p.presentationDoc()
+	if err != nil {
+		return defW, defH
+	}
+	for _, id := range doc.Elements(nsPresentationML, "sldSz") {
+		n := doc.Node(id)
+		if n == nil {
+			continue
+		}
+		cxStr, okX := n.Attr("", "cx")
+		cyStr, okY := n.Attr("", "cy")
+		if !okX || !okY {
+			continue
+		}
+		cx, errX := strconv.ParseInt(cxStr, 10, 64)
+		cy, errY := strconv.ParseInt(cyStr, 10, 64)
+		if errX == nil && errY == nil && cx > 0 && cy > 0 {
+			return cx, cy
+		}
+	}
+	return defW, defH
+}
+
 // audioGeometry 计算音频形状的几何框（EMU）。
 //
 // AudioSpec.X/Y/Width/Height 全零时采用默认值 914400×914400 EMU
-// （1in×1in）放置在 (914400, 914400)——与 PowerPoint 插入音频的默认
-// 位置一致，避免产生不可见的 0×0 形状。部分零值时按"缺失维度用默认"
-// 补齐，宽度/高度为 0 但位置非 0 时只补尺寸、保留调用方位置。
-func audioGeometry(spec AudioSpec) (ox, oy, cx, cy int64) {
-	const defaultSize, defaultOff = 914400, 914400
-	ox = spec.X
-	oy = spec.Y
+// （1in×1in）并放置在**页面右下角**（距右/下边各留 0.25in 边距）——与
+// PowerPoint 插入音频的角落位置一致，避免产生不可见的 0×0 形状或遮挡
+// 正文内容。部分零值时按"缺失维度用默认"补齐：仅给尺寸时定位到右下角，
+// 仅给位置时补默认尺寸。
+func audioGeometry(spec AudioSpec, slideW, slideH int64) (ox, oy, cx, cy int64) {
+	const defaultSize, margin = 914400, 228600
 	cx = spec.Width
 	cy = spec.Height
-	if ox == 0 && oy == 0 {
-		ox, oy = defaultOff, defaultOff
-	}
 	if cx == 0 {
 		cx = defaultSize
 	}
 	if cy == 0 {
 		cy = defaultSize
+	}
+	ox = spec.X
+	oy = spec.Y
+	if ox == 0 && oy == 0 {
+		ox = slideW - margin - cx
+		oy = slideH - margin - cy
+		if ox < 0 {
+			ox = 0
+		}
+		if oy < 0 {
+			oy = 0
+		}
 	}
 	return ox, oy, cx, cy
 }

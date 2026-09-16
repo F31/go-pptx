@@ -28,7 +28,7 @@
 ## 决策
 
 1. **`AudioSpec` 追加 `X, Y, Width, Height int64`**（EMU）——与 `VideoSpec` 同侧语义，但**允许零值**以保持向后兼容。
-2. **新增 `audioGeometry(spec)` helper**：全零时补默认 `914400×914400 EMU`（1in×1in）@ `(914400, 914400)`（1in,1in，与 PowerPoint 插入音频的默认位置一致）；仅位置或仅尺寸为零时按"缺失维度补默认、已给维度保留"处理。
+2. **新增 `audioGeometry(spec, slideW, slideH)` helper**：全零时补默认 `914400×914400 EMU`（1in×1in）并定位到**页面右下角**（距右/下边各 0.25in 边距，`slideW/H` 读自 `presentation.xml` 的 `p:sldSz`，缺失回退 16:9 `12192000×6858000`）；仅给尺寸时定位到右下角，仅给位置时补默认尺寸。
 3. **`buildAudioPicFragment` 增加 `ox, oy, cx, cy int64` 参数**并写入真实 `a:xfrm`。
 4. **不放宽任何校验**；不动 `p:timing` 与关系结构。
 
@@ -45,7 +45,7 @@
 
 ## 后果
 
-- 音频形状默认可见（1in×1in 喇叭图标），调用方可通过 `AudioSpec.X/Y/Width/Height` 精确定位。
+- 音频形状默认可见（1in×1in 喇叭图标，位于页面右下角），调用方可通过 `AudioSpec.X/Y/Width/Height` 精确定位。
 - 这是**第三处 audio/video/media 系列的遗漏**（前两处为 ADR-025/026 的 schema 合规）。共同教训：**新增 media 形状类型时应与既有 spec 逐字段对齐**，`VideoSpec` 已含几何字段而 `AudioSpec` 没有，属复制/对齐时的漏项。
 - 真机播放验证仍待在装有 PowerPoint/WPS 的 Windows 机器上执行（音频图标可见性已由 XML 断言覆盖，播放效果需真机）。
 
