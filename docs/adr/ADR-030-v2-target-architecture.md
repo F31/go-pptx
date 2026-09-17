@@ -410,6 +410,36 @@ style 域庞大且与 `Presentation`/`styleEnv` 深度耦合，按切片推进�
 - 守恒：`go test ./...` 与 `-tags=corpus` **21/21** 全绿；`api_surface_test` golden 不变；
   `internal/document/style` **92.3%**
 
+### 域搬迁 3：样式访问器 1+2 与填充/效果下沉（2026-09-17）
+
+- **访问器 1**（commit be6ef6f）：runprops/line/styleMatrix 迁入
+  `internal/document/style`：
+  - `RunProps`/`RunSymbol` + `ParseRunProps`（format_runprops.go）
+  - `LineStyle`/`LineEnd` + `ParseShapeLine`（format.go 线条系统）
+  - `MatrixRefKind`/`StyleMatrixRef`/`ThemeFontSlot` + `ParseStyleMatrixRefs`
+    （style_matrix.go + style_adv.go 合并，含 phClr 替换/字体槽位）
+  - 解耦：`themeDocOf`/`masterDocOf`/`ColorChild` + `styleDocs() DocFunc`
+    注入，替代 p.docOf/themeDoc/masterDoc；根 `colorChildOf` 并入
+    `style.ColorChild`；style_adv.go 删除
+- **访问器 2**（commit 32332b2）：表格样式迁入 `internal/document/style`
+  （table.go）：StyleToggle/TableStyleFlags/StylePart/FillKind/CellFill/
+  CellBorder/CellText/CellBorders/EffectiveCellStyle + `ResolveEffectiveCellStyle`
+  + `CellStyleCtx`（Env/Docs/StyleDoc/Part/Geom 注入），根保留
+  tblStyleLstDoc/tableGeom 接线；`ParseToggle`/`TablePrNode`/`AncestorOf` 导出
+- **填充/效果**（本次）：GEOM-02 fill/effect 迁入 `internal/document/geometry`
+  （fill.go/effect.go）：FillInfo/GradientFill/PatternFill/BlipFillInfo +
+  `ParseShapeFill`、EffectKind/EffectInfo/Effect/Scene3D/Shape3D/Bevel + 
+  `ParseShapeEffects`；颜色经 `style.ResolveColor`（新增 Env+Docs 封装）；
+  geom_fill.go/geom_effect.go/geom_parse.go 删除；`Optional[T]`/`NewOptional`
+  与 geometry 内部别名
+- 命名守恒：全部 DTO 类型经根别名暴露（style_dto.go / geom_adv.go /
+  FillKind→style）；golden 零变更
+- 测试随迁：style accessors_test.go（矩阵链/phClr/runprops/line）→ 90.5%、
+  table_test.go（resolveColorSpec 12 分支/显式/样式库/unresolved）→ 90.5%、
+  geometry fill_effect_test.go（fill 全形态/渐变路径/图案/blip/效果全集/
+  scene3d+sp3d）→ 92.2%
+- 守恒：`go test ./...` 21/21 + corpus；api_surface golden 不变；gate PASS
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

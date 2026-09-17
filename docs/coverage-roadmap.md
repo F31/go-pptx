@@ -4,6 +4,10 @@ Date: 2026-09-11（snapshot refreshed 2026-09-12 morning; second refresh 2026-09
 
 This document tracks the 1.x coverage-improvement work that was deferred from the v1.0 hard gate. It is not a v1.0 release blocker, but it is the active plan for moving toward the V2.6 90% target.
 
+
+| internal/document/style | 90.5% | v2.0: runprops/line/matrix/表格样式下沉（访问器 1+2） |
+| internal/document/geometry | 92.2% | v2.0: fill/effect 下沉（GEOM-02） |
+
 ## Current Snapshot
 
 Command:

@@ -1,225 +1,82 @@
 package pptx
 
-import "github.com/F31/go-pptx/internal/document/geometry"
+// 本文件是形状几何/填充/效果访问器簿委托：解析已迁至
+// internal/document/geometry（v2.0 域搬迁）；此处以 alias 暴露 DTO 类型
+// 并提供 shapeNode 上的薄委托。
 
-// 几何类型（GeometryKind/GeometryInfo/GeomAdjust/GeomGuide/GeomPath/PathCommand）
-// 定义见 geometry_alias.go（v2.0 起定义在 internal/document/geometry）。
+import (
+	"github.com/F31/go-pptx/internal/document/geometry"
+)
+
+// 几何类型（GeometryKind/GeometryInfo/GeomAdjust/GeomGuide/GeomPath/
+// PathCommand）定义在 internal/document/geometry，见 geometry_alias.go。
 
 // ---------- 填充 FillInfo ----------
 
-// FillKind 在 tablestyle.go 已声明（FillUnspecified/FillNone/FillSolid/
-// FillGradient/FillPattern/FillPicture/FillGroup）；本文件复用。形状
-// 填充额外补充：FillUnspecified 兼作"未识别填充"语义，配合 FillInfo.Raw
-// 记录底层元素 Local 名；FillPicture 对应 a:blipFill（图片填充，r:blip
-// 关系未解析时仅保留 rId）。
-//
-// FillKind 描述 spPr/a:fill 容器内的填充类别。
-// （本文件不重复声明；FillKind.String() 由 tablestyle.go 提供。）
+// FillKind 在 style_dto.go 已声明（alias 到 internal/document/style）。
 
 // FillInfo 是形状填充（spPr/a:fill 内首元素）的解析结果。
-// Kind=FillSolid 时 Color 有效；Kind=FillGradient 时 Gradient 有效；
-// Kind=FillPattern 时 Pattern 有效；Kind=FillPicture 时 Blip 有效。
-type FillInfo struct {
-	// Kind 是填充类别。
-	Kind FillKind
-	// Color 是 solidFill 的颜色（Kind=FillSolid 时有效）。
-	Color ParsedColor
-	// Gradient 是渐变填充详情（Kind=FillGradient 时有效）。
-	Gradient *GradientFill
-	// Pattern 是图案填充详情（Kind=FillPattern 时有效）。
-	Pattern *PatternFill
-	// Blip 是图片填充占位（Kind=FillPicture 时有效）。
-	Blip *BlipFillInfo
-	// Raw 是底层填充元素 Local 名（Kind=FillUnspecified 且非未声明时记录）。
-	Raw string
-	// Unknown 是同一 a:fill 容器内其余未识别兄弟元素名。
-	Unknown []string
-	// Diagnostics 是解析期诊断条目。
-	Diagnostics []Diagnostic
-}
+type FillInfo = geometry.FillInfo
 
 // GradientFill 是 a:gradFill 解析结果。
-type GradientFill struct {
-	// Flip / TileAlign / RotateWithShape 是 a:gradFill 上的三个属性
-	//（默认分别为 nil/"ctr"/true）。
-	Flip            string
-	TileAlign       string
-	RotateWithShape Optional[bool]
-	// PathType 是 a:path@path 的"shape"/"rect"/"circle"之一；缺省"shape"。
-	PathType string
-	// PathCenter 是 a:path@a:fillToRect 的 l/r/t/b 各通道（千分比 0..100000）。
-	PathLeft, PathRight, PathTop, PathBottom int32
-	// Angle 是线性渐变角度（a:lin@ang，1/60000 度；线性渐变时有效）。
-	Angle int64
-	// Scaled 是 a:lin@scaled（默认 true）。
-	Scaled Optional[bool]
-	// Stops 是按文档序的 a:gs 内 a:stop 列表。
-	Stops []GradientStop
-	// Unknown 是未识别的子元素名。
-	Unknown []string
-}
+type GradientFill = geometry.GradientFill
 
 // GradientStop 是 a:gs/a:stop 一个停止点。
-type GradientStop struct {
-	// Position 是 a:gs@pos 的千分比值（0..100000）。
-	Position int32
-	// Color 是该停止点的颜色。
-	Color ParsedColor
-}
+type GradientStop = geometry.GradientStop
 
 // PatternFill 是 a:pattFill 解析结果。
-type PatternFill struct {
-	// Preset 是 a:patt@prst 的预设图案名（如 "pct5"、"ltHorz"、"dkHorz"）。
-	Preset string
-	// Foreground / Background 是前景/背景颜色（缺一即视为部分解析）。
-	Foreground ParsedColor
-	Background ParsedColor
-	// Unknown 是未识别的子元素名。
-	Unknown []string
-}
+type PatternFill = geometry.PatternFill
 
 // BlipFillInfo 是 a:blipFill 的占位结构（图片关系未解析）。
-type BlipFillInfo struct {
-	// RId 是 a:blip@r:embed 关系 ID；缺关系时为空。
-	RId string
-	// Dpi 是 a:blip@dpi（资源 DPI）；缺省 0。
-	Dpi int32
-	// RotateWithShape 是 a:blip@rotWithShape 的值。
-	RotateWithShape Optional[bool]
-	// SourceRect 是 a:srcRect 的 l/r/t/b（千分比 0..100000）。
-	SrcLeft, SrcRight, SrcTop, SrcBottom int32
-}
+type BlipFillInfo = geometry.BlipFillInfo
 
 // ---------- 效果 EffectInfo ----------
 
 // EffectKind 是效果类别（a:effectLst 或 a:effectDag 顶层元素）。
-type EffectKind int
+type EffectKind = geometry.EffectKind
 
+// 效果类别常量（alias 到 internal/document/geometry）。
 const (
 	// EffectNone 表示无效果（effectLst 元素存在但无内容）。
-	EffectNone EffectKind = iota
+	EffectNone = geometry.EffectNone
 	// EffectOuterShadow 是 a:outerShdw。
-	EffectOuterShadow
+	EffectOuterShadow = geometry.EffectOuterShadow
 	// EffectInnerShadow 是 a:innerShdw。
-	EffectInnerShadow
+	EffectInnerShadow = geometry.EffectInnerShadow
 	// EffectGlow 是 a:glow。
-	EffectGlow
+	EffectGlow = geometry.EffectGlow
 	// EffectSoftEdge 是 a:softEdge。
-	EffectSoftEdge
+	EffectSoftEdge = geometry.EffectSoftEdge
 	// EffectReflection 是 a:reflection。
-	EffectReflection
+	EffectReflection = geometry.EffectReflection
 	// EffectFillOverlay 是 a:fillOverlay。
-	EffectFillOverlay
+	EffectFillOverlay = geometry.EffectFillOverlay
 	// EffectBlur 是 a:blur（a14 扩展）。
-	EffectBlur
+	EffectBlur = geometry.EffectBlur
 	// EffectUnknown 是未识别/缺失类别。
-	EffectUnknown
+	EffectUnknown = geometry.EffectUnknown
 )
 
-func (k EffectKind) String() string {
-	switch k {
-	case EffectOuterShadow:
-		return "outerShdw"
-	case EffectInnerShadow:
-		return "innerShdw"
-	case EffectGlow:
-		return "glow"
-	case EffectSoftEdge:
-		return "softEdge"
-	case EffectReflection:
-		return "reflection"
-	case EffectFillOverlay:
-		return "fillOverlay"
-	case EffectBlur:
-		return "blur"
-	}
-	return "unknown"
-}
-
 // EffectInfo 是形状效果（spPr/a:effectLst 或 a:effectDag）的解析结果。
-// Scene3D 与 Shape3D 仅在 spPr/a:scene3d 与 a:scene3d/a:sp3d 出现时填入。
-type EffectInfo struct {
-	// Container 是效果容器名（"effectLst" / "effectDag" / ""）。
-	Container string
-	// Effects 是按文档序的全部效果条目。
-	Effects []Effect
-	// Scene3D 表示 a:scene3d 解析结果（nil 表示未声明）。
-	Scene3D *Scene3DInfo
-	// Shape3D 表示 a:scene3d/a:sp3d 解析结果（nil 表示未声明）。
-	Shape3D *Shape3DInfo
-	// Diagnostics 是解析期诊断条目。
-	Diagnostics []Diagnostic
-}
+type EffectInfo = geometry.EffectInfo
 
 // Effect 是单个效果条目。
-type Effect struct {
-	// Kind 是效果类别。
-	Kind EffectKind
-	// Raw 是底层元素 Local 名（未识别时记录）。
-	Raw string
-	// Color 是阴影/发光/反射的颜色（softEdge 无颜色）；其它效果为空。
-	Color ParsedColor
-	// BlurRadius / OffsetX / OffsetY 是阴影/柔边的 EMU 半径与偏移。
-	BlurRadius, OffsetX, OffsetY EMU
-	// Angle 是阴影方向（1/60000 度）。
-	Angle int64
-	// Alpha 是阴影/反射等透明度（0..1）；缺省 1。
-	Alpha float64
-	// StandardDeviation 是高斯模糊标准差 EMU（glow/softEdge/reflection）。
-	StandardDeviation EMU
-	// Distance 是反射距离（EMU）。
-	Distance EMU
-	// Direction 是反射方向（a:reflection@dir，1/60000 度）。
-	Direction int64
-	// FadeDirection 是反射淡化方向（a:reflection@fadeDir，1/60000 度）。
-	FadeDirection int64
-	// Start / EndOpacity 是反射/阴影的起始/终止透明度（0..1）。
-	StartOpacity, EndOpacity float64
-	// BlendMode 是效果混合模式（"norm" / "mult" / "screen" 等）。
-	BlendMode string
-	// Hidden 是某些效果容器内的 @hideSelf="1"。
-	Hidden bool
-	// Unknown 是未识别的属性或子元素名。
-	Unknown []string
-}
+type Effect = geometry.Effect
 
 // Scene3DInfo 是 a:scene3d 顶层解析（仅"声明存在"+关键子元素）。
-type Scene3DInfo struct {
-	// Camera 是 a:camera 集合（prst/zoom/rot）。
-	Camera Camera3D
-	// LightRig 是 a:lightRig 集合（rig/dir）。
-	LightRig LightRig3D
-	// BackdropPlane 是 a:backdrop 平面（可空）。
-	BackdropPlane Optional[bool]
-}
+type Scene3DInfo = geometry.Scene3DInfo
 
 // Camera3D 是 a:scene3d/a:camera 解析。
-type Camera3D struct {
-	Preset string
-	Zoom   Optional[float64]
-	Rot    []int64 // yaw/pitch/roll 各 1/60000 度
-}
+type Camera3D = geometry.Camera3D
 
 // LightRig3D 是 a:scene3d/a:lightRig 解析。
-type LightRig3D struct {
-	Rig string
-	Dir []int64 // latitude/longitude/revolution
-}
+type LightRig3D = geometry.LightRig3D
 
 // Shape3DInfo 是 a:sp3d 解析。
-type Shape3DInfo struct {
-	ExtrusionH         EMU
-	ContourW           EMU
-	PresetMaterial     string
-	TopBevel, BotBevel Bevel3D
-}
+type Shape3DInfo = geometry.Shape3DInfo
 
 // Bevel3D 是 a:bevelT/a:bevelB 解析。
-type Bevel3D struct {
-	Preset string
-	Width  EMU
-	Height EMU
-}
+type Bevel3D = geometry.Bevel3D
 
 // ---------- Shape 接口扩展 ----------
 
@@ -240,7 +97,12 @@ func (s *shapeNode) Fill() (FillInfo, []Diagnostic, error) {
 	if err != nil {
 		return FillInfo{}, nil, Annotate(err, "shape.Fill")
 	}
-	return parseShapeFill(s.p, doc, el, string(s.part))
+	env, err := s.p.styleEnv(s.part)
+	if err != nil {
+		return FillInfo{}, nil, Annotate(err, "shape.Fill")
+	}
+	out, diags := geometry.ParseShapeFill(doc, el, env, s.p.styleDocs(), string(s.part))
+	return out, diags, nil
 }
 
 // Effects 返回形状效果（spPr/a:effectLst|a:effectDag + a:scene3d + a:sp3d）
@@ -250,5 +112,10 @@ func (s *shapeNode) Effects() (EffectInfo, []Diagnostic, error) {
 	if err != nil {
 		return EffectInfo{}, nil, Annotate(err, "shape.Effects")
 	}
-	return parseShapeEffects(s.p, doc, el, string(s.part))
+	env, err := s.p.styleEnv(s.part)
+	if err != nil {
+		return EffectInfo{}, nil, Annotate(err, "shape.Effects")
+	}
+	out, diags := geometry.ParseShapeEffects(doc, el, env, s.p.styleDocs(), string(s.part))
+	return out, diags, nil
 }

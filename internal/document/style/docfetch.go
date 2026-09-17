@@ -4,6 +4,7 @@ package style
 // themeDoc/masterDoc 语义，经 DocFunc 解耦文档存储。
 
 import (
+	"github.com/F31/go-pptx/internal/diag"
 	"github.com/F31/go-pptx/internal/ooxmlns"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -42,4 +43,12 @@ func ColorChild(doc *xmlstore.XMLDocument, fill *xmlstore.NodeRecord) *xmlstore.
 		}
 	}
 	return nil
+}
+
+// ResolveColor 解析颜色节点（ParseColorNode 的注入封装）：主题链文档经
+// Env + Docs 自动取得。env/docs 缺失或不可达时按无主题处理（RGB 留空 +
+// 诊断），不臆造。
+func ResolveColor(doc *xmlstore.XMLDocument, clr *xmlstore.NodeRecord,
+	env *Env, docs DocFunc, part string, diags *[]diag.Diagnostic) ParsedColor {
+	return ParseColorNode(doc, clr, themeDocOf(docs, env), masterDocOf(docs, env), part, diags)
 }
