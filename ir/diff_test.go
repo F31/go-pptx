@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // ---------- DIFF-01：语义 diff 与审计报告（§18.3 / §24） ----------

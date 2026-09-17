@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 	"github.com/F31/go-pptx/wasm/check"
 )
 

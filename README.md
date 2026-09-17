@@ -22,7 +22,7 @@ go-pptx 面向"**程序化加工 PPTX**"这一在 Go 生态中长期空缺的场
 ## 快速开始
 
 ```bash
-go get github.com/F31/go-pptx
+go get github.com/F31/go-pptx/pptx
 ```
 
 ### 创建与编辑
@@ -34,7 +34,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 func main() {
@@ -75,7 +75,7 @@ _ = rep // BindReport{...}
 _ = report
 ```
 
-> 完整 API 清单见包文档（`go doc github.com/F31/go-pptx`）与 `docs/go-pptx-实施状态跟踪.md`。
+> 完整 API 清单见包文档（`go doc github.com/F31/go-pptx/pptx`）与 `docs/go-pptx-实施状态跟踪.md`。
 
 ---
 

@@ -88,7 +88,7 @@ func corpusSaveTo(t *testing.T, p *Presentation, tag string) string {
 func TestCorpusB1UnchangedSave(t *testing.T) {
 	for _, id := range corpusB1Samples {
 		t.Run(id, func(t *testing.T) {
-			root := filepath.Join("testdata", "corpus", id)
+			root := filepath.Join("..", "testdata", "corpus", id)
 			src := loadCorpusSourcePath(t, root)
 
 			p, err := Open(src)
@@ -125,7 +125,7 @@ func TestCorpusB1UnchangedSave(t *testing.T) {
 func TestCorpusB1AfterTextEdit(t *testing.T) {
 	for _, id := range corpusB1Samples {
 		t.Run(id, func(t *testing.T) {
-			root := filepath.Join("testdata", "corpus", id)
+			root := filepath.Join("..", "testdata", "corpus", id)
 			src := loadCorpusSourcePath(t, root)
 			actions := loadCorpusActions(t, filepath.Join(root, id+".actions.json"))
 			if len(actions) == 0 {

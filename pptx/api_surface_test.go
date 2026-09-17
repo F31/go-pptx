@@ -23,6 +23,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -335,7 +336,9 @@ func addAliasMethods(t *testing.T, fset *token.FileSet, rootPkg *ast.Package,
 	}
 	sort.Strings(dirList)
 	for _, dir := range dirList {
-		pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
+		// v2.0 门面收敛：本测试位于 pptx/ 包，模块内包路径相对模块根
+		// （= 父目录），故解析 dir 时以 ".." 为基准。
+		pkgs, err := parser.ParseDir(fset, filepath.Join("..", dir), func(fi os.FileInfo) bool {
 			return !strings.HasSuffix(fi.Name(), "_test.go")
 		}, 0)
 		if err != nil {

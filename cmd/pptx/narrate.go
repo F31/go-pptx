@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // cmdRunNarrate 按 tracks.json 合成讲解音轨（§23.2）。

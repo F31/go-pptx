@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // fileExist 报告路径是否已存在（用于 --overwrite 提示）。

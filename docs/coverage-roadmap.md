@@ -10,6 +10,7 @@ This document tracks the 1.x coverage-improvement work that was deferred from th
 | internal/document/text | 94.0% | v2.0: 文本域（字符格式片段/补丁 + bodyPr/字段/段落辅助） |
 | internal/document/media | 95.8% | v2.0: 媒体域切片 1（MediaSource/有界复制/图片探测） |
 | internal/document/table | 94.1% | v2.0: 表格域切片 1（逻辑网格 + 单元格纯辅助） |
+| internal/bind | 92.1% | v2.0: 绑定域切片 1（Member/AsSlice/Truthy/FormatBindValue） |
 
 ## Current Snapshot
 

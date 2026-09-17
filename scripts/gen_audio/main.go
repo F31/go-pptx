@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"time"
 
-	pptx "github.com/F31/go-pptx"
+	pptx "github.com/F31/go-pptx/pptx"
 )
 
 const (

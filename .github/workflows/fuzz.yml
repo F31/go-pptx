@@ -38,10 +38,10 @@ jobs:
           - { pkg: './internal/opc', target: 'FuzzScan' }
           - { pkg: './internal/xmlstore', target: 'FuzzScanner' }
           - { pkg: './internal/xmlstore', target: 'FuzzIndex' }
-          - { pkg: '.', target: 'FuzzOpenReader' }
-          - { pkg: '.', target: 'FuzzReplaceText' }
-          - { pkg: '.', target: 'FuzzSetPlainText' }
-          - { pkg: '.', target: 'FuzzBind' }
+          - { pkg: './pptx', target: 'FuzzOpenReader' }
+          - { pkg: './pptx', target: 'FuzzReplaceText' }
+          - { pkg: './pptx', target: 'FuzzSetPlainText' }
+          - { pkg: './pptx', target: 'FuzzBind' }
     env:
       CGO_ENABLED: '0'
     steps:

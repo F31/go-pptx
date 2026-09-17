@@ -1,6 +1,6 @@
 // Package render 定义外部渲染适配器的接口契约（设计方案 §23.1）。
 //
-// 接口独立于核心包：render 依赖 github.com/F31/go-pptx，而核心包
+// 接口独立于核心包：render 依赖 github.com/F31/go-pptx/pptx，而核心包
 // 不反向依赖 render。Presentation 上不提供 RenderSlide 方法，避免
 // 核心 SDK 被渲染实现拖入字体/shaping/布局等重依赖。
 //
@@ -13,7 +13,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // FontStrategy 描述缺字/字体替代策略。仅作为元数据声明，实际行为

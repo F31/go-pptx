@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // SchemaVersion 是 IR 的当前 schema 版本号。本字段独立于 SDK 版本演进。

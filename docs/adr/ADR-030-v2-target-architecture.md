@@ -516,6 +516,46 @@ Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收�
 - 门槛：`internal/document/table` 入 gate `FLOORS=90`（实测 **94.1%**）
 - 守恒：`go test ./...` 24/24 + corpus 24；api_surface golden 不变；gate PASS
 
+### 域搬迁 7：绑定域 切片 1——无状态取值原语（2026-09-17）
+
+绑定域的扫描/编排（`bindScanner`、`Presentation.Bind`、`bindBody`/`bindTable`/
+`bindChart`）持 Presentation/Shape/Paragraph/TableShape 句柄，与媒体 profile
+同理须待门面收敛；本切片先搬入**无状态取值原语**，与既有
+`internal/bind`（marker/plan）合并：
+
+- `resolve.go`：`Member`（map/切片/结构体反射访问）、`AsSlice`（任意
+  切片/数组展开）、`Truthy`（条件真值）、`FormatBindValue`（占位符
+  字符串化）
+- 根 `bind_resolve.go` 230 → ~75 行：只留 `resolve`/`resolveItems`
+  （bindScanner 方法），调用点直呼 `bind.Member`/`bind.AsSlice`；
+  `bind_body.go`/`bind_table.go` 改用 `bind.Truthy`/`bind.FormatBindValue`
+- 测试随迁（ADR-016 陷阱免疫）：`TestBindPure*` 6 例 + `bindFields`/
+  `bindStringer` 迁入 `internal/bind/resolve_test.go`
+- 门槛：`internal/bind` 保持 `FLOORS=90`（实测 100% → **92.1%**，新增
+  纯函数分支后仍达标）
+- 守恒：`go test ./...` 24/24 + corpus 24；api_surface golden 不变；gate PASS
+
+### 门面收敛：根包 → `pptx/`（2026-09-17，演进第 3 步，唯一 breaking 点）
+
+模块根变为元仓库（无 `.go`）：根包 `package pptx` 整体移入 `pptx/`，
+唯一正式公共导入路径改为 **`github.com/F31/go-pptx/pptx`**。
+
+- 迁移：105 个根 `.go`（104 `pptx` + 1 `pptx_test`）`git mv` → `pptx/`；
+  `assets/audio-speaker.png` → `pptx/assets/`（`//go:embed` 禁 `..`）
+- 门面契约：`api_surface_test.go` 随迁 `pptx/`；`addAliasMethods` 对模块内
+  包的解析基准改为 `..`（模块根）。door face 仍为**真实定义 + 薄委托**的
+  混合体——按机制 1，后续能力扩展按域继续下沉 `internal/document/*`，
+  本次只完成"公共面收窄为一个子包"的结构点
+- 引用更新：24 importer → `.../go-pptx/pptx`；6 个 corpus 测试
+  `testdata/corpus` → `../testdata/corpus`（`testdata/` 留在元仓库根，符合
+  目标布局）
+- CI/gate：`gate.sh` root 门槛 → `github.com/F31/go-pptx/pptx=82`；
+  `fuzz.yml` 4 个 root fuzz 目标 `'.'` → `'./pptx'`；README import 示例同步
+- 守恒：api_surface golden 零变更（163 type / 40 Stable 段 / 60 符号 /
+  131 方法 / 17 哨兵）；`go test ./...` 24/24 + corpus 24；vet/gofmt clean；
+  coverage gate PASS（`pptx` 83.3% ≥ 82）。`ir/` 暂仍 import `pptx`（演进
+  第 4 步改造为只吃 `internal/ooxml`）
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

@@ -90,7 +90,7 @@ func TestCorpusReplay(t *testing.T) {
 func replayCorpusSample(t *testing.T, id string) {
 	t.Helper()
 
-	root := filepath.Join("testdata", "corpus", id)
+	root := filepath.Join("..", "testdata", "corpus", id)
 	pptxPath := loadCorpusSourcePath(t, root)
 	actions := loadCorpusActions(t, filepath.Join(root, id+".actions.json"))
 	compat := loadCorpusCompat(t, filepath.Join(root, "compat-smoke.json"))

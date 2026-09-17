@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // PPTXVersion 可由 CI 注入（-ldflags '-X main.PPTXVersion=v0.x.y'）。

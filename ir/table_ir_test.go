@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 const (

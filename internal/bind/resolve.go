@@ -1,4 +1,4 @@
-package pptx
+package bind
 
 import (
 	"fmt"
@@ -8,77 +8,13 @@ import (
 	"time"
 )
 
-// 本文件是模板绑定的**数据源解析与取值**：点分路径解析（resolve）、
-// 集合迭代（resolveItems）、map/切片/结构体成员访问（member/asSlice）、
-// 真值判定（truthy）与字符串化（formatBindValue）。
+// 本文件是模板绑定的**无状态取值原语**：成员访问（Member）、切片展开
+// （AsSlice）、真值判定（Truthy）与字符串化（FormatBindValue）。持句柄
+// 的扫描/编排（resolve/resolveItems/scan/apply）仍留根包 pptx。
 
-// ---------- 数据解析 ----------
-
-// resolve 解析点分路径：首段先在 scope（行循环条目）中查找，未命中则
-// 回退到根数据源；支持 map 键、切片下标与结构体字段。
-func (s *bindScanner) resolve(scope any, path string) (any, bool, error) {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return nil, false, &OperationError{
-			Op: "Presentation.Bind", Message: "empty placeholder path", Err: ErrInvalidArgument}
-	}
-	if path == "." {
-		if scope == nil {
-			return nil, false, nil
-		}
-		return scope, true, nil
-	}
-	segs := strings.Split(path, ".")
-	var cur any
-	start := 0
-	if scope != nil {
-		if v, ok := member(scope, segs[0]); ok {
-			cur, start = v, 1
-		}
-	}
-	if start == 0 {
-		v, ok := member(s.data, segs[0])
-		if !ok {
-			return nil, false, nil
-		}
-		cur, start = v, 1
-	}
-	for _, seg := range segs[start:] {
-		v, ok := member(cur, seg)
-		if !ok {
-			return nil, false, nil
-		}
-		cur = v
-	}
-	return cur, true, nil
-}
-
-// resolveItems 解析行循环数据，要求值为切片/数组。
-func (s *bindScanner) resolveItems(path string) ([]any, error) {
-	const op = "Presentation.Bind"
-	v, found, err := s.resolve(nil, path)
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		if s.o.strict {
-			return nil, &OperationError{Op: op, Message: fmt.Sprintf(
-				"row loop key %q not found in data", path), Err: ErrInvalidArgument}
-		}
-		s.diag("bind.key_missing", "", fmt.Sprintf("row loop key %q missing; no rows generated", path))
-		return nil, nil
-	}
-	items, ok := asSlice(v)
-	if !ok {
-		return nil, &OperationError{Op: op, Message: fmt.Sprintf(
-			"row loop key %q must be a slice, got %T", path, v), Err: ErrInvalidArgument}
-	}
-	return items, nil
-}
-
-// member 取 map 键 / 切片下标 / 结构体字段（反射兜底支持
+// Member 取 map 键 / 切片下标 / 结构体字段（反射兜底支持
 // []map[string]any 等具体类型）。
-func member(v any, key string) (any, bool) {
+func Member(v any, key string) (any, bool) {
 	switch t := v.(type) {
 	case map[string]any:
 		x, ok := t[key]
@@ -128,8 +64,8 @@ func member(v any, key string) (any, bool) {
 	return nil, false
 }
 
-// asSlice 把任意切片/数组值展开为 []any。
-func asSlice(v any) ([]any, bool) {
+// AsSlice 把任意切片/数组值展开为 []any。
+func AsSlice(v any) ([]any, bool) {
 	if v == nil {
 		return nil, false
 	}
@@ -154,8 +90,8 @@ func asSlice(v any) ([]any, bool) {
 	return nil, false
 }
 
-// truthy 判定条件真值：nil / false / 空串 / 零数值 / 空容器 → 假。
-func truthy(v any) bool {
+// Truthy 判定条件真值：nil / false / 空串 / 零数值 / 空容器 → 假。
+func Truthy(v any) bool {
 	switch t := v.(type) {
 	case nil:
 		return false
@@ -188,8 +124,8 @@ func truthy(v any) bool {
 	return true
 }
 
-// formatBindValue 把数据值呈现为占位符文本（不可呈现类型返回 false）。
-func formatBindValue(v any) (string, bool) {
+// FormatBindValue 把数据值呈现为占位符文本（不可呈现类型返回 false）。
+func FormatBindValue(v any) (string, bool) {
 	switch t := v.(type) {
 	case nil:
 		return "", true

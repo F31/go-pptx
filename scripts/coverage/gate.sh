@@ -28,7 +28,7 @@ GOFLAGS_TAGS="${GOFLAGS_TAGS:-}"   # 可选：传 "corpus" 走 corpus 口径
 
 # 包=门槛（%）—— 与 docs/coverage-roadmap.md 的门槛表一一对应。
 FLOORS=(
-  "github.com/F31/go-pptx=82"
+  "github.com/F31/go-pptx/pptx=82"
   "github.com/F31/go-pptx/cmd/pptx=85"
   "github.com/F31/go-pptx/wasm/check=85"
   "github.com/F31/go-pptx/scripts/perf/summarize=85"

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // runCLI 在捕获的 stdout/stderr 上执行 CLI；返回 exit code + 输出快照。

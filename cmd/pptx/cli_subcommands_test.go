@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // 本文件覆盖 cmd/pptx 各子命令的错误路径与公共 helper：

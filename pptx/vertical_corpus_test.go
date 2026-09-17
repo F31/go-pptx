@@ -58,7 +58,7 @@ var verticalRealExt0024Paths = []string{
 // manifest 存在但源缺失则 Fatalf（真实 dev 错误，不掩盖）。
 func verticalRealPublicSource(t *testing.T, id string) string {
 	t.Helper()
-	dir := filepath.Join("testdata", "corpus", id)
+	dir := filepath.Join("..", "testdata", "corpus", id)
 	manifestPath := filepath.Join(dir, "manifest.json")
 	b, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -278,7 +278,7 @@ func TestVerticalReal_PublicSamples(t *testing.T) {
 	for _, id := range verticalRealPublicSamples {
 		t.Run(id, func(t *testing.T) {
 			src := verticalRealPublicSource(t, id)
-			actions := loadCorpusActions(t, filepath.Join("testdata", "corpus", id, id+".actions.json"))
+			actions := loadCorpusActions(t, filepath.Join("..", "testdata", "corpus", id, id+".actions.json"))
 			srcBytes, outBytes, changed, added, removed := verticalOpenReplaceSave(t, src, actions, nil)
 
 			if len(added) != 0 {

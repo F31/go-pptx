@@ -203,7 +203,7 @@ func (s *bindScanner) renderRow(rowBytes []byte, item any) ([]byte, error) {
 							"placeholder %q missing in row item; left as-is", tok.Path))
 						continue
 					}
-					rep, ok := formatBindValue(v)
+					rep, ok := bind.FormatBindValue(v)
 					if !ok {
 						return nil, &OperationError{Op: op, Message: fmt.Sprintf(
 							"placeholder %q has unsupported value type %T", tok.Path, v), Err: ErrInvalidArgument}

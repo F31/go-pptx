@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // 本文件实现 DIFF-01 语义 diff 与审计报告（方案 §18.3 / §24）。

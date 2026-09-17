@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	pptx "github.com/F31/go-pptx"
+	pptx "github.com/F31/go-pptx/pptx"
 )
 
 // ExampleErrNotFound 展示稳定错误码的 errors.Is 用法（方案 §20.4）：

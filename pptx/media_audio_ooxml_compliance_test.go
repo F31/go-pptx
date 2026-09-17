@@ -172,7 +172,7 @@ func TestAudioShapeHasVisibleBounds(t *testing.T) {
 // `<mc:AlternateContent><mc:Choice Requires="p14"><p:transition .../>` +
 // `<mc:Fallback><p:transition .../></mc:AlternateContent>`，正是触发该缺陷的形态。
 func TestSetAdvanceAfterKeepsSingleTransition(t *testing.T) {
-	p, err := Open("testdata/corpus/s001-text/s001-text.pptx")
+	p, err := Open("../testdata/corpus/s001-text/s001-text.pptx")
 	if err != nil {
 		t.Skipf("corpus sample unavailable: %v", err)
 	}
@@ -248,7 +248,7 @@ func synthTestWAV(seconds float64, sampleRate int) []byte {
 // slide，导致 Profile().Duration 恒为 0（而 PlanTimingSync 走完整解析器却有值，
 // 两条路径语义不一致）。修复为复用 parseAudioProfile 后，本测试应通过。
 func TestAudioShapeProfileExposesDuration(t *testing.T) {
-	p, err := Open("testdata/corpus/s001-text/s001-text.pptx")
+	p, err := Open("../testdata/corpus/s001-text/s001-text.pptx")
 	if err != nil {
 		t.Skipf("corpus sample unavailable: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestNarratedDeckRoundTrip(t *testing.T) {
 	const wantDur = 2 * time.Second
 	const wantAdv = 2500 * time.Millisecond
 
-	p, err := Open("testdata/corpus/s001-text/s001-text.pptx")
+	p, err := Open("../testdata/corpus/s001-text/s001-text.pptx")
 	if err != nil {
 		t.Skipf("corpus sample unavailable: %v", err)
 	}

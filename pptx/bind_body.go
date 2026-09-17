@@ -84,7 +84,7 @@ func (s *bindScanner) bindBody(label string, paras []*Paragraph) error {
 					}
 					s.diag("bind.key_missing", "", fmt.Sprintf("condition key %q missing; treated as false", path))
 				}
-				stack = append(stack, found && truthy(v))
+				stack = append(stack, found && bind.Truthy(v))
 			case "endif":
 				if len(stack) == 0 {
 					return &OperationError{Op: op, Message: fmt.Sprintf(
@@ -191,7 +191,7 @@ func (s *bindScanner) substitute(para *Paragraph, text string, scope any, label 
 				fmt.Sprintf("placeholder %q missing; left as-is", tok.Path))
 			continue
 		}
-		rep, ok := formatBindValue(v)
+		rep, ok := bind.FormatBindValue(v)
 		if !ok {
 			return &OperationError{Op: op, Message: fmt.Sprintf(
 				"placeholder %q has unsupported value type %T", tok.Path, v), Err: ErrInvalidArgument}

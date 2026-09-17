@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // cmdRunCapability 输出 capability manifest（§23.2，CAP-01）。

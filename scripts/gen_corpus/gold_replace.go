@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"os"
 
-	pptx "github.com/F31/go-pptx"
+	pptx "github.com/F31/go-pptx/pptx"
 )
 
 type report struct {

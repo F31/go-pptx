@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/F31/go-pptx"
+	"github.com/F31/go-pptx/pptx"
 )
 
 // cmdRunBind 按 JSON 数据源渲染模板（TPL-01，§23.2 写命令约定）。

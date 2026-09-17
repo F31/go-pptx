@@ -22,7 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
-	pptx "github.com/F31/go-pptx"
+	pptx "github.com/F31/go-pptx/pptx"
 )
 
 func synthWAV(seconds float64, sampleRate int) []byte {

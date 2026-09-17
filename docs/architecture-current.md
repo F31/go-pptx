@@ -184,3 +184,26 @@ v2.0 改造项）。v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architectu
 `internal/document` `PartStore` **DONE**（接口 + 编译期断言）；Shape capability 接口
 **DONE**（ADR-021）；corpus matrix **DONE**（`docs/client-compat-matrix.md`）。
 新增压力点：根包仍 60 文件（ADR-030 触发阈值 80，未命中）。
+
+### Update 2026-09-17：v2.0 门面收敛（ADR-030 Step 3）
+
+根包 `package pptx` **整体移入 `pptx/` 子包**——模块根不再含任何 `.go`
+文件（`go.mod` / `LICENSE` / `README.md` 为元仓库根）。唯一正式公共导入
+路径变为 `github.com/F31/go-pptx/pptx`。
+
+- 迁移：105 个根 `.go`（104 `pptx` + 1 `pptx_test`）`git mv` 入 `pptx/`；
+  `assets/audio-speaker.png` 同迁 `pptx/assets/`（`//go:embed` 不能用
+  `..`）；`api_surface_test.go` 随包迁移，`addAliasMethods` 解析模块内
+  包改以 `..`（模块根）为基准
+- 引用更新：24 个 importer（`cmd/pptx`、`wasm/check`、`ir`、`render`、
+  `scripts/gen_*`、`pptx/example_test.go`）由 `.../go-pptx` → `.../go-pptx/pptx`
+- 测试相对路径：6 个 corpus 测试的 `testdata/corpus` → `../testdata/corpus`
+  （`testdata/` 按 ADR-030 目标布局保留在仓库根）
+- CI：`scripts/coverage/gate.sh` 门槛项 root → `github.com/F31/go-pptx/pptx=82`；
+  `fuzz.yml` 的 4 个 root fuzz 目标 `pkg: '.'` → `'./pptx'`
+- 守恒：api_surface golden 零变更（163 type / 40 Stable 段 / 60 符号 /
+  131 方法 / 17 哨兵）；`go test ./...` 24/24 + corpus 24；go vet/gofmt
+  clean；coverage gate PASS（`pptx` 83.3% ≥ 82）
+
+当前导入路径：**`github.com/F31/go-pptx/pptx`**（breaking change，
+v2.0 一次性迁移）。

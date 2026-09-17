@@ -7,6 +7,19 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md).
 
+## [Unreleased] — v2.0（进行中）
+
+**BREAKING：公共导入路径迁移 `github.com/F31/go-pptx` → `github.com/F31/go-pptx/pptx`**
+（ADR-030 演进第 3 步：门面收敛）。
+
+- 模块根变为元仓库（无 `package pptx` 文件）；公共面收窄为 `pptx/` 子包
+- 实现按功能垂直下沉 `internal/document/{model,style,geometry,text,media,table}`
+  与 `internal/{bind,chart,opc,xmlstore,errs,diag,ooxmlns,…}`
+- 迁移方法：所有 importer 把 `"github.com/F31/go-pptx"` 改为
+  `"github.com/F31/go-pptx/pptx"`（一次性的 import 路径替换，无 API 签名变化）
+- api_surface golden 不变（163 type / 40 Stable 段 / 60 符号 / 131 方法 /
+  17 哨兵）；`render` 仍为公共契约（`render → pptx/pptx`）
+
 ## [1.0.7] - 2026-09-16
 
 **v1.0.6 后的第七个 patch release，定位为"音频形状可用性修复"。修复 6 处独立缺陷，使音频形状从"能生成但客户端三态各异"（能否打开 / 图标是否可见 / 是否有声彼此独立）变为 **PowerPoint 与 WPS 均可打开、喇叭图标可见、F5 放映自动出声**。唯一公共 API 变化是 `AudioSpec` 追加位置/尺寸字段（仅追加，binary-compat with v1.0.0–v1.0.6）。**
