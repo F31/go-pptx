@@ -163,7 +163,7 @@ GOOS=linux GOARCH=arm64 go build ./...
 go test -run 'TestChart|TestAddChart|TestSetData|TestClone.*Chart|TestChartWorkbook' ./...
 ```
 
-### 6. 不变量（按 [freeze list §D](v1.0-freeze-list.md)）
+### 6. 不变量（按 freeze list §D）
 
 - 公共 API 签名零变化（`ChartShape` / `ChartData` / `ChartSpec` / `ChartSeries` / `ChartDataLabel` / `ChartErrorBars` / `ChartTrendline` / `ChartAxisOptions` / `ChartWorkbookBuilder` / `DefaultWorkbookBuilder` / `ChartType` 字段集不动）
 - `// Stable:` 段落 34 不变

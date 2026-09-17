@@ -80,9 +80,9 @@
 为 ppts 项目方验收方便，新增 4 份文档：
 
 - [`docs/ppts-sync/README.md`](docs/ppts-sync/README.md) —— go-pptx 仓库对 ppts《go-pptx 特性与bug跟踪计划》V1.0 §7 的实施索引 + 可直接复制给 ppts 方的同步文本。
-- [`docs/ppts-sync/BUG-001-self-healed.md`](docs/ppts-sync/BUG-001-self-healed.md) —— BUG-001 自愈状态说明 + 自愈路径证据链（commit a3abfca 等）。
-- [`docs/ppts-sync/FEAT-002-notes-filtering-contract.md`](docs/ppts-sync/FEAT-002-notes-filtering-contract.md) —— FEAT-002 项 1 备注过滤契约的代码路径 + 行为边界。
-- [`docs/ppts-sync/FEAT-003-hidden-advtm-read.md`](docs/ppts-sync/FEAT-003-hidden-advtm-read.md) —— FEAT-003 读侧补全的 2 个新公开方法 + IR 字段详细契约。
+- `docs/ppts-sync/BUG-001-self-healed.md` —— BUG-001 自愈状态说明 + 自愈路径证据链（commit a3abfca 等）。
+- `docs/ppts-sync/FEAT-002-notes-filtering-contract.md` —— FEAT-002 项 1 备注过滤契约的代码路径 + 行为边界。
+- `docs/ppts-sync/FEAT-003-hidden-advtm-read.md` —— FEAT-003 读侧补全的 2 个新公开方法 + IR 字段详细契约。
 
 ## Fixed（行为修复 / 自愈）
 

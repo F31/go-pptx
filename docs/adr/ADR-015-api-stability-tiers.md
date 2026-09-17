@@ -67,13 +67,13 @@ v1.0 标签的发布日 T-2 周起：
 
 33 个独立 Stable type 的构成：核心对象模型入口 3（`Presentation`/`Slide`/`Shape`）+ 文本入口 3（`TextFrame`/`Paragraph`/`TextRun`）+ `OperationError` 1 + 诊断契约 4（`Diagnostic`/`Severity`/`ValidationReport`/`CapabilityStatus`）+ 几何值对象 4（`EMU`/`Point`/`Rect`/`Quad`）+ 枚举 3（`ReplaceMode`/`MultiCellTextPolicy`/`ShapeKind`）+ Capability Output 4（`CapabilityManifest`/`CapabilityManifestSource`/`CapabilityDimension`/`CapabilityFeature`）+ 句柄 ID 类型 2（`SlideID`/`ShapeID`）+ 8 Shape 句柄（`GroupShape`/`AutoShape`/`OpaqueShape`/`PictureShape`/`TableShape`/`ChartShape`/`AudioShape`/`VideoShape`）+ `TextShape` 别名 1。
 
-> **§C 精化（2026-09-10 T+0 窗口）**：§C.1 / §C.3 / §C.5 / §C.7 / §C.9 / §C.11 / §C.13 / §C.14 / §C.17 各子类从"约 X 个"估值改为 grep 精化定值；§C 总 132 类型 = 21 Stable（§C.1: 10 + §C.2: 2 + §C.6: 4 + §C.10: 1 + `MultiCellTextPolicy`）+ 111 API。同时修正文档错误（`MergePolicy` 不存在、`FillKind` 误归、`*Spec`/`*Report` 跨类重复）。详见 [`docs/v1.0-freeze-list.md` §"v1.0 评审执行进度"](../../v1.0-freeze-list.md) "2026-09-10 — T+0 §C 精化窗口" + "2026-09-10 — T+0 文本入口 Stable 化" + "2026-09-10 — T+0 末窗口 形状抽象类 Stable 化" 段。
+> **§C 精化（2026-09-10 T+0 窗口）**：§C.1 / §C.3 / §C.5 / §C.7 / §C.9 / §C.11 / §C.13 / §C.14 / §C.17 各子类从"约 X 个"估值改为 grep 精化定值；§C 总 132 类型 = 21 Stable（§C.1: 10 + §C.2: 2 + §C.6: 4 + §C.10: 1 + `MultiCellTextPolicy`）+ 111 API。同时修正文档错误（`MergePolicy` 不存在、`FillKind` 误归、`*Spec`/`*Report` 跨类重复）。详见 `docs/v1.0-freeze-list.md` §"v1.0 评审执行进度" "2026-09-10 — T+0 §C 精化窗口" + "2026-09-10 — T+0 文本入口 Stable 化" + "2026-09-10 — T+0 末窗口 形状抽象类 Stable 化" 段。
 
 > **注**：本 ADR 不引入"冻结"以外的承诺标签——以减少语义摩擦。`// Deprecated:` 是 Go 1.19+ 标准注释惯用法，本 ADR 不重新约定。
 
 ## v1.0 冻结清单（2026-09-10 启动）
 
-T-2 周启动文档：[`docs/v1.0-freeze-list.md`](../../v1.0-freeze-list.md)。要点：
+T-2 周启动文档：`docs/v1.0-freeze-list.md`。要点：
 
 - **Stable 候选**（17 项，ADR-015 §决策默认 Stable，已在 2026-09-10 T-2 周首批加 `// Stable:` 段落）：错误码 `Err*`（17 个，集合性段落 + OperationError + 4 个诊断契约 `Diagnostic` / `Severity` / `ValidationReport` / `CapabilityStatus`）。
 - **Stable 候选**（额外审查可考虑，已在 2026-09-10 T-2 周首批加 `// Stable:` 段落）：`Point` / `Rect` / `EMU` / `Quad`（`geom.go`）/`ReplaceMode`（`replace.go`）/`MultiCellTextPolicy`（`table.go`）——值对象与枚举，对用户 switch/case 完备性有约束。

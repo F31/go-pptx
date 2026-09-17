@@ -6,7 +6,7 @@
 # COV-04 的 90% 门槛**三天无人察觉**——因为 CI 当时只跑 build/test/vet，
 # 从未跑覆盖率。本脚本把门槛固化为断言，让这类回归在 CI 立即变红。
 #
-# 依据 docs/coverage-roadmap.md：
+# 门槛档位依据（COV-02..04，均内联于下方 FLOORS 表）：
 #   COV-02  root（root SDK）           >= 82%   （85% 已决策推迟）
 #   COV-03  command/helper 三包         >= 85%
 #   COV-04  低层格式包                  >= 90%   （audioprobe 依 B-2 决策豁免 90）
@@ -26,7 +26,7 @@ set -u
 TOLERANCE="${TOLERANCE:-0.0}"
 GOFLAGS_TAGS="${GOFLAGS_TAGS:-}"   # 可选：传 "corpus" 走 corpus 口径
 
-# 包=门槛（%）—— 与 docs/coverage-roadmap.md 的门槛表一一对应。
+# 包=门槛（%）。
 FLOORS=(
   "github.com/F31/go-pptx/v2/pptx=82"
   "github.com/F31/go-pptx/v2/cmd/pptx=85"
@@ -135,7 +135,7 @@ done
 if [ "$fail" -ne 0 ]; then
   echo
   echo "COVERAGE GATE FAILED (tolerance=$TOLERANCE)."
-  echo "详见 docs/coverage-roadmap.md 的门槛表；若为合理下移请同步更新门槛与文档。"
+  echo "详细门槛见本脚本 FLOORS 表；若为合理下移请同步更新门槛与该表。"
   exit 1
 fi
 echo

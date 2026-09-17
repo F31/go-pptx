@@ -38,7 +38,7 @@
 | 配音产物（ADR-025） | PowerPoint 16.0.20326 + WPS 12.1.0.28599 均 `OPEN=ok` + `SAVE=ok`、音频识别 `type=16`；人工录屏含 `soun` 轨且人耳确认可闻 → §15.3 第 3 条闭合 |
 | 视频产物（ADR-026） | 两家客户端均 `OPEN=ok`、`Video 11` 均 `type=16`；**2026-09-16 用户确认视频可正常播放** |
 
-详见 [`docs/client-compat-matrix.md`](client-compat-matrix.md)（第三~五轮）。
+详见 `docs/client-compat-matrix.md`（第三~五轮）。
 
 ## Verification（如何验证）
 

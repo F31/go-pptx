@@ -5,7 +5,7 @@ All notable changes to go-pptx will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stability-tiers.md) model
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
-[`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md).
+`docs/v1.0-freeze-list.md`.
 
 ## [2.0.0] - 2026-09-17
 
@@ -232,7 +232,7 @@ go run ./scripts/gen_audio                        # 复现 s004-audio 样本
   12.1.0.28599 × 4 样本（`s001-text` / `s002-table` / `s003-image` / `ext-0024`）均
   无修复提示打开、重存成功；重存文件经 go-pptx `Validate` 全部 errorCount=0。Tier 2
   改变了输出字节，故按 ADR-018 验收清单第 5 项重跑——详见
-  [`docs/client-compat-matrix.md`](docs/client-compat-matrix.md) 第二轮。
+  `docs/client-compat-matrix.md` 第二轮。
 - 覆盖率：root 合并口径 **84.4%**；`internal/opc` **90.3%**（Tier 2 曾使其跌到
   89.5%，本版补齐门限守门测试后恢复）/ chart 91.2% / xmlstore 90.8% /
   videoprobe 92.6% / audioprobe 88.4% / editplan·textmap 100% / ir 86.1% /
@@ -336,7 +336,7 @@ go run ./scripts/gen_audio                        # 复现 s004-audio 样本
 ### Fixed
 
 - **B1 金样比对真正接入 CI**（commit b0144b3）：原 B1 断言只挂在合成 fixture 与私有样本 `ext-0024`（原文件未入库 → CI 恒 Skip）上，"未修改 Part 解压内容哈希一致"这条 V2.6 §15.3 发布硬门槛**此前从未在 CI 真正执行过**。新增 `corpus_b1_test.go`（tag=corpus）建在库内可再分发的公开样本上：`TestCorpusB1UnchangedSave`（空编辑保存各 Part SHA256 恒等）+ `TestCorpusB1AfterTextEdit`（仅 `SaveReport.ChangedParts` 声明的 Part 可变，且变更集合必须等于该集合）+ `TestCorpusB1PresentButSkipWhenNoSample`（源样本缺席优雅 Skip）。抽 `corpusApplyReplaceText` 供 replay 与 B1 共用。
-- **opc 88.9% → 90.4% / COV-04 全闭合**（commit b676bab）：14 个行为优先测试（Write Omit / 未知 action / 无效 PartName / readAll 缺失 Part / relsPartOf invalid / lastIndexByte 无匹配 / ParseContentTypes 缺属性 / 忽略未知子元素 / extensionOf 边缘 / addOverride 无效 / 重复 / removeOverride / mustAttrEscape 回退）。`internal/opc` 升至 **90.4%**，锁住 COV-04 全部 6 包低层格式 5/6 ≥ 90%（`audioprobe` 88.4% 按 [1.x-roadmap B-2](docs/1.x-roadmap.md) 决策不追）。
+- **opc 88.9% → 90.4% / COV-04 全闭合**（commit b676bab）：14 个行为优先测试（Write Omit / 未知 action / 无效 PartName / readAll 缺失 Part / relsPartOf invalid / lastIndexByte 无匹配 / ParseContentTypes 缺属性 / 忽略未知子元素 / extensionOf 边缘 / addOverride 无效 / 重复 / removeOverride / mustAttrEscape 回退）。`internal/opc` 升至 **90.4%**，锁住 COV-04 全部 6 包低层格式 5/6 ≥ 90%（`audioprobe` 88.4% 按 1.x-roadmap B-2 决策不追）。
 - **冻结清单不变量自动化守门**（commits 20b12a4 / b2cac60）：`api_surface_test.go` 用 `go/ast` 解析根包非测试文件，断言 158 type / 34 Stable 段 / 50 Stable 符号 / 127 Stable 方法 / 5 Experimental / 17 哨兵 / 错误字符串字面量锁死 / 根包无 `//go:build` 约束。替代此前不可靠的人工 grep（`grep '^type [A-Z]'` 只数出 149，漏掉分组声明 9 个）；v1.0.0 时就出过一次口径错误（把"段落 grep 数 34"误作"独立 type 数"），事后连改 6 处文档。
 - **opc fuzz 安全导向种子扩充**（commit 1915fc2）：3 条种子（恶意条目名 `../` / `\` / 控制字符 / 200 条目逼近预算 / 64 层深路径）+ `mustSeedZip` helper 集中构造恶意但合法的 ZIP 流。
 
@@ -344,8 +344,8 @@ go run ./scripts/gen_audio                        # 复现 s004-audio 样本
 
 - [`docs/adr/ADR-017-chart-internal-extraction.md`](docs/adr/ADR-017-chart-internal-extraction.md) —— chart 抽 `internal/chart` 的分批路径与踩坑记录（含"严格区分真零依赖 vs 接收根包值对象"、"const 必为编译期常量不可直接引用 var 包常量"、"type alias 不能定义方法"三条经验）。
 - [`docs/adr/ADR-018-save-streaming-copy.md`](docs/adr/ADR-018-save-streaming-copy.md) —— Save 流式复制（含 Tier 2 不实施决策与反向劣化修正章节）。
-- [`docs/PERF-01-benchmark-report.md`](docs/PERF-01-benchmark-report.md)（更新）—— 接入 ADR-018 收益与守门说明。
-- [`docs/release-readiness-2026-09-12.md`](docs/release-readiness-2026-09-12.md) —— 本次发布的就绪度评估报告。
+- `docs/PERF-01-benchmark-report.md`（更新）—— 接入 ADR-018 收益与守门说明。
+- `docs/release-readiness-2026-09-12.md` —— 本次发布的就绪度评估报告。
 - [`docs/RELEASE-NOTES-v1.0.2.md`](docs/RELEASE-NOTES-v1.0.2.md) —— 本版本完整 release notes。
 
 ## [1.0.1] - 2026-09-12
@@ -377,8 +377,8 @@ go run ./scripts/gen_audio                        # 复现 s004-audio 样本
 ### Added (documentation-only)
 
 - [`docs/go-pptx-技术白皮书.md`](docs/go-pptx-技术白皮书.md)（commit 0218b29，746 行 / 12 章）—— 综合性技术披露，覆盖产品定位、技术架构、应用场景、对比矩阵、7 项技术创新点详解。
-- [`docs/1.x-roadmap.md`](docs/1.x-roadmap.md)（commit 24d4fa6，213 行 / 8 章）—— 1.x 演化窗口路线图：5 候选方向 + 5 阶段路线 + 6 风险 + 5 推荐决策点。
-- [`docs/client-compat-matrix.md`](docs/client-compat-matrix.md) L3 真机执行记录（commit a103484 + 5f99d80）—— PowerPoint 16.0.20326 + WPS 演示 12.1.0.28599 × 4 样本 8/8 通过。
+- `docs/1.x-roadmap.md`（commit 24d4fa6，213 行 / 8 章）—— 1.x 演化窗口路线图：5 候选方向 + 5 阶段路线 + 6 风险 + 5 推荐决策点。
+- `docs/client-compat-matrix.md` L3 真机执行记录（commit a103484 + 5f99d80）—— PowerPoint 16.0.20326 + WPS 演示 12.1.0.28599 × 4 样本 8/8 通过。
 - [`docs/RELEASE-NOTES-v1.0.1.md`](docs/RELEASE-NOTES-v1.0.1.md) —— 本版本完整 release notes。
 
 ## [1.0.0] - 2026-09-11
@@ -387,7 +387,7 @@ The first stable release of go-pptx.
 
 ### Highlights
 
-- **Three-tier API stability** — Stable (50 symbols: 33 independent types + 17 error sentinels sharing one aggregated section, 34 `// Stable:` sections total) / API default (120 types, additive evolution allowed) / Experimental (5 types, may change in 1.x). See [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md) and [ADR-015](docs/adr/ADR-015-api-stability-tiers.md).
+- **Three-tier API stability** — Stable (50 symbols: 33 independent types + 17 error sentinels sharing one aggregated section, 34 `// Stable:` sections total) / API default (120 types, additive evolution allowed) / Experimental (5 types, may change in 1.x). See `docs/v1.0-freeze-list.md` and [ADR-015](docs/adr/ADR-015-api-stability-tiers.md).
 - **M0–M8 milestones complete** — full PPTX read/edit stack: OPC engine, XML store with span patches, slide/shape/text/table/chart/audio/video model, capability manifest, semantic diff, template binding.
 - **Public corpus** — three LibreOffice-generated public samples (`s001-text` / `s002-table` / `s003-image`) gated by `//go:build corpus` CI job.
 - **Cross-platform** — pure Go (CGO=0), CI-verified builds for `js/wasm`, `darwin/arm64`, `wasip1/wasm`, `linux/arm64`.
@@ -451,12 +451,12 @@ The first stable release of go-pptx.
 
 ### Documentation
 
-- [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md) — full freeze list with 5-phase review trail
+- `docs/v1.0-freeze-list.md` — full freeze list with 5-phase review trail
 - [`docs/adr/ADR-014-root-internal-package-strategy.md`](docs/adr/ADR-014-root-internal-package-strategy.md) — internal package split policy
 - [`docs/adr/ADR-015-api-stability-tiers.md`](docs/adr/ADR-015-api-stability-tiers.md) — three-tier stability model
-- [`docs/corpus-入库指南.md`](docs/corpus-入库指南.md) — public sample corpus onboarding guide
-- [`docs/M6-排序输入.md`](docs/M6-排序输入.md) / [`docs/M7-排序输入.md`](docs/M7-排序输入.md) / [`docs/M8-里程碑总结.md`](docs/M8-里程碑总结.md)
-- [`docs/PERF-01-性能基线.md`](docs/PERF-01-性能基线.md) + [`docs/PERF-01-benchmark-report.md`](docs/PERF-01-benchmark-report.md) — performance baseline + CI gate
+- `docs/corpus-入库指南.md` — public sample corpus onboarding guide
+- `docs/M6-排序输入.md` / `docs/M7-排序输入.md` / `docs/M8-里程碑总结.md`
+- `docs/PERF-01-性能基线.md` + `docs/PERF-01-benchmark-report.md` — performance baseline + CI gate
 
 ### Known limitations
 

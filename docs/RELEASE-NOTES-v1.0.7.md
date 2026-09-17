@@ -55,7 +55,7 @@
 | PowerPoint 16.0.20326 | `s004-audio` | ✅ | ✅ | ✅ |
 | WPS 12.1.0.28599 | `s004-audio` | ✅ | ✅ | ✅ |
 
-详见 [`docs/client-compat-matrix.md`](client-compat-matrix.md) 第五轮。
+详见 `docs/client-compat-matrix.md` 第五轮。
 
 ## Verification（如何验证）
 

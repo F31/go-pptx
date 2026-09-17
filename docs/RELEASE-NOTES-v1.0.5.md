@@ -56,7 +56,7 @@ Tier 2 改变了输出字节，故按 ADR-018 验收清单第 5 项**重跑 8 �
 | PowerPoint | 16.0.20326 | 4 样本 × 无修复提示打开 + 重存成功；重存文件 `Validate` errorCount=0 |
 | WPS 演示 | 12.1.0.28599 | 同上 |
 
-**8/8 通过**（总耗时 13.3s）。这是 Tier 2 安全门限在真机上的端到端背书——raw 直通保留的原始压缩帧被两家客户端正常接受。详见 [`docs/client-compat-matrix.md`](client-compat-matrix.md)。
+**8/8 通过**（总耗时 13.3s）。这是 Tier 2 安全门限在真机上的端到端背书——raw 直通保留的原始压缩帧被两家客户端正常接受。详见 `docs/client-compat-matrix.md`。
 
 ## Verification（如何验证）
 

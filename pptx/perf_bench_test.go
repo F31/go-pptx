@@ -1,12 +1,12 @@
-// PERF-01 性能基线基准套件（设计方案 §15.3 / 实施计划 §9.3）。
+// PERF-01 性能基线基准套件。
 //
-// 三档语料（§15.3「性能先建立三档基线」）：
+// 三档语料（「性能先建立三档基线」）：
 //
 //	10p-text   10 页纯文本
 //	50p-image  50 页图文（每页文本框 + 一张小图）
 //	100p-media 100 页含大媒体（每页文本框 + 小图，前 20 页叠加一张噪声大图）
 //
-// 四类操作（§15.3「分别测打开、遍历、单处替换、保存」）：
+// 四类操作（「分别测打开、遍历、单处替换、保存」）：
 //
 //	BenchmarkPerfOpen     打开（Open + Close）
 //	BenchmarkPerfTraverse 遍历（Slides→Shapes→TextFrame→Paragraph.Text）
@@ -19,7 +19,7 @@
 // 报告口径：本文件只产出 go test benchmark 原始数据（ns/op、B/op、
 // allocs/op，以及自定义指标 pkg-bytes 输入包字节、peak-heap-B 堆峰值）；
 // 硬件 / Go 版本 / 输入尺寸 / p50/p95 的合并报告由 scripts/perf/summarize
-// 从 -count=N 的原始日志聚合生成，写入 docs/PERF-01-benchmark-report.md。
+// 从 -count=N 的原始日志聚合生成，写入 perf-out/benchmark-report.md。
 //
 // 设计约束：
 //   - 语料在计时区外构建（b.ResetTimer 之前）且按进程缓存（sync.Once 语义），

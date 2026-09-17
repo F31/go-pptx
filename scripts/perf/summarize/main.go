@@ -1,10 +1,10 @@
 // Command summarize 把 `go test -bench` 原始日志聚合为 PERF-01 性能基线报告
-// （设计方案 §15.3：报告硬件、Go 版本、输入尺寸与 p50/p95/峰值内存）。
+// （报告硬件、Go 版本、输入尺寸与 p50/p95/峰值内存）。
 //
 // 用法：
 //
 //	go test -run '^$' -bench BenchmarkPerf -benchmem -count 10 . | \
-//	    go run ./scripts/perf/summarize > docs/PERF-01-benchmark-report.md
+//	    go run ./scripts/perf/summarize > perf-out/benchmark-report.md
 //
 // 输入解析：
 //   - 以 '#' 开头的行视为驱动脚本写入的头部（key: value），识别 timestamp /
@@ -292,7 +292,7 @@ func writeReport(w io.Writer, hdr header, results []*result) {
 	fmt.Fprintln(w, "# go-pptx 性能基线报告（PERF-01）")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "> 本文件由 `scripts/perf/summarize` 从 `go test -bench` 原始日志自动生成，请勿手工编辑。")
-	fmt.Fprintln(w, "> 指标口径与限制见 `docs/PERF-01-性能基线.md`（设计方案 §15.3 / 实施计划 §9.3）。")
+	fmt.Fprintln(w, "> 生成方式：`bash scripts/perf/run.sh`；报告输出到 `perf-out/benchmark-report.md`。")
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "## 环境")

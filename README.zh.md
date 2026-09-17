@@ -82,7 +82,7 @@ rep, _ := p.Bind(map[string]any{
 _ = rep // BindReport{...}
 ```
 
-> 完整 API 清单见包文档（`go doc github.com/F31/go-pptx/v2/pptx`）与[实施状态跟踪](docs/go-pptx-实施状态跟踪.md)。
+> 完整 API 清单见包文档（`go doc github.com/F31/go-pptx/v2/pptx`）与 [API 参考](./docs/api-reference.md)。
 
 ---
 
@@ -304,14 +304,11 @@ GOOS=js GOARCH=wasm go build -o wasm/site/check.wasm ./cmd/pptx_check
 
 | 文档 | 说明 |
 |---|---|
+| [API 参考](./docs/api-reference.md) | 生成的英文 API 参考（类型、方法、常量） |
 | [架构现状](docs/architecture-current.md) | 当前包布局与依赖方向 |
-| [覆盖率路线图](docs/coverage-roadmap.md) | 各包门槛与 CI 门定义 |
-| [客户端兼容矩阵](docs/client-compat-matrix.md) | L3 真机证据 |
-| [ADR-030：v2.0 目标架构](docs/adr/ADR-030-v2-target-architecture.md) | 分层架构设计决策 |
-| [完整设计方案 V2.6](docs/go-pptx_完整设计方案_V2_6_开发实施版.md) | 完整设计文档 |
 | [技术白皮书](docs/go-pptx-技术白皮书.md) | 技术白皮书 |
-| [实施状态跟踪](docs/go-pptx-实施状态跟踪.md) | 功能实施跟踪 |
-| [ADR 目录](docs/adr/) | 所有架构决策记录（ADR-014 到 ADR-030） |
+| [ADR 目录](docs/adr/) | 架构决策记录（ADR-014 到 ADR-030） |
+| [发布说明](docs/) | 各版本发布说明（`RELEASE-NOTES-*.md`） |
 
 ---
 

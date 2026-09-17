@@ -1,6 +1,6 @@
 package pptx
 
-// 本文件是 v1.0 冻结清单的**自动化守门**（ADR-015 / docs/v1.0-freeze-list.md）。
+// 本文件是 v1.0 冻结清单的**自动化守门**（ADR-015）。
 //
 // 背景：v1.0 的公共 API 不变量（Stable 段数 / Stable 符号数 / Experimental 段数 /
 // 公共 type 总数 / 哨兵数）此前只能靠人工 grep 统计，v1.0.0 发布时就出过一次

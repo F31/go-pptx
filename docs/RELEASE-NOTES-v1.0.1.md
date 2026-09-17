@@ -64,7 +64,7 @@
 - **8/8 通过**：PowerPoint 16.0.20326（`PowerPoint.Application`）+ WPS 演示 12.1.0.28599（`Kwpp.Application`）× 4 样本（`s001-text` / `s002-table` / `s003-image` / `ext-0024`）。
 - Windows 11 宿主机（WSL 触发 COM 自动化）打开样本均**无修复提示**，另存 `.pptx` 成功，go-pptx 重开后 `Validate` errorCount=0，编辑内容保留。
 - 新增可复现工具 `scripts/l3/run_client.sh` + `scripts/l3/ppt_open_resave.ps1`；证据 hash 与重存文件在 `.l3-output/`（gitignore）。
-- 详见 [`client-compat-matrix.md`](client-compat-matrix.md)。
+- 详见 `client-compat-matrix.md`。
 
 ### go-pptx 技术白皮书（commit 0218b29）
 
@@ -76,7 +76,7 @@
 
 ### 1.x 路线图方案（commit 24d4fa6）
 
-- 新增 [`1.x-roadmap.md`](1.x-roadmap.md)（213 行 / 8 章）：
+- 新增 `1.x-roadmap.md`（213 行 / 8 章）：
   - 5 个候选方向（A 架构 refactor / B 覆盖率收尾 / C v1.0.1 patch / D 用户场景按需 / E 客户端+分发可选）
   - 5 阶段路线（patch → COV-04 全闭合 → 架构 refactor 主线 → 分发扩展 → 用户场景）
   - 6 风险登记 + 5 推荐决策点

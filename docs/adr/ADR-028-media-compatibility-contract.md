@@ -33,7 +33,7 @@ ADR-027 为修复单个音频形状的可用性，连续暴露 **6 处彼此独�
 
 把上述教训固化为**契约 + 可执行守门 + 真机矩阵**三件套：
 
-1. **书面契约** [`docs/media-compat-checklist.md`](media-compat-checklist.md)：
+1. **书面契约** `docs/media-compat-checklist.md`：
    - 媒体四态定义与真实反例；
    - 逐类型必需元素表（通用 / audio / video / picture）；
    - **关系类型匹配矩阵**（属性 → 关系类型）；

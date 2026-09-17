@@ -186,7 +186,8 @@ v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
 
 基线所列 5 项：`internal/chart` 抽取 **DONE**（ADR-017）；`internal/textmap` **DONE**；
 `internal/document` `PartStore` **DONE**（接口 + 编译期断言）；Shape capability 接口
-**DONE**（ADR-021）；corpus matrix **DONE**（`docs/client-compat-matrix.md`）。
+**DONE**（ADR-021）；corpus matrix **DONE**（`testdata/corpus/README.md`，复现
+`scripts/l3/run_client.sh`）。
 新增压力点：根包仍 60 文件（ADR-030 触发阈值 80，未命中）。
 
 ### Update 2026-09-17：v2.0 门面收敛（ADR-030 Step 3）

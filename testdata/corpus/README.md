@@ -12,9 +12,9 @@
 | 私有真实样本索引 | 33 份，`ext-0001`–`ext-0033`（+ `ext-0024` WPS 动画 + 未知扩展），只登记 manifest，不提交原始业务 PPTX；合计 36 样本 |
 | 动画+未知扩展真实样本 | `ext-0024`（WPS，私有索引）已完成本地冒烟 + 真机矩阵通过，含 `animation.timing` / `animation.transition` / `xml.unknown_ext` |
 | 语料校验 | `scripts/gen_corpus/run.sh validate testdata/corpus`：36 samples，0 errors |
-| 客户端矩阵 | ✅ 已闭合（2026-09-11 真机首轮）：PowerPoint 16.0.20326 + WPS 12.1.0.28599 × 公开+私有样本 8/8 组合通过（无修复提示 + 重存 + go-pptx 回验 0 错误）；复现脚本 `scripts/l3/run_client.sh`；证据 [`docs/client-compat-matrix.md`](../../docs/client-compat-matrix.md) |
+| 客户端矩阵 | ✅ 已闭合（2026-09-11 真机首轮）：PowerPoint 16.0.20326 + WPS 12.1.0.28599 × 公开+私有样本 8/8 组合通过（无修复提示 + 重存 + go-pptx 回验 0 错误）；复现脚本 `scripts/l3/run_client.sh` |
 
-结论：QA-01 的"语料为空"硬阻塞已解除（36 样本索引 + 3 公开 LibreOffice 金样闭环 + ext-0024 真实样本本地冒烟）；发布级 L3 兼容报告于 2026-09-11 真机首轮执行完成——详见 [`docs/client-compat-matrix.md`](../../docs/client-compat-matrix.md)（PowerPoint 16.0.20326 + WPS 12.1.0.28599 × Windows 11 10.0.26200，8/8 通过）。
+结论：QA-01 的"语料为空"硬阻塞已解除（36 样本索引 + 3 公开 LibreOffice 金样闭环 + ext-0024 真实样本本地冒烟）；发布级 L3 兼容报告于 2026-09-11 真机首轮执行完成（PowerPoint 16.0.20326 + WPS 12.1.0.28599 × Windows 11 10.0.26200，8/8 通过）。复现：`scripts/l3/run_client.sh`。
 
 ## 已登记客户端版本与平台
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# PERF-01 性能基线驱动脚本（设计方案 §15.3 / 实施计划 §9.3）。
+# PERF-01 性能基线驱动脚本。
 #
 # 用法（在仓库根执行）：
 #   scripts/perf/run.sh
@@ -10,7 +10,7 @@
 #   BENCHTIME  benchtime 覆盖（默认空，由框架自动定标）
 #   TIMEOUT    go test -timeout（默认 30m；COUNT 大或 runner 慢时上调）
 #   RAW        原始日志路径（默认 perf-out/raw-bench.log，gitignore 不入库）
-#   OUT        报告输出路径（默认 docs/PERF-01-benchmark-report.md）
+#   OUT        报告输出路径（默认 perf-out/benchmark-report.md）
 #   OPC_BENCH       internal/opc Save 复制基准筛选（默认 BenchmarkSavePlanWriteCopyOriginal）
 #   OPC_BENCHTIME   该组 benchtime（默认 20x，固定迭代数便于跨机比较）
 #   OPC_COUNT       该组采样次数（默认 3）
@@ -27,7 +27,7 @@ BENCH="${BENCH:-BenchmarkPerf}"
 BENCHTIME="${BENCHTIME:-}"
 TIMEOUT="${TIMEOUT:-30m}"
 RAW="${RAW:-perf-out/raw-bench.log}"
-OUT="${OUT:-docs/PERF-01-benchmark-report.md}"
+OUT="${OUT:-perf-out/benchmark-report.md}"
 OPC_BENCH="${OPC_BENCH:-BenchmarkSavePlanWriteCopyOriginal}"
 OPC_BENCHTIME="${OPC_BENCHTIME:-20x}"
 OPC_COUNT="${OPC_COUNT:-3}"

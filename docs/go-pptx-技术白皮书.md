@@ -41,7 +41,7 @@ v1.0.0 是组件的第一个稳定版本，完成了《项目实施计划》M0�
 | 默认测试 | 13 包 0 失败（2026-09-12 实测） |
 | 公开金样回归 | 3 个 LibreOffice 生成样本（`s001-text` / `s002-table` / `s003-image`）+ 36 个语料索引（`ext-0024` 真实样本垂直验证 PASS）；L3 客户端矩阵 PowerPoint/WPS 真机 8/8 通过 |
 | 交叉构建验证 | `js/wasm` · `darwin/arm64` · `wasip1/wasm` · `linux/arm64` 四平台零失败（CI `cross-build` job 固化） |
-| 覆盖率 | 根包 82.7% / `cmd/pptx` 87.2% / 全仓 full 83.2%（2026-09-11 记账口径，分包实测略高，见 [coverage-roadmap](coverage-roadmap.md)；1.x 期间继续收敛） |
+| 覆盖率 | 根包 82.7% / `cmd/pptx` 87.2% / 全仓 full 83.2%（2026-09-11 记账口径，分包实测略高，见 coverage-roadmap；1.x 期间继续收敛） |
 
 ---
 
@@ -349,7 +349,7 @@ go-pptx 公开承诺**三级稳定性**（[ADR-015](adr/ADR-015-api-stability-ti
 
 ### 5.1 v1.0 冻结清单（2026-09-10 → 09-11 收口）
 
-完整的逐项评审记录见 [`docs/v1.0-freeze-list.md`](v1.0-freeze-list.md)；最终结果：
+完整的逐项评审记录见 `docs/v1.0-freeze-list.md`；最终结果：
 
 | 阶段 | 时间 | 增量 | 累计 Stable 符号 |
 |---|---|---|---|
@@ -419,7 +419,7 @@ CI（`.github/workflows/ci.yml`）在每次 push 与 PR 上执行：
 
 **六类基准操作**：`Open` / `Traverse` / `Replace` / `SaveMem`（内存序列化）/ `SaveDisk`（落盘）/ `PeakHeap`（峰值内存）。
 
-**代表性数据**（Intel Core Ultra 9 275HX / Go 1.27.0 / windows-amd64 / COUNT=10，详见 [`PERF-01-benchmark-report.md`](PERF-01-benchmark-report.md)）：
+**代表性数据**（Intel Core Ultra 9 275HX / Go 1.27.0 / windows-amd64 / COUNT=10，详见 `PERF-01-benchmark-report.md`）：
 
 | 操作 | 10p-text (14 KiB) | 50p-image (60 KiB) | 100p-media (33.9 MiB) |
 |---|---|---|---|

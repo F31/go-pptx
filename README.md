@@ -82,7 +82,7 @@ rep, _ := p.Bind(map[string]any{
 _ = rep // BindReport{...}
 ```
 
-> Full API: `go doc github.com/F31/go-pptx/v2/pptx` · [Implementation Status](docs/go-pptx-实施状态跟踪.md)
+> Full API: `go doc github.com/F31/go-pptx/v2/pptx` · [API Reference](./docs/api-reference.md)
 
 ---
 
@@ -306,14 +306,11 @@ GOOS=js GOARCH=wasm go build -o wasm/site/check.wasm ./cmd/pptx_check
 
 | Document | Description |
 |---|---|
+| [API Reference](./docs/api-reference.md) | Generated English API reference (types, methods, constants) |
 | [Architecture Baseline](docs/architecture-current.md) | Current package layout and dependency directions |
-| [Coverage Roadmap](docs/coverage-roadmap.md) | Per-package thresholds and CI gate definition |
-| [Client Compatibility Matrix](docs/client-compat-matrix.md) | L3 real-client evidence |
-| [ADR-030: v2.0 Target Architecture](docs/adr/ADR-030-v2-target-architecture.md) | Layered architecture design decision |
-| [Complete Design Spec V2.6](docs/go-pptx_完整设计方案_V2_6_开发实施版.md) | Full design document |
 | [Technical Whitepaper](docs/go-pptx-技术白皮书.md) | Technical whitepaper |
-| [Implementation Status](docs/go-pptx-实施状态跟踪.md) | Feature implementation tracking |
-| [ADR Directory](docs/adr/) | All architecture decision records (ADR-014 through ADR-030) |
+| [ADR Directory](docs/adr/) | Architecture decision records (ADR-014 through ADR-030) |
+| [Release Notes](docs/) | Per-version release notes (`RELEASE-NOTES-*.md`) |
 
 ---
 

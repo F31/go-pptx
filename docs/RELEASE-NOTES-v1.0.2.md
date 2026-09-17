@@ -69,7 +69,7 @@
 ### opc 88.9% → 90.4% / COV-04 全闭合（commit b676bab）
 
 - 14 个行为优先测试（Write Omit / 未知 action / 无效 PartName / readAll 缺失 Part / relsPartOf invalid / lastIndexByte 无匹配 / ParseContentTypes 缺属性 / 忽略未知子元素 / extensionOf 边缘 / addOverride 无效 / 重复 / removeOverride / mustAttrEscape 回退）。
-- `internal/opc` 升至 **90.4%**，锁住 COV-04 全部 6 包低层格式 5/6 ≥ 90%（`audioprobe` 88.4% 按 [1.x-roadmap B-2](1.x-roadmap.md#方向b覆盖率收尾cov-04-56--6) 决策不追）。
+- `internal/opc` 升至 **90.4%**，锁住 COV-04 全部 6 包低层格式 5/6 ≥ 90%（`audioprobe` 88.4% 按 1.x-roadmap B-2 决策不追）。
 
 ### 冻结清单不变量自动化守门（commits 20b12a4 / b2cac60）
 
@@ -95,8 +95,8 @@
 
 - [`docs/adr/ADR-017-chart-internal-extraction.md`](docs/adr/ADR-017-chart-internal-extraction.md) —— chart 抽 `internal/chart` 的分批路径与踩坑记录（含"严格区分真零依赖 vs 接收根包值对象"、"const 必为编译期常量不可直接引用 var 包常量"、"type alias 不能定义方法"三条经验）。
 - [`docs/adr/ADR-018-save-streaming-copy.md`](docs/adr/ADR-018-save-streaming-copy.md) —— Save 流式复制（含 Tier 2 不实施决策与反向劣化修正章节）。
-- [`docs/PERF-01-benchmark-report.md`](docs/PERF-01-benchmark-report.md)（更新）—— 接入 ADR-018 收益与守门说明。
-- [`docs/release-readiness-2026-09-12.md`](docs/release-readiness-2026-09-12.md) —— 本次发布的就绪度评估报告。
+- `docs/PERF-01-benchmark-report.md`（更新）—— 接入 ADR-018 收益与守门说明。
+- `docs/release-readiness-2026-09-12.md` —— 本次发布的就绪度评估报告。
 
 ## Verification（如何验证）
 
