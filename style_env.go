@@ -3,6 +3,7 @@ package pptx
 import (
 	"github.com/F31/go-pptx/internal/document/style"
 	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // 本文件是 STYLE-01 的**样式环境**：styleEnv（slide→layout→master→theme 链）
@@ -13,6 +14,18 @@ import (
 // v2.0：解析逻辑在 internal/document/style，此处为薄委托。
 func (p *Presentation) styleEnv(part opc.PartName) (*style.Env, error) {
 	return style.ResolveEnv(part, p.relsOf)
+}
+
+// styleDocs 返回基于当前包状态的主题链文档源（v2.0 起注入 internal
+// 解析器使用：style.DocFunc；文档不可达时返回 nil）。
+func (p *Presentation) styleDocs() style.DocFunc {
+	return func(part opc.PartName) *xmlstore.XMLDocument {
+		d, err := p.docOf(part)
+		if err != nil {
+			return nil
+		}
+		return d
+	}
 }
 
 // relsOf 返回 Part 的当前关系（读取视图：已提交 rels 补丁优先，其次

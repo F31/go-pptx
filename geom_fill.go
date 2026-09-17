@@ -56,7 +56,7 @@ func parseShapeFill(p *Presentation, doc *xmlstore.XMLDocument, el *xmlstore.Nod
 			out.Kind = FillNone
 		case "solidFill":
 			out.Kind = FillSolid
-			out.Color = p.parseColorNode(doc, env, part, colorChildOf(doc, c), &diags)
+			out.Color = p.parseColorNode(doc, env, part, style.ColorChild(doc, c), &diags)
 		case "gradFill":
 			out.Kind = FillGradient
 			out.Gradient = parseGradFill(p, doc, c, part, env, &diags)
@@ -163,7 +163,7 @@ func parsePattFill(p *Presentation, doc *xmlstore.XMLDocument, patt *xmlstore.No
 		if c.Namespace != nsDrawingML {
 			continue
 		}
-		clr := colorChildOf(doc, c)
+		clr := style.ColorChild(doc, c)
 		col := p.parseColorNode(doc, env, part, clr, diags)
 		switch c.Local() {
 		case "fgClr":
