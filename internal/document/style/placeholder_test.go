@@ -1,24 +1,11 @@
 package style
 
-import (
-	"testing"
-
-	"github.com/F31/go-pptx/internal/xmlstore"
-)
+import "testing"
 
 const (
 	nsP = "http://schemas.openxmlformats.org/presentationml/2006/main"
 	nsA = "http://schemas.openxmlformats.org/drawingml/2006/main"
 )
-
-func mustIndex(t *testing.T, s string) *xmlstore.XMLDocument {
-	t.Helper()
-	d, err := xmlstore.Index([]byte(s))
-	if err != nil {
-		t.Fatalf("Index: %v", err)
-	}
-	return d
-}
 
 func TestPhKeyOf(t *testing.T) {
 	// 显式 type/idx。

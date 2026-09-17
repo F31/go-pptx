@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/style"
+	"github.com/F31/go-pptx/internal/document/style"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -14,11 +14,11 @@ import (
 // ---------- 主题与母版读取 ----------
 
 // themeDoc 解析主题 Part 文档（nil 表示不可达）。
-func (p *Presentation) themeDoc(env *styleEnv) *xmlstore.XMLDocument {
-	if env.theme == "" {
+func (p *Presentation) themeDoc(env *style.Env) *xmlstore.XMLDocument {
+	if env.Theme == "" {
 		return nil
 	}
-	doc, err := p.docOf(env.theme)
+	doc, err := p.docOf(env.Theme)
 	if err != nil {
 		return nil
 	}
@@ -26,11 +26,11 @@ func (p *Presentation) themeDoc(env *styleEnv) *xmlstore.XMLDocument {
 }
 
 // masterDoc 解析母版 Part 文档（slideMaster 或 notesMaster；nil 不可达）。
-func (p *Presentation) masterDoc(env *styleEnv) *xmlstore.XMLDocument {
-	if env.master == "" {
+func (p *Presentation) masterDoc(env *style.Env) *xmlstore.XMLDocument {
+	if env.Master == "" {
 		return nil
 	}
-	doc, err := p.docOf(env.master)
+	doc, err := p.docOf(env.Master)
 	if err != nil {
 		return nil
 	}

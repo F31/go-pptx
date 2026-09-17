@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"fmt"
+	"github.com/F31/go-pptx/internal/document/style"
 	"math"
 	"strconv"
 	"strings"
@@ -68,7 +69,7 @@ var knownTransformKinds = map[string]bool{
 // parseColorNode 解析颜色元素节点（srgbClr/schemeClr/sysClr/prstClr/
 // hslClr/scrgbClr）及其变换序列。env 用于 schemeClr 的主题展开；
 // 不可用时（如无主题）RGB 留空并输出诊断。
-func (p *Presentation) parseColorNode(doc *xmlstore.XMLDocument, env *styleEnv, part string,
+func (p *Presentation) parseColorNode(doc *xmlstore.XMLDocument, env *style.Env, part string,
 	clr *xmlstore.NodeRecord, diags *[]Diagnostic) ParsedColor {
 
 	out := ParsedColor{Alpha: 1}

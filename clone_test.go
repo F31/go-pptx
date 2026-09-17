@@ -737,8 +737,8 @@ func TestClassifyCloneRel(t *testing.T) {
 		// reuse：版式/母版在 slide 与 notes 容器中都属复用（跨文档按字节匹配）
 		{"slide_layout_in_slide", opc.RelSlideLayout, "slide", "reuse"},
 		{"slide_layout_in_notes", opc.RelSlideLayout, "notes", "reuse"},
-		{"notes_master_in_slide", relNotesMaster, "slide", "reuse"},
-		{"notes_master_in_notes", relNotesMaster, "notes", "reuse"},
+		{"notes_master_in_slide", opc.RelNotesMaster, "slide", "reuse"},
+		{"notes_master_in_notes", opc.RelNotesMaster, "notes", "reuse"},
 
 		// media：图片/音频/视频/媒体在任何容器中都属 media
 		{"image_in_slide", relImage, "slide", "media"},

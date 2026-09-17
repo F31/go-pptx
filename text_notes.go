@@ -36,8 +36,6 @@ const (
 	// ctNotesSlide/ctNotesMaster 是备注相关 Part 的内容类型。
 	ctNotesSlide  = "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"
 	ctNotesMaster = "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"
-	// relNotesMaster 是 notesMaster 关系类型 URI。
-	relNotesMaster = opc.RelTypePrefix + "notesMaster"
 )
 
 // notesPartOf 返回页面关联的 notesSlide Part（首个内部关系）；无则
@@ -214,7 +212,7 @@ func (s *Slide) createNotes() error {
 	notesXML := xmlDecl + buildNotesSlideXML()
 	masterXML := xmlDecl + buildNotesMasterXML()
 	notesRelsXML := xmlDecl + `<Relationships xmlns="` + nsPkgRels + `">` +
-		`<Relationship Id="rId1" Type="` + relNotesMaster + `" Target="../notesMasters/notesMaster` + strconv.Itoa(masterIdx) + `.xml"/>` +
+		`<Relationship Id="rId1" Type="` + opc.RelNotesMaster + `" Target="../notesMasters/notesMaster` + strconv.Itoa(masterIdx) + `.xml"/>` +
 		`<Relationship Id="rId2" Type="` + opc.RelSlide + `" Target="../slides/` + slideName(slide) + `"/>` +
 		`</Relationships>`
 	themeTarget, smTarget := notesMasterDeps(p, main)
@@ -264,7 +262,7 @@ func (s *Slide) createNotes() error {
 		ops = append(ops, editplan.Patch(main, out))
 	}
 	presRels2 := insertRel(presRels,
-		`<Relationship Id="`+rid+`" Type="`+relNotesMaster+`" Target="notesMasters/notesMaster`+strconv.Itoa(masterIdx)+`.xml"/>`)
+		`<Relationship Id="`+rid+`" Type="`+opc.RelNotesMaster+`" Target="notesMasters/notesMaster`+strconv.Itoa(masterIdx)+`.xml"/>`)
 	ops = append(ops, relsPlanOp(p, main, []byte(presRels2)))
 	if err := applyMultiPartPlan(p, editplan.NewMultiPartPlan(ops...)); err != nil {
 		return err

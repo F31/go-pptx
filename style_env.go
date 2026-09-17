@@ -1,74 +1,18 @@
 package pptx
 
 import (
+	"github.com/F31/go-pptx/internal/document/style"
 	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/style"
 )
 
 // 本文件是 STYLE-01 的**样式环境**：styleEnv（slide→layout→master→theme 链）
 // 与主题/关系解析（Presentation.styleEnv/themeOf/relsOf）。
 
-// styleEnv 是从某 Part 出发可达的样式链环境（缺失环节留空）。
-type styleEnv struct {
-	kind   string // style.StyleKindSlide / style.StyleKindNotes
-	layout opc.PartName
-	master opc.PartName
-	theme  opc.PartName
-}
-
 // styleEnv 沿真实关系图解析样式链（读取视图，含已提交 rels 补丁）：
 // slide → slideLayout → slideMaster → theme；notesSlide → notesMaster → theme。
-func (p *Presentation) styleEnv(part opc.PartName) (*styleEnv, error) {
-	env := &styleEnv{kind: style.StyleKindSlide}
-	rels, ok, err := p.relsOf(part)
-	if err != nil || !ok {
-		return env, err
-	}
-	var layout, master opc.PartName
-	for _, rel := range rels {
-		if rel.Mode != opc.TargetInternal {
-			continue
-		}
-		switch rel.Type {
-		case relNotesMaster:
-			env.kind = style.StyleKindNotes
-			master = rel.TargetPart
-		case opc.RelSlideLayout:
-			if layout == "" {
-				layout = rel.TargetPart
-			}
-		}
-	}
-	env.layout = layout
-	if env.kind == style.StyleKindSlide && layout != "" {
-		if lm, ok, err := p.relsOf(layout); err == nil && ok {
-			for _, rel := range lm {
-				if rel.Mode == opc.TargetInternal && rel.Type == opc.RelSlideMaster {
-					master = rel.TargetPart
-					break
-				}
-			}
-		}
-	}
-	env.master = master
-	if master != "" {
-		env.theme = p.themeOf(master)
-	}
-	return env, nil
-}
-
-// themeOf 返回 Part 关系流中首个内部 theme 目标；无则空串。
-func (p *Presentation) themeOf(part opc.PartName) opc.PartName {
-	rels, ok, _ := p.relsOf(part)
-	if !ok {
-		return ""
-	}
-	for _, rel := range rels {
-		if rel.Mode == opc.TargetInternal && rel.Type == opc.RelTheme {
-			return rel.TargetPart
-		}
-	}
-	return ""
+// v2.0：解析逻辑在 internal/document/style，此处为薄委托。
+func (p *Presentation) styleEnv(part opc.PartName) (*style.Env, error) {
+	return style.ResolveEnv(part, p.relsOf)
 }
 
 // relsOf 返回 Part 的当前关系（读取视图：已提交 rels 补丁优先，其次

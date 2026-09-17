@@ -1,6 +1,7 @@
 package pptx
 
 import (
+	"github.com/F31/go-pptx/internal/document/style"
 	"strconv"
 	"strings"
 
@@ -32,7 +33,7 @@ import (
 // 再套用主题条目自身的变换序列。ECMA 称此为 phClr 替换（§20.1.2.3.23）。
 //
 // 非 phClr 条目按常规路径解析（schemeClr/srgbClr/…）。
-func (p *Presentation) themeEntryColor(doc *xmlstore.XMLDocument, env *styleEnv, part string,
+func (p *Presentation) themeEntryColor(doc *xmlstore.XMLDocument, env *style.Env, part string,
 	entry *xmlstore.NodeRecord, refColor ParsedColor, diags *[]Diagnostic) (ParsedColor, bool) {
 	if entry == nil {
 		return ParsedColor{Alpha: 1}, false
@@ -167,7 +168,7 @@ func (s ThemeFontSlot) String() string {
 //
 // ECMA：idx="major" 或 1 → majorFont；idx="minor" 或 2 → minorFont；
 // 其他值不作映射（返回 FontSlotUnknown，不臆造）。
-func (p *Presentation) themeFontTypeface(env *styleEnv, idxRaw string) (ThemeFontSlot, string) {
+func (p *Presentation) themeFontTypeface(env *style.Env, idxRaw string) (ThemeFontSlot, string) {
 	tdoc := p.themeDoc(env)
 	if tdoc == nil {
 		return FontSlotUnknown, ""
@@ -214,7 +215,7 @@ func (p *Presentation) themeFontTypeface(env *styleEnv, idxRaw string) (ThemeFon
 // themeMatrixEntryNode 返回主题 fmtScheme/fontScheme 中对应条目的节点。
 // 与 format.go 的 themeMatrixEntry 同链但保留节点引用，便于 STYLE-02
 // 进一步解析颜色/字体。
-func (p *Presentation) themeMatrixEntryNode(env *styleEnv, kind MatrixRefKind, idx int32) (*xmlstore.XMLDocument, *xmlstore.NodeRecord, bool) {
+func (p *Presentation) themeMatrixEntryNode(env *style.Env, kind MatrixRefKind, idx int32) (*xmlstore.XMLDocument, *xmlstore.NodeRecord, bool) {
 	tdoc := p.themeDoc(env)
 	if tdoc == nil || idx < 1 {
 		return nil, nil, false

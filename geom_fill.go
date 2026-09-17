@@ -1,6 +1,7 @@
 package pptx
 
 import (
+	"github.com/F31/go-pptx/internal/document/style"
 	"strconv"
 
 	"github.com/F31/go-pptx/internal/opc"
@@ -26,7 +27,7 @@ func parseShapeFill(p *Presentation, doc *xmlstore.XMLDocument, el *xmlstore.Nod
 		return FillInfo{Kind: FillUnspecified, Diagnostics: diags}, diags, nil
 	}
 	// 准备 styleEnv 供 schemeClr 展开。
-	var env *styleEnv
+	var env *style.Env
 	if p != nil {
 		if e, err := p.styleEnv(opc.PartName(part)); err == nil {
 			env = e
@@ -82,7 +83,7 @@ func parseShapeFill(p *Presentation, doc *xmlstore.XMLDocument, el *xmlstore.Nod
 
 // parseGradFill 解析 a:gradFill + a:gsLst/a:gs/a:stop + a:lin/a:path。
 func parseGradFill(p *Presentation, doc *xmlstore.XMLDocument, grad *xmlstore.NodeRecord,
-	part string, env *styleEnv, diags *[]Diagnostic) *GradientFill {
+	part string, env *style.Env, diags *[]Diagnostic) *GradientFill {
 	g := &GradientFill{Flip: "none", TileAlign: "ctr", RotateWithShape: NewOptional(true)}
 	if v, ok := grad.Attr("", "flip"); ok {
 		g.Flip = v
@@ -152,7 +153,7 @@ func parseGradFill(p *Presentation, doc *xmlstore.XMLDocument, grad *xmlstore.No
 
 // parsePattFill 解析 a:pattFill + fg/bg 颜色。
 func parsePattFill(p *Presentation, doc *xmlstore.XMLDocument, patt *xmlstore.NodeRecord,
-	part string, env *styleEnv, diags *[]Diagnostic) *PatternFill {
+	part string, env *style.Env, diags *[]Diagnostic) *PatternFill {
 	out := &PatternFill{Preset: "pct5"}
 	if v, ok := patt.Attr("", "prst"); ok {
 		out.Preset = v

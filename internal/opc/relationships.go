@@ -28,6 +28,7 @@ const (
 	RelSlideMaster    = RelTypePrefix + "slideMaster"
 	RelTheme          = RelTypePrefix + "theme"
 	RelNotesSlide     = RelTypePrefix + "notesSlide"
+	RelNotesMaster    = RelTypePrefix + "notesMaster"
 	// RelHandoutMaster 是讲义母版关系类型（LAYOUT-01 R 档解析目标；
 	// V2.6 不暴露写入/创建 API）。完整 URI：
 	// http://schemas.openxmlformats.org/officeDocument/2006/relationships/handoutMaster

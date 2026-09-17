@@ -332,6 +332,26 @@ style 域庞大且与 `Presentation`/`styleEnv` 深度耦合，按切片推进�
   `TestIntAttr` 后回到 **90.7%**
 - 守恒：`go test ./...` 与 `-tags=corpus` **21/21** 全绿；`api_surface_test` golden 不变
 
+### 域搬迁 2 续：styleEnv 解耦 + `internal/style` 并入（2026-09-16）
+
+切片 2 的前置是把 `styleEnv` 从 `Presentation` 解耦：
+
+- **包名冲突**：试点包 `internal/style`（`theme_placeholder.go`）与域包
+  `internal/document/style` 同名 → **并入**域包（本应同域）。gate 移除
+  `internal/style`，`internal/document/style` 保留（实测 95.2%）。
+- **解耦手法（函数式关系源）**：`styleEnv` → `style.Env`（导出字段
+  Kind/Layout/Master/Theme）；解析逻辑 `ResolveEnv(part, RelsFunc)` 注入
+  `RelsFunc = func(opc.PartName) ([]*opc.Relationship, bool, error)`。
+  根包 `Presentation.styleEnv(part)` 薄委托 `style.ResolveEnv(part, p.relsOf)`，
+  **零公共 API 变更**（`relsOf` 仍为私有方法，以方法值注入）。
+- **常量归位**：`relNotesMaster`（根包私有）上移为 `opc.RelNotesMaster`
+  （与 RelTheme/RelSlideMaster/RelSlideLayout 一致）；`clone.go`/`text_notes.go`
+  调用点更新。
+- 8 个根文件随 `*styleEnv`→`*style.Env` 与字段导出名更新；`go vet`/gofmt 干净
+- 测试：`internal/document/style/env_test.go`（ResolveEnv slide/notes 链、无 rels、
+  错误、layout rels 失败忽略、ThemeOf）
+- 守恒：`go test ./...` 与 `-tags=corpus` **20/20** 全绿；`api_surface_test` golden 不变
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

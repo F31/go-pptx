@@ -1,6 +1,7 @@
 package pptx
 
 import (
+	"github.com/F31/go-pptx/internal/document/style"
 	"strconv"
 	"strings"
 
@@ -50,7 +51,7 @@ func parseShapeEffects(p *Presentation, doc *xmlstore.XMLDocument, el *xmlstore.
 // parseEffectList 解析 a:effectLst / a:effectDag 内全部效果条目。
 func parseEffectList(p *Presentation, doc *xmlstore.XMLDocument, cont *xmlstore.NodeRecord,
 	part string, out *EffectInfo, diags *[]Diagnostic) {
-	var env *styleEnv
+	var env *style.Env
 	if p != nil {
 		if e, err := p.styleEnv(opc.PartName(part)); err == nil {
 			env = e
@@ -147,7 +148,7 @@ func parseEffectList(p *Presentation, doc *xmlstore.XMLDocument, cont *xmlstore.
 
 // parseShadow 解析 outerShdw / innerShdw 的公用字段。
 func parseShadow(p *Presentation, doc *xmlstore.XMLDocument, c *xmlstore.NodeRecord,
-	part string, env *styleEnv, eff *Effect, diags *[]Diagnostic) {
+	part string, env *style.Env, eff *Effect, diags *[]Diagnostic) {
 	if v, ok := c.Attr("", "blurRad"); ok {
 		if n, e := strconv.ParseInt(v, 10, 64); e == nil {
 			eff.BlurRadius = EMU(n)

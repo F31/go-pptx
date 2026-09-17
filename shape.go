@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/document/style"
 	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/style"
 	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )

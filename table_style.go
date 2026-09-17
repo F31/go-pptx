@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"fmt"
+	"github.com/F31/go-pptx/internal/document/style"
 	"strconv"
 	"strings"
 
@@ -542,7 +543,7 @@ func fillPropIn(doc *xmlstore.XMLDocument, container *xmlstore.NodeRecord) (*xml
 
 // resolveFill 解析填充：单元格显式 a:tcPr 优先，其次按区域优先级查
 // 样式库的 a:tcStyle。
-func (c *Cell) resolveFill(doc *xmlstore.XMLDocument, env *styleEnv, tcPr *xmlstore.NodeRecord,
+func (c *Cell) resolveFill(doc *xmlstore.XMLDocument, env *style.Env, tcPr *xmlstore.NodeRecord,
 	styleDoc *xmlstore.XMLDocument, styleNode *xmlstore.NodeRecord,
 	candidates []StylePart, diags *[]Diagnostic, part *StylePart) ResolvedValue[CellFill] {
 
@@ -581,7 +582,7 @@ func (c *Cell) resolveFill(doc *xmlstore.XMLDocument, env *styleEnv, tcPr *xmlst
 }
 
 // resolveBorder 解析单条边框（a:tcPr 或样式库 a:tcBdr 内 a:lnX）。
-func (c *Cell) resolveBorder(doc *xmlstore.XMLDocument, env *styleEnv, tcPr *xmlstore.NodeRecord,
+func (c *Cell) resolveBorder(doc *xmlstore.XMLDocument, env *style.Env, tcPr *xmlstore.NodeRecord,
 	styleDoc *xmlstore.XMLDocument, styleNode *xmlstore.NodeRecord,
 	candidates []StylePart, side string, diags *[]Diagnostic) ResolvedValue[CellBorder] {
 
@@ -683,7 +684,7 @@ func (c *Cell) resolveTextStyle(doc *xmlstore.XMLDocument, tcPr *xmlstore.NodeRe
 
 // resolveColorSpec 解析填充/线条容器内的颜色（a:srgbClr 直出、
 // a:schemeClr 经 clrMap 与主题）。未知形态返回 unresolved 诊断。
-func (p *Presentation) resolveColorSpec(doc *xmlstore.XMLDocument, env *styleEnv,
+func (p *Presentation) resolveColorSpec(doc *xmlstore.XMLDocument, env *style.Env,
 	fill *xmlstore.NodeRecord, part string, diags *[]Diagnostic) ResolvedColor {
 
 	var clr *xmlstore.NodeRecord

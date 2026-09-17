@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/style"
+	"github.com/F31/go-pptx/internal/document/style"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -22,7 +22,7 @@ type famSource struct {
 // effState 承载一次 EffectiveFont 的全部中间状态。
 type effState struct {
 	ctx ResolveContext
-	env *styleEnv
+	env *style.Env
 	p   *Presentation
 	doc *xmlstore.XMLDocument
 	run *xmlstore.NodeRecord
@@ -37,7 +37,7 @@ type effState struct {
 }
 
 // newEffState 收集解析链上下文与 L1..L3 源。
-func newEffState(p *Presentation, ctx ResolveContext, env *styleEnv, doc *xmlstore.XMLDocument, run *xmlstore.NodeRecord) *effState {
+func newEffState(p *Presentation, ctx ResolveContext, env *style.Env, doc *xmlstore.XMLDocument, run *xmlstore.NodeRecord) *effState {
 	st := &effState{
 		ctx: ctx, env: env, p: p, doc: doc, run: run,
 		res: make(map[string]bool),
@@ -48,7 +48,7 @@ func newEffState(p *Presentation, ctx ResolveContext, env *styleEnv, doc *xmlsto
 			st.phKey, st.isPh = k, true
 		}
 	}
-	st.class = style.ClassOf(st.phKey, st.isPh, env.kind)
+	st.class = style.ClassOf(st.phKey, st.isPh, env.Kind)
 	// 级别（L3 需要）。
 	var para *xmlstore.NodeRecord
 	if para = style.RunPara(doc, run); para != nil {
@@ -84,26 +84,26 @@ func (st *effState) appendListSources() {
 	p := st.p
 	lvl := strconv.Itoa(st.lvl)
 	if st.isPh {
-		if st.env.layout != "" {
-			if ldoc, err := p.docOf(st.env.layout); err == nil {
+		if st.env.Layout != "" {
+			if ldoc, err := p.docOf(st.env.Layout); err == nil {
 				if sp := style.FindPlaceholderShape(ldoc, st.phKey); sp != nil {
 					if d := defRPrAtLevel(ldoc, lstStyleOf(ldoc, sp), st.lvl); d != nil {
 						st.sources = append(st.sources, famSource{
 							style: parseLocalFont(ldoc, d),
-							step: StyleStep{Source: SourceListStyle, Part: string(st.env.layout),
+							step: StyleStep{Source: SourceListStyle, Part: string(st.env.Layout),
 								Detail: st.phDetail() + " lvl=" + lvl + " layout lstStyle"},
 						})
 					}
 				}
 			}
 		}
-		if st.env.master != "" {
+		if st.env.Master != "" {
 			if mdoc := p.masterDoc(st.env); mdoc != nil {
 				if sp := style.FindPlaceholderShape(mdoc, st.phKey); sp != nil {
 					if d := defRPrAtLevel(mdoc, lstStyleOf(mdoc, sp), st.lvl); d != nil {
 						st.sources = append(st.sources, famSource{
 							style: parseLocalFont(mdoc, d),
-							step: StyleStep{Source: SourceListStyle, Part: string(st.env.master),
+							step: StyleStep{Source: SourceListStyle, Part: string(st.env.Master),
 								Detail: st.phDetail() + " lvl=" + lvl + " master lstStyle"},
 						})
 					}
@@ -111,13 +111,13 @@ func (st *effState) appendListSources() {
 			}
 		}
 	}
-	if st.env.master != "" {
+	if st.env.Master != "" {
 		if mdoc := p.masterDoc(st.env); mdoc != nil {
 			if ts := textStyleNode(mdoc, st.class); ts != nil {
 				if d := defRPrAtLevel(mdoc, ts, st.lvl); d != nil {
 					st.sources = append(st.sources, famSource{
 						style: parseLocalFont(mdoc, d),
-						step: StyleStep{Source: SourceListStyle, Part: string(st.env.master),
+						step: StyleStep{Source: SourceListStyle, Part: string(st.env.Master),
 							Detail: "txStyles " + string(st.class) + "Style lvl=" + lvl},
 					})
 				}

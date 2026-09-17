@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"fmt"
+	"github.com/F31/go-pptx/internal/document/style"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -141,7 +142,7 @@ func (s *shapeNode) StyleMatrixRefs() ([]StyleMatrixRef, []Diagnostic, error) {
 }
 
 // themeMatrixEntry 返回主题 fmtScheme 中对应下标条目的填充元素名。
-func (p *Presentation) themeMatrixEntry(env *styleEnv, kind MatrixRefKind, idx int32) (entry string, resolved bool) {
+func (p *Presentation) themeMatrixEntry(env *style.Env, kind MatrixRefKind, idx int32) (entry string, resolved bool) {
 	tdoc := p.themeDoc(env)
 	if tdoc == nil || idx < 1 {
 		return "", false

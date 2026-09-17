@@ -362,8 +362,8 @@ func (dst *Presentation) matchReusePart(srcDoc *Presentation, srcPart opc.PartNa
 		for _, master := range dst.pk.RelatedParts(dst.main, opc.RelSlideMaster) {
 			candidates = append(candidates, dst.pk.RelatedParts(master, opc.RelSlideLayout)...)
 		}
-	case relNotesMaster:
-		candidates = dst.pk.RelatedParts(dst.main, relNotesMaster)
+	case opc.RelNotesMaster:
+		candidates = dst.pk.RelatedParts(dst.main, opc.RelNotesMaster)
 	default:
 		return "", false, nil
 	}
@@ -387,7 +387,7 @@ func (dst *Presentation) matchReusePart(srcDoc *Presentation, srcPart opc.PartNa
 // reuse/backref/media/notes/chart/workbook/unknown。
 func classifyCloneRel(relType, container string) string {
 	switch relType {
-	case opc.RelSlideLayout, relNotesMaster:
+	case opc.RelSlideLayout, opc.RelNotesMaster:
 		return "reuse"
 	case relImage, relAudio, relVideo, relMedia, relMedia2007:
 		return "media"
@@ -415,7 +415,7 @@ func classifyCloneRel(relType, container string) string {
 	return "unknown"
 }
 
-// 媒体关系类型常量（relImage 见 media.go、relNotesMaster 见 notes.go）。
+// 媒体关系类型常量（relImage 见 media.go、opc.RelNotesMaster 见 notes.go）。
 const (
 	relAudio = opc.RelTypePrefix + "audio"
 	relVideo = opc.RelTypePrefix + "video"
