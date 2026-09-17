@@ -35,3 +35,9 @@ corpus-replay.log
 # Python 工具缓存
 __pycache__/
 *.pyc
+
+# ECMA-376 XSD 缓存（scripts/gen/schema/fetch.sh 下载物；生成物入库）
+/internal/ooxml/schema/.xsd/
+
+# scripts/gen/schema 生成器二进制（go build ./scripts/gen/schema 会落到 CWD）
+/schema

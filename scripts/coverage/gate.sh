@@ -44,6 +44,7 @@ FLOORS=(
   "github.com/F31/go-pptx/internal/bind=90"
   "github.com/F31/go-pptx/internal/diag=90"
   "github.com/F31/go-pptx/internal/errs=90"
+  "github.com/F31/go-pptx/internal/ooxml/schema=90"
   "github.com/F31/go-pptx/internal/archlint=85"
   "github.com/F31/go-pptx/internal/engine=85"
   "github.com/F31/go-pptx/internal/document/geometry=90"
@@ -61,6 +62,7 @@ SKIP=(
   "github.com/F31/go-pptx/internal/ooxmlns"   # 纯命名空间常量，无可测语句
   "github.com/F31/go-pptx/scripts/gen_audio"  # 一次性生成工具（package main）
   "github.com/F31/go-pptx/scripts/gen_media"  # 一次性生成工具（package main）
+  "github.com/F31/go-pptx/scripts/gen/schema" # XSD→Go 生成器（package main；见 ADR-030 Step 1）
 )
 
 tags_flag=()

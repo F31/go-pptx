@@ -218,6 +218,11 @@ internal/ooxmlns / textmap / audioprobe / videoprobe -> (无 go-pptx 依赖)
 - **Step 6（同日）**：新建 `internal/archlint`（std-lib 依赖方向校验），
   CI 经 `go test` 执行；当前模块全合规（临时例外 `internal/ir`、
   `internal/engine` 登记在案）
+- **Step 1（同日）**：ooxml 生成管线落地——`scripts/gen/schema`（std-lib
+  XSD→Go）+ `internal/ooxml/schema`（Transitional schema，只读投影，100%）。
+  输入源更正为 ECMA-376 **Part 4 Transitional**（`schemas.openxmlformats.org`），
+  非 Part 1 的 Strict（`purl.oclc.org`）。`internal/ir` 改为只吃该 schema 的
+  真改造仍待办（现 import `pptx`，见上）
 
 当前导入路径：**`github.com/F31/go-pptx/pptx`**（breaking change，
 v2.0 一次性迁移）。

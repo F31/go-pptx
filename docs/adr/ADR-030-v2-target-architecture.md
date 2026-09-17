@@ -112,6 +112,10 @@ internal/diag / internal/capa ─→ 仅被门面与工具消费
 1. **立 `ooxml/schema` 生成管线**（只读投影，见机制 2；最慢、最独立，可并行推进）。
    _2026-09-16 实测：ECMA-376 官方 XSD 下载链接失效，输入获取待解——本步**不阻塞**
    逐域搬迁，先并行推进第 2 步。_
+   _**2026-09-17 更新：输入已解**——需的是 **Transitional** 而非 Strict；Part 4
+   （`ECMA-376-4_5th_edition_december_2016.zip` → `OfficeOpenXML-XMLSchema-Transitional.zip`）
+   使用 `schemas.openxmlformats.org` 命名空间（与真实 PPTX 一致），Part 1 附的 Strict
+   用 `purl.oclc.org`，不可用。管线已落地，见下文「ooxml 生成管线」。_
 2. **逐域搬迁**：`geometry` → `style` → `text` → `media` → `table/chart` → `bind`，每域一个 PR，白盒测试随行（ADR-016 陷阱免疫）。
 3. **收敛门面**：根包 → `pptx/` 子包（唯一的 breaking 点），同步迁移 `api_surface_test`；中间态按验收口径 §2 维护 golden。
 4. **收编/处置顶层包**：`ir/` 改造入 `internal/ir`（**依赖第 3 步门面收敛**——现 import 根包，须先有 `pptx/` 门面可依赖）；`render/` **保留**（有意发布的公共契约，见需求边界表；非意外死代码）。
@@ -605,6 +609,35 @@ std-lib 自建规则包（零新依赖），`archlint_test.go` 调 `go list` 取
 
 - 守恒：`go test ./...` 26/26 + corpus 26；vet/gofmt clean；golden 不变；
   gate PASS
+
+### ooxml 生成管线（2026-09-17，演进第 1 步落地）
+
+- **输入获取（阻塞点已解）**：ECMA-376 第 5 版 **Part 4** 附
+  `OfficeOpenXML-XMLSchema-Transitional.zip`（26 XSD，`schemas.openxmlformats.org`
+  命名空间）。此前误取 Part 1 的 **Strict**（`purl.oclc.org`），故"链接失效/
+  命名空间不符"。`scripts/gen/schema/fetch.sh` 负责下载并解包到
+  `internal/ooxml/schema/.xsd/`（.gitignore 忽略）。
+- **生成器**：`scripts/gen/schema`（**仅 std-lib**：encoding/xml + go/format）：
+  - 解析 `complexType`（含 `complexContent/extension` 展平继承）、
+    `simpleType`（restriction/enumeration → `type ST_ string` + 常量）、
+    `group` 引用内联、`sequence/choice/all` 粒子、`minOccurs/maxOccurs`
+    （含组/choice 的 unbounded → 切片）、`attribute`。
+  - 类型名按命名空间短前缀消歧（`P_`/`A_`/`S_`/`R_`/`C_`/`CP_`/`DV_`/`EP_`）；
+    跨命名空间未加载类型与匿名内联 complexType、`xsd:any` 退化为 `*RawElem`。
+  - 默认只生成 PPTX 只读投影相关的 8 个命名空间（`-only` 可扩）。
+  - struct 字段去重、复杂类型统一指针（避免非法递归值类型）。
+- **生成物**：`internal/ooxml/schema/zz_generated_*.go`（8 文件 ≈7.1k 行，入库）；
+  手写 `doc.go`（RawElem + go:generate）与 `decode.go`
+  （`Unmarshal`/`DecodeSlide|SlideLayout|SlideMaster|Presentation`）。
+- **硬约束遵守**：生成类型仅用于 `encoding/xml` 只读投影（`decode_test` 用真实
+  幻灯片 XML 验证 `p:sld → P_CT_Slide → spTree.sp[].txBody.p[].r[].t` 投影链），
+  未进入任何写路径。
+- **门槛**：`internal/ooxml/schema` 入 gate `FLOORS=90`（实测 **100%**）；
+  生成器 `scripts/gen/schema` 入 `SKIP`（package main）。
+- **后续（未完成）**：`internal/ir` 由「import 门面」重写为「只吃
+  `internal/ooxml/schema`」（演进第 4 步的真改造）；逐步以生成类型替换手写
+  `*_parse.go`/nodeStep 路径；补齐 `xsd:any`/跨命名空间复杂类型与 p14/morph 扩展。
+- 守恒：`go test ./...` 27/27 + corpus 27；vet/gofmt clean；golden 不变；gate PASS
 
 ## 参考
 

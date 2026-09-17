@@ -12,6 +12,7 @@ This document tracks the 1.x coverage-improvement work that was deferred from th
 | internal/document/table | 94.1% | v2.0: 表格域切片 1（逻辑网格 + 单元格纯辅助） |
 | internal/engine | 92.3% | v2.0: 编排层起步（CLI/WASM 共享 Inspect/Validate/Capability） |
 | internal/archlint | 100.0% | v2.0: CI 依赖方向校验（ADR-030 机制 4） |
+| internal/ooxml/schema | 100.0% | v2.0: Step 1 XSD→Go 生成管线（Transitional，只读投影） |
 | internal/bind | 92.1% | v2.0: 绑定域切片 1（Member/AsSlice/Truthy/FormatBindValue） |
 
 ## Current Snapshot
@@ -134,6 +135,7 @@ python3 -m py_compile scripts/gen_corpus/corpus.py
 | `internal/document/text` | 90% | v2.0 域搬迁 4（文本域：字符格式 + bodyPr/字段/段落，实测 94.0%） |
 | `internal/engine` | 85% | v2.0 编排层（CLI/WASM 共享核心，实测 92.3%） |
 | `internal/archlint` | 85% | v2.0 CI 依赖方向校验（实测 100%） |
+| `internal/ooxml/schema` | 90% | v2.0 Step 1 XSD→Go 生成（实测 100%） |
 | `internal/document/media` | 90% | v2.0 域搬迁 5 切片 1（媒体输入契约/图片探测，实测 95.8%） |
 | `internal/document/table` | 90% | v2.0 域搬迁 6 切片 1（逻辑网格/单元格辅助，实测 94.1%） |
 
