@@ -4,10 +4,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	textpkg "github.com/F31/go-pptx/internal/document/text"
-	"github.com/F31/go-pptx/internal/textmap"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	textpkg "github.com/F31/go-pptx/v2/internal/document/text"
+	"github.com/F31/go-pptx/v2/internal/textmap"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 TEXT-02 的跨 Run 替换与整批变更（方案 §7.2）：

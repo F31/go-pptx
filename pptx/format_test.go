@@ -3,11 +3,11 @@ package pptx
 import (
 	"bytes"
 	"errors"
-	"github.com/F31/go-pptx/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/document/style"
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // formatSlideBody 含一组覆盖各深度项的形状：

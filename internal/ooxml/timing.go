@@ -1,7 +1,7 @@
 package ooxml
 
 import (
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是时间轴投影（IR HasTiming / TIMIR-01 原始字节）：以 xmlstore

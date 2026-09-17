@@ -15,19 +15,19 @@ Current Go package inventory:
 
 | Package | Role | Go files | Test files |
 |---|---:|---:|---:|
-| `github.com/F31/go-pptx` | Public SDK facade plus most domain implementation | 41 | 34 |
-| `github.com/F31/go-pptx/internal/opc` | OPC package loading, relationships, content types, save planning | 9 | 5 |
-| `github.com/F31/go-pptx/internal/xmlstore` | XML scanner, indexed tree, span patch engine | 6 | 5 |
-| `github.com/F31/go-pptx/internal/document` | Minimal store interfaces for document edits | 1 | 0 |
-| `github.com/F31/go-pptx/internal/editplan` | Single-part and multi-part edit plans | 2 | 2 |
-| `github.com/F31/go-pptx/internal/textmap` | Text rune mapping and span location primitives | 1 | 1 |
-| `github.com/F31/go-pptx/internal/audioprobe` | Audio container probing | 4 | 1 |
-| `github.com/F31/go-pptx/internal/videoprobe` | Video container probing | 4 | 1 |
-| `github.com/F31/go-pptx/ir` | Read-only intermediate representation, timing IR, semantic diff | 3 | 3 |
-| `github.com/F31/go-pptx/cmd/pptx` | CLI workflow entry point | 12 | 5 |
-| `github.com/F31/go-pptx/wasm/check` | Browser/WASM check facade | 1 | 0 |
-| `github.com/F31/go-pptx/render` | Rendering placeholder package | 1 | 0 |
-| `github.com/F31/go-pptx/scripts/perf/summarize` | Performance summary helper | 1 | 0 |
+| `github.com/F31/go-pptx/v2` | Public SDK facade plus most domain implementation | 41 | 34 |
+| `github.com/F31/go-pptx/v2/internal/opc` | OPC package loading, relationships, content types, save planning | 9 | 5 |
+| `github.com/F31/go-pptx/v2/internal/xmlstore` | XML scanner, indexed tree, span patch engine | 6 | 5 |
+| `github.com/F31/go-pptx/v2/internal/document` | Minimal store interfaces for document edits | 1 | 0 |
+| `github.com/F31/go-pptx/v2/internal/editplan` | Single-part and multi-part edit plans | 2 | 2 |
+| `github.com/F31/go-pptx/v2/internal/textmap` | Text rune mapping and span location primitives | 1 | 1 |
+| `github.com/F31/go-pptx/v2/internal/audioprobe` | Audio container probing | 4 | 1 |
+| `github.com/F31/go-pptx/v2/internal/videoprobe` | Video container probing | 4 | 1 |
+| `github.com/F31/go-pptx/v2/ir` | Read-only intermediate representation, timing IR, semantic diff | 3 | 3 |
+| `github.com/F31/go-pptx/v2/cmd/pptx` | CLI workflow entry point | 12 | 5 |
+| `github.com/F31/go-pptx/v2/wasm/check` | Browser/WASM check facade | 1 | 0 |
+| `github.com/F31/go-pptx/v2/render` | Rendering placeholder package | 1 | 0 |
+| `github.com/F31/go-pptx/v2/scripts/perf/summarize` | Performance summary helper | 1 | 0 |
 
 ## Current Dependency Direction
 
@@ -133,24 +133,24 @@ helper 下沉为共享 internal 包。
 
 | Package | Role | Go files | Test files |
 |---|---:|---:|---:|
-| `github.com/F31/go-pptx` | Public SDK facade + domain implementation | 60 | 50 |
-| `github.com/F31/go-pptx/internal/opc` | OPC package loading, relationships, content types, save planning | 9 | 11 |
-| `github.com/F31/go-pptx/internal/xmlstore` | XML scanner, indexed tree, span patch engine, DOM helpers | 7 | 6 |
-| `github.com/F31/go-pptx/internal/chart` | Chart XML model, workbook, canonical validation, fragments | 11 | 4 |
-| `github.com/F31/go-pptx/internal/document` | Minimal store interfaces for document edits | 1 | 1 |
-| `github.com/F31/go-pptx/internal/editplan` | Single-part and multi-part edit plans | 2 | 2 |
-| `github.com/F31/go-pptx/internal/textmap` | Text rune mapping and span location primitives | 1 | 1 |
-| `github.com/F31/go-pptx/internal/audioprobe` | Audio container probing | 4 | 1 |
-| `github.com/F31/go-pptx/internal/videoprobe` | Video container probing | 4 | 1 |
-| `github.com/F31/go-pptx/internal/textutil` | XML patch/escape helpers (v2.0 试点) | 1 | 2 |
-| `github.com/F31/go-pptx/internal/bind` | Template marker scan/directive (v2.0 试点) | 1 | 1 |
-| `github.com/F31/go-pptx/internal/style` | Placeholder key/class resolution (v2.0 试点) | 1 | 1 |
-| `github.com/F31/go-pptx/internal/ooxmlns` | Shared OOXML/OPC namespace URIs | 1 | 0 |
-| `github.com/F31/go-pptx/ir` | Read-only intermediate representation, timing IR, semantic diff | 3 | 4 |
-| `github.com/F31/go-pptx/cmd/pptx` | CLI workflow entry point | 12 | 5 |
-| `github.com/F31/go-pptx/wasm/check` | Browser/WASM check facade | 1 | 1 |
-| `github.com/F31/go-pptx/render` | Rendering adapter **interface contract** (M8 RENDER-01; no impl) | 1 | 1 |
-| `github.com/F31/go-pptx/scripts/perf/summarize` | Performance summary helper | 1 | 1 |
+| `github.com/F31/go-pptx/v2` | Public SDK facade + domain implementation | 60 | 50 |
+| `github.com/F31/go-pptx/v2/internal/opc` | OPC package loading, relationships, content types, save planning | 9 | 11 |
+| `github.com/F31/go-pptx/v2/internal/xmlstore` | XML scanner, indexed tree, span patch engine, DOM helpers | 7 | 6 |
+| `github.com/F31/go-pptx/v2/internal/chart` | Chart XML model, workbook, canonical validation, fragments | 11 | 4 |
+| `github.com/F31/go-pptx/v2/internal/document` | Minimal store interfaces for document edits | 1 | 1 |
+| `github.com/F31/go-pptx/v2/internal/editplan` | Single-part and multi-part edit plans | 2 | 2 |
+| `github.com/F31/go-pptx/v2/internal/textmap` | Text rune mapping and span location primitives | 1 | 1 |
+| `github.com/F31/go-pptx/v2/internal/audioprobe` | Audio container probing | 4 | 1 |
+| `github.com/F31/go-pptx/v2/internal/videoprobe` | Video container probing | 4 | 1 |
+| `github.com/F31/go-pptx/v2/internal/textutil` | XML patch/escape helpers (v2.0 试点) | 1 | 2 |
+| `github.com/F31/go-pptx/v2/internal/bind` | Template marker scan/directive (v2.0 试点) | 1 | 1 |
+| `github.com/F31/go-pptx/v2/internal/style` | Placeholder key/class resolution (v2.0 试点) | 1 | 1 |
+| `github.com/F31/go-pptx/v2/internal/ooxmlns` | Shared OOXML/OPC namespace URIs | 1 | 0 |
+| `github.com/F31/go-pptx/v2/ir` | Read-only intermediate representation, timing IR, semantic diff | 3 | 4 |
+| `github.com/F31/go-pptx/v2/cmd/pptx` | CLI workflow entry point | 12 | 5 |
+| `github.com/F31/go-pptx/v2/wasm/check` | Browser/WASM check facade | 1 | 1 |
+| `github.com/F31/go-pptx/v2/render` | Rendering adapter **interface contract** (M8 RENDER-01; no impl) | 1 | 1 |
+| `github.com/F31/go-pptx/v2/scripts/perf/summarize` | Performance summary helper | 1 | 1 |
 
 根包非测试文件：基线 41 → 现 **60**（P3 拆分把 `text`/`bind`/`geomadv`/`format`/`style`
 各拆为多文件，新增数大于 3 个试点迁出数，故总数上升）；**平均行数 932 → 353**
@@ -193,7 +193,7 @@ v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
 
 根包 `package pptx` **整体移入 `pptx/` 子包**——模块根不再含任何 `.go`
 文件（`go.mod` / `LICENSE` / `README.md` 为元仓库根）。唯一正式公共导入
-路径变为 `github.com/F31/go-pptx/pptx`。
+路径变为 `github.com/F31/go-pptx/v2/pptx`。
 
 - 迁移：105 个根 `.go`（104 `pptx` + 1 `pptx_test`）`git mv` 入 `pptx/`；
   `assets/audio-speaker.png` 同迁 `pptx/assets/`（`//go:embed` 不能用
@@ -203,7 +203,7 @@ v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
   `scripts/gen_*`、`pptx/example_test.go`）由 `.../go-pptx` → `.../go-pptx/pptx`
 - 测试相对路径：6 个 corpus 测试的 `testdata/corpus` → `../testdata/corpus`
   （`testdata/` 按 ADR-030 目标布局保留在仓库根）
-- CI：`scripts/coverage/gate.sh` 门槛项 root → `github.com/F31/go-pptx/pptx=82`；
+- CI：`scripts/coverage/gate.sh` 门槛项 root → `github.com/F31/go-pptx/v2/pptx=82`；
   `fuzz.yml` 的 4 个 root fuzz 目标 `pkg: '.'` → `'./pptx'`
 - 守恒：api_surface golden 零变更（163 type / 40 Stable 段 / 60 符号 /
   131 方法 / 17 哨兵）；`go test ./...` 24/24 + corpus 24；go vet/gofmt
@@ -232,5 +232,5 @@ v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
     `ChartShape.DataWithDiagnostics()`/`chartShapesByID`——`projectShapes` 全路径
     零门面句柄读取。engine 覆盖率 91.1%，ooxml 覆盖率 92.7%。
 
-当前导入路径：**`github.com/F31/go-pptx/pptx`**（breaking change，
+当前导入路径：**`github.com/F31/go-pptx/v2/pptx`**（breaking change，
 v2.0 一次性迁移）。

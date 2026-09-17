@@ -3,7 +3,7 @@ package ooxml
 import (
 	"strconv"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // parseUint32 解析无符号十进制；失败返回 err（调用方按"未匹配"处理）。

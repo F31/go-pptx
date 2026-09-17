@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是主题/母版的**纯读取辅助**：clrMap、文本样式节点、字体 face 与

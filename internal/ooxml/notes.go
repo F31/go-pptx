@@ -3,8 +3,8 @@ package ooxml
 import (
 	"strings"
 
-	"github.com/F31/go-pptx/internal/ooxml/schema"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/ooxml/schema"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // 本文件是备注投影（TEXT-01 讲稿 / IR notes 字段）：以 schema 只读投影

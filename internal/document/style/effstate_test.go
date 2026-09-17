@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/diag"
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/errs"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/diag"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/errs"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 const (

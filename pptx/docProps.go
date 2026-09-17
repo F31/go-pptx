@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/F31/go-pptx/internal/editplan"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/editplan"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现方案 §5.1 文档级元数据（docProps，V2.6 P0）：

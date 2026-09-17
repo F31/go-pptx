@@ -1,7 +1,7 @@
 package chart
 
 import (
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // Canonical validation helpers（SetData 拒收非规范 chart Part）。

@@ -1,8 +1,8 @@
 # go-pptx API Reference
 
-> Public API of the **`pptx`** package — module `github.com/F31/go-pptx/pptx` (v2.0).
+> Public API of the **`pptx`** package — module `github.com/F31/go-pptx/v2/pptx` (v2.0).
 > Stability tiers: `Stable:` methods/types are frozen and backward compatible per ADR-015; all other exported symbols are management contract and may change.
-> Live godoc: `go doc github.com/F31/go-pptx/pptx`
+> Live godoc: `go doc github.com/F31/go-pptx/v2/pptx`
 
 ## Package Surface
 

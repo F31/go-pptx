@@ -28,43 +28,43 @@ GOFLAGS_TAGS="${GOFLAGS_TAGS:-}"   # 可选：传 "corpus" 走 corpus 口径
 
 # 包=门槛（%）—— 与 docs/coverage-roadmap.md 的门槛表一一对应。
 FLOORS=(
-  "github.com/F31/go-pptx/pptx=82"
-  "github.com/F31/go-pptx/cmd/pptx=85"
-  "github.com/F31/go-pptx/wasm/check=85"
-  "github.com/F31/go-pptx/scripts/perf/summarize=85"
-  "github.com/F31/go-pptx/internal/opc=90"
-  "github.com/F31/go-pptx/internal/xmlstore=90"
-  "github.com/F31/go-pptx/internal/videoprobe=90"
-  "github.com/F31/go-pptx/internal/textmap=90"
-  "github.com/F31/go-pptx/internal/editplan=90"
-  "github.com/F31/go-pptx/internal/audioprobe=86"
-  "github.com/F31/go-pptx/internal/chart=90"
-  "github.com/F31/go-pptx/internal/ir=85"
-  "github.com/F31/go-pptx/internal/textutil=90"
-  "github.com/F31/go-pptx/internal/bind=90"
-  "github.com/F31/go-pptx/internal/diag=90"
-  "github.com/F31/go-pptx/internal/errs=90"
-  "github.com/F31/go-pptx/internal/ooxml/schema=90"
-  "github.com/F31/go-pptx/internal/archlint=85"
-  "github.com/F31/go-pptx/internal/engine=85"
-  "github.com/F31/go-pptx/internal/ooxml=90"
-  "github.com/F31/go-pptx/internal/document/geometry=90"
-  "github.com/F31/go-pptx/internal/document/style=90"
-  "github.com/F31/go-pptx/internal/document/text=90"
-  "github.com/F31/go-pptx/internal/document/media=90"
-  "github.com/F31/go-pptx/internal/document/table=90"
-  "github.com/F31/go-pptx/internal/document/model=90"
-  "github.com/F31/go-pptx/render=84"
+  "github.com/F31/go-pptx/v2/pptx=82"
+  "github.com/F31/go-pptx/v2/cmd/pptx=85"
+  "github.com/F31/go-pptx/v2/wasm/check=85"
+  "github.com/F31/go-pptx/v2/scripts/perf/summarize=85"
+  "github.com/F31/go-pptx/v2/internal/opc=90"
+  "github.com/F31/go-pptx/v2/internal/xmlstore=90"
+  "github.com/F31/go-pptx/v2/internal/videoprobe=90"
+  "github.com/F31/go-pptx/v2/internal/textmap=90"
+  "github.com/F31/go-pptx/v2/internal/editplan=90"
+  "github.com/F31/go-pptx/v2/internal/audioprobe=86"
+  "github.com/F31/go-pptx/v2/internal/chart=90"
+  "github.com/F31/go-pptx/v2/internal/ir=85"
+  "github.com/F31/go-pptx/v2/internal/textutil=90"
+  "github.com/F31/go-pptx/v2/internal/bind=90"
+  "github.com/F31/go-pptx/v2/internal/diag=90"
+  "github.com/F31/go-pptx/v2/internal/errs=90"
+  "github.com/F31/go-pptx/v2/internal/ooxml/schema=90"
+  "github.com/F31/go-pptx/v2/internal/archlint=85"
+  "github.com/F31/go-pptx/v2/internal/engine=85"
+  "github.com/F31/go-pptx/v2/internal/ooxml=90"
+  "github.com/F31/go-pptx/v2/internal/document/geometry=90"
+  "github.com/F31/go-pptx/v2/internal/document/style=90"
+  "github.com/F31/go-pptx/v2/internal/document/text=90"
+  "github.com/F31/go-pptx/v2/internal/document/media=90"
+  "github.com/F31/go-pptx/v2/internal/document/table=90"
+  "github.com/F31/go-pptx/v2/internal/document/model=90"
+  "github.com/F31/go-pptx/v2/render=84"
 )
 
 # 显式豁免：无需百分比门槛的包（须注明理由，完整性校验据此放行）。
 SKIP=(
-  "github.com/F31/go-pptx/internal/document"  # 纯接口/类型声明，无可测语句
-  "github.com/F31/go-pptx/internal/ooxmlns"   # 纯命名空间常量，无可测语句
-  "github.com/F31/go-pptx/scripts/gen_audio"  # 一次性生成工具（package main）
-  "github.com/F31/go-pptx/scripts/gen_media"  # 一次性生成工具（package main）
-  "github.com/F31/go-pptx/scripts/gen/schema" # XSD→Go 生成器（package main；见 ADR-030 Step 1）
-  "github.com/F31/go-pptx/scripts/gen/apidoc" # API 参考文档生成器（package main）
+  "github.com/F31/go-pptx/v2/internal/document"  # 纯接口/类型声明，无可测语句
+  "github.com/F31/go-pptx/v2/internal/ooxmlns"   # 纯命名空间常量，无可测语句
+  "github.com/F31/go-pptx/v2/scripts/gen_audio"  # 一次性生成工具（package main）
+  "github.com/F31/go-pptx/v2/scripts/gen_media"  # 一次性生成工具（package main）
+  "github.com/F31/go-pptx/v2/scripts/gen/schema" # XSD→Go 生成器（package main；见 ADR-030 Step 1）
+  "github.com/F31/go-pptx/v2/scripts/gen/apidoc" # API 参考文档生成器（package main）
 )
 
 tags_flag=()

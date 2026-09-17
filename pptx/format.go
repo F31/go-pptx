@@ -4,7 +4,7 @@ package pptx
 // internal/document/style 的 ParseShapeLine（v2.0 域搬迁）。
 
 import (
-	"github.com/F31/go-pptx/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/document/style"
 )
 
 // Line 返回形状的线条（spPr/a:ln）；形状无线条返回 Specified=false。

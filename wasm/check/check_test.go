@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/pptx"
-	"github.com/F31/go-pptx/wasm/check"
+	"github.com/F31/go-pptx/v2/pptx"
+	"github.com/F31/go-pptx/v2/wasm/check"
 )
 
 // writeTestPptxBytes 用 pptx.New() 生成最小模板的 ZIP 字节流。

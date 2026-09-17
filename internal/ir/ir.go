@@ -6,7 +6,7 @@
 //   - IR 不嵌入媒体二进制；仅通过 Part 名 + Content Type 引用（v1）；
 //   - IR 的 schemaVersion 与 SDK 版本独立管理（SchemaVersion 常量），后续
 //     兼容性按 schemaVersion 而非 go-pptx 版本号判定；
-//   - 核心包（github.com/F31/go-pptx）不得导入本包；本包仅依赖公共 pptx
+//   - 核心包（github.com/F31/go-pptx/v2）不得导入本包；本包仅依赖公共 pptx
 //     与标准库。
 //
 // 典型用途：内容提取、调试、预览输入、跨格式适配（§18.3）、两份文档
@@ -32,7 +32,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/F31/go-pptx/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/document/model"
 )
 
 // SchemaVersion 是 IR 的当前 schema 版本号。本字段独立于 SDK 版本演进。

@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/diag"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/diag"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // ColorSpec 是字体颜色的原始规格（方案 §6.1：颜色保留原始 ColorSpec）。

@@ -8,11 +8,11 @@ package geometry
 import (
 	"strconv"
 
-	"github.com/F31/go-pptx/internal/diag"
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/diag"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // Optional 是共享可空值包装，定义在 internal/document/model。

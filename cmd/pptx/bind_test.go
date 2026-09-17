@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // cliBindDeck 生成一页含 `{{ title }}` 占位符形状的最小 PPTX。

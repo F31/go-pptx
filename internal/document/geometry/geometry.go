@@ -3,8 +3,8 @@
 package geometry
 
 import (
-	"github.com/F31/go-pptx/internal/diag"
-	"github.com/F31/go-pptx/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/diag"
+	"github.com/F31/go-pptx/v2/internal/document/model"
 )
 
 // EMU 是共享度量单位，定义在 internal/document/model。

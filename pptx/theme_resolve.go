@@ -1,8 +1,8 @@
 package pptx
 
 import (
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是 STYLE-01 的**主题/母版文档读取**（Presentation 绑定）。

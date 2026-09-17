@@ -3,7 +3,7 @@ package chart
 import (
 	"testing"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // TestChartAxisUnreadFieldNames 验证 FEAT-002 项 3 降置信子项的核心检测逻辑：

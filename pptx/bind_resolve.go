@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/bind"
+	"github.com/F31/go-pptx/v2/internal/bind"
 )
 
 // 本文件是模板绑定的**数据源解析与取值**：点分路径解析（resolve）、

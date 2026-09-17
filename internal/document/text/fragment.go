@@ -3,9 +3,9 @@ package text
 import (
 	"strings"
 
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // BodyRawShapeOK 检查 txBody 的子元素只属于 {a:bodyPr, a:lstStyle, a:p}

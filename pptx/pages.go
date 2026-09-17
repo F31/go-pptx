@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/editplan"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/editplan"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现页面 API 收口（方案 §20.1 + 实施计划 M2"页面 API 收口"）：

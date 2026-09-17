@@ -19,10 +19,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/diag"
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/diag"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // ---------- 三态开关 ----------

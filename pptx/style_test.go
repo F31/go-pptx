@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // ---------- STYLE-01 EffectiveFont 测试 ----------

@@ -1,6 +1,6 @@
 package pptx
 
-import "github.com/F31/go-pptx/internal/errs"
+import "github.com/F31/go-pptx/v2/internal/errs"
 
 // 稳定错误码（方案 §20.4）。
 //

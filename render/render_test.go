@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/pptx"
-	"github.com/F31/go-pptx/render"
+	"github.com/F31/go-pptx/v2/pptx"
+	"github.com/F31/go-pptx/v2/render"
 )
 
 // closeTracker 包装 io.ReadCloser，记录 Close 是否被调用。

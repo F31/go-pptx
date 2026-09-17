@@ -3,12 +3,12 @@ package text
 import (
 	"strings"
 
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/errs"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/errs"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // BuildFontPatches 计算应用 st 到 run 的补丁集（不修改 doc）。

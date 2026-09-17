@@ -1,8 +1,8 @@
 package ooxml
 
 import (
-	"github.com/F31/go-pptx/internal/ooxml/schema"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/ooxml/schema"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // 本文件是图表投影（CHART-01/CHART-02 R 档）：以 schema 只读投影

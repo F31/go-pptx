@@ -36,7 +36,7 @@ v2.0 允许破坏性变更——ADR-014"type alias re-export 收益≈0"的否�
 
 ## 决策
 
-**v2.0 目标：模块根变为元仓库（不含任何 `package pptx` 文件），唯一正式公共导入路径为 `github.com/F31/go-pptx/pptx`；全部实现移入 `internal/`，按功能垂直切片。**
+**v2.0 目标：模块根变为元仓库（不含任何 `package pptx` 文件），唯一正式公共导入路径为 `github.com/F31/go-pptx/v2/pptx`；全部实现移入 `internal/`，按功能垂直切片。**
 
 ### 目标布局
 
@@ -171,7 +171,7 @@ format 76.5 / chart 77.5 / theme 78.9 / clone 81.5 **应先补测试再搬**。
 
 ### 负面 / 风险
 
-- **破坏性变更**：`github.com/F31/go-pptx` → `github.com/F31/go-pptx/pptx`，所有 importer 需迁移（v2.0 一次性）；
+- **破坏性变更**：`github.com/F31/go-pptx/v2` → `github.com/F31/go-pptx/v2/pptx`，所有 importer 需迁移（v2.0 一次性）；
 - 搬迁量大（根包 63 文件 + 顶层 2 包 + 测试），review 与回归成本集中；
 - 历史文档/脚本中旧路径引用需随迁（ADR-029 已记录同名问题的处理口径）；
 - `ooxml/schema` 生成器是长期资产，短期投入大、见效慢——属 v2.0 周期的前期投入。
@@ -542,7 +542,7 @@ Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收�
 ### 门面收敛：根包 → `pptx/`（2026-09-17，演进第 3 步，唯一 breaking 点）
 
 模块根变为元仓库（无 `.go`）：根包 `package pptx` 整体移入 `pptx/`，
-唯一正式公共导入路径改为 **`github.com/F31/go-pptx/pptx`**。
+唯一正式公共导入路径改为 **`github.com/F31/go-pptx/v2/pptx`**。
 
 - 迁移：105 个根 `.go`（104 `pptx` + 1 `pptx_test`）`git mv` → `pptx/`；
   `assets/audio-speaker.png` → `pptx/assets/`（`//go:embed` 禁 `..`）
@@ -553,7 +553,7 @@ Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收�
 - 引用更新：24 importer → `.../go-pptx/pptx`；6 个 corpus 测试
   `testdata/corpus` → `../testdata/corpus`（`testdata/` 留在元仓库根，符合
   目标布局）
-- CI/gate：`gate.sh` root 门槛 → `github.com/F31/go-pptx/pptx=82`；
+- CI/gate：`gate.sh` root 门槛 → `github.com/F31/go-pptx/v2/pptx=82`；
   `fuzz.yml` 4 个 root fuzz 目标 `'.'` → `'./pptx'`；README import 示例同步
 - 守恒：api_surface golden 零变更（163 type / 40 Stable 段 / 60 符号 /
   131 方法 / 17 哨兵）；`go test ./...` 24/24 + corpus 24；vet/gofmt clean；

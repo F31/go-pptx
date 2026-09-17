@@ -3,9 +3,9 @@ package text
 import (
 	"strings"
 
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/errs"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/errs"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // FieldKind 是 a:fld@type 的白名单（TEXT-03 R 档全集）。未列入表内的

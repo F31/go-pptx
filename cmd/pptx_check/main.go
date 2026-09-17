@@ -20,7 +20,7 @@ import (
 	"context"
 	"syscall/js"
 
-	"github.com/F31/go-pptx/wasm/check"
+	"github.com/F31/go-pptx/v2/wasm/check"
 )
 
 func main() {

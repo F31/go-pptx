@@ -3,7 +3,7 @@ package pptx
 import (
 	"errors"
 
-	chartinternal "github.com/F31/go-pptx/internal/chart"
+	chartinternal "github.com/F31/go-pptx/v2/internal/chart"
 )
 
 // CHART-02 fragment / validator helpers。

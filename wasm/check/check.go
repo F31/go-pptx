@@ -19,9 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/F31/go-pptx/internal/engine"
-	"github.com/F31/go-pptx/internal/ir"
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/internal/engine"
+	"github.com/F31/go-pptx/v2/internal/ir"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // FailJSON 构造一个错误的 JSON 字符串（用于 syscall/js 顶层 fallback）。

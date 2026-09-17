@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/ooxml/schema"
+	"github.com/F31/go-pptx/v2/internal/ooxml/schema"
 )
 
 // OOXML 命名空间常量（与门面/internal/ooxmlns 对齐）。

@@ -2,7 +2,7 @@ package pptx
 
 import (
 	"fmt"
-	"github.com/F31/go-pptx/internal/bind"
+	"github.com/F31/go-pptx/v2/internal/bind"
 	"strings"
 )
 

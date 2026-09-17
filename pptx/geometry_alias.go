@@ -1,12 +1,12 @@
 package pptx
 
 import (
-	"github.com/F31/go-pptx/internal/document/geometry"
-	"github.com/F31/go-pptx/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/document/geometry"
+	"github.com/F31/go-pptx/v2/internal/document/model"
 )
 
 // v2.0：几何值类型定义在 internal/document/geometry，此处以 alias 暴露
-// （唯一公共导入路径仍为 github.com/F31/go-pptx/pptx）。
+// （唯一公共导入路径仍为 github.com/F31/go-pptx/v2/pptx）。
 
 // EMU 是 OOXML 长度单位（English Metric Unit，int64）。
 // 1 in = 914400 EMU，1 pt = 12700 EMU；形状坐标、尺寸均以 EMU 表示。

@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/editplan"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/editplan"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 TEXT-01 的备注 API（方案 §20.3/§10）：备注是独立 Part 与

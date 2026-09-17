@@ -6,10 +6,10 @@ package style
 import (
 	"strconv"
 
-	"github.com/F31/go-pptx/internal/diag"
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/diag"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // LineStyle 是形状线条（a:ln）的解析结果（E 档常用子集）。

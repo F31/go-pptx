@@ -3,9 +3,9 @@ package style
 import (
 	"errors"
 
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // ParseLocalFont 读取 rPr 中可安全表示的本地属性。

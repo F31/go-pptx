@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // p14 命名空间 URI（Microsoft PowerPoint 2010 扩展）。仅在 morph 等

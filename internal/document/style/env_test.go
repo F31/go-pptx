@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 func in(typ, target string) *opc.Relationship {

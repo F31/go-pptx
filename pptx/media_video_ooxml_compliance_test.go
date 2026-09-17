@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件守门 ADR-026：video 形状的 OOXML 合规性（与 ADR-025 的 audio 同源）。

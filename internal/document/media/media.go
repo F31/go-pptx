@@ -16,8 +16,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/errs"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/errs"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // MaxStagingBytes 限制单次媒体暂存复制的上限（512 MiB）。超过返回

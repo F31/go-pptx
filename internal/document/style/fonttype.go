@@ -3,7 +3,7 @@ package style
 import (
 	"fmt"
 
-	"github.com/F31/go-pptx/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/document/model"
 )
 
 // FontSize 是字号（单位 pt；XML 存储为百分之一 pt 的 a:sz val）。

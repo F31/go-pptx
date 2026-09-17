@@ -2,7 +2,7 @@
 
 > 2026-09-17 · released as `git tag v2.0.0`
 >
-> **v2.0 目标架构正式发布（ADR-030 全闭环）。唯一 breaking 点是公共导入路径迁移：`github.com/F31/go-pptx` → `github.com/F31/go-pptx/pptx`。公共 API 签名零变化（api_surface golden 不变），迁移为一次性 import 路径替换。同时发布英文 API 接口参考文档 `docs/api-reference.md`。**
+> **v2.0 目标架构正式发布（ADR-030 全闭环）。唯一 breaking 点是公共导入路径迁移：`github.com/F31/go-pptx/v2` → `github.com/F31/go-pptx/v2/pptx`。公共 API 签名零变化（api_surface golden 不变），迁移为一次性 import 路径替换。同时发布英文 API 接口参考文档 `docs/api-reference.md`。**
 
 ## Table of Contents
 
@@ -27,14 +27,14 @@ v2.0.0 交付 v2.0 目标架构（ADR-030）：把 go-pptx 从「根包即实现
 
 | Component | v1.0.x | v2.0.0 |
 |---|---|---|
-| Module | `github.com/F31/go-pptx` | `github.com/F31/go-pptx/pptx` |
-| Go code | `import "github.com/F31/go-pptx"` | `import "github.com/F31/go-pptx/pptx"` |
-| `go get` | `go get github.com/F31/go-pptx@v1.0.7` | `go get github.com/F31/go-pptx/pptx@v2.0.0` |
+| Module | `github.com/F31/go-pptx/v2` | `github.com/F31/go-pptx/v2/pptx` |
+| Go code | `import "github.com/F31/go-pptx/v2"` | `import "github.com/F31/go-pptx/v2/pptx"` |
+| `go get` | `go get github.com/F31/go-pptx/v2@v1.0.7` | `go get github.com/F31/go-pptx/v2/pptx@v2.0.0` |
 
 ```bash
 # 一次性替换所有 importer：
-grep -rl '"github.com/F31/go-pptx"' --include='*.go' <your-project> | xargs sed -i \
-  's|"github.com/F31/go-pptx"|"github.com/F31/go-pptx/pptx"|g'
+grep -rl '"github.com/F31/go-pptx/v2"' --include='*.go' <your-project> | xargs sed -i \
+  's|"github.com/F31/go-pptx/v2"|"github.com/F31/go-pptx/v2/pptx"|g'
 ```
 
 **无 API 签名变化**：类型、方法、常量、哨兵逐一对应（golden 锁定）。`render` 包仍为公共契约（`render → pptx/pptx`）。
@@ -120,4 +120,4 @@ CGO_ENABLED=0 go build ./...                              # native
 ## Feedback
 
 - GitHub Issues: https://github.com/F31/go-pptx/issues
-- 适用场景：所有在 v1.0.x 上构建的下游（升级至 `pptx/` 导入路径）；新项目直接 `go get github.com/F31/go-pptx/pptx@v2.0.0`。
+- 适用场景：所有在 v1.0.x 上构建的下游（升级至 `pptx/` 导入路径）；新项目直接 `go get github.com/F31/go-pptx/v2/pptx@v2.0.0`。

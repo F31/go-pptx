@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 func writeFileBytes(path string, b []byte) error {

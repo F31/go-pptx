@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/ir"
-	"github.com/F31/go-pptx/internal/ooxml"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/ir"
+	"github.com/F31/go-pptx/v2/internal/ooxml"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // 本文件是门面 → IR 的**适配器**（v2.0 演进：`internal/ir` 只吃

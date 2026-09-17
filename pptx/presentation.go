@@ -10,8 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // Presentation 是一份演示文稿的受控入口（方案 §5）。

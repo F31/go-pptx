@@ -1,6 +1,6 @@
 package pptx
 
-import "github.com/F31/go-pptx/internal/opc"
+import "github.com/F31/go-pptx/v2/internal/opc"
 
 // 本文件是 v2.0 门面 → 格式层的**只读桥**：让 internal 层能从
 // *Presentation 读取 Part 原始字节，用于 internal/ooxml 的 schema 只读

@@ -3,7 +3,7 @@ package pptx
 import (
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 func TestOptionConstructors(t *testing.T) {

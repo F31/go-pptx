@@ -4,9 +4,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/bind"
-	textpkg "github.com/F31/go-pptx/internal/document/text"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/bind"
+	textpkg "github.com/F31/go-pptx/v2/internal/document/text"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件补齐设计 §20.2 的形状创建与管理 API：AddTextBox / AddAutoShape /

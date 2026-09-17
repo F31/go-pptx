@@ -1,9 +1,9 @@
 package pptx
 
 import (
-	textpkg "github.com/F31/go-pptx/internal/document/text"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	textpkg "github.com/F31/go-pptx/v2/internal/document/text"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 TEXT-03（方案 V2.6 §2.3 矩阵"文本级 文本框高级项 / 字段

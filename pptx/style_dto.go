@@ -4,7 +4,7 @@ package pptx
 // alias 暴露（句柄/行为类型仍在根包，见 format_runprops/style_matrix 的
 // 薄委托）。
 
-import "github.com/F31/go-pptx/internal/document/style"
+import "github.com/F31/go-pptx/v2/internal/document/style"
 
 // ---------- Run 高级属性 ----------
 

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/F31/go-pptx/internal/audioprobe"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/audioprobe"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // minimalWAV 构造最小 WAV/PCM（16-bit mono 8 kHz，dataSize 字节）。

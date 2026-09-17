@@ -4,8 +4,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // parse + canonical helpers。所有函数零依赖根包类型，与 root 包同名私有

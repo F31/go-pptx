@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/errs"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/errs"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 func TestNSPrefix(t *testing.T) {

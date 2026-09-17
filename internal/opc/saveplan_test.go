@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // partHashes 读取包内全部 Part 的解压内容哈希（B1 比对基线）。

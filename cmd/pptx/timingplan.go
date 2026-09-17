@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // cmdRunTimingPlan 输出计时同步计划（§23.2）。只读，不修改原文件。

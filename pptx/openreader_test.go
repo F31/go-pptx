@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // TestOpenReader_MissingOfficeDocument 验证：opc.Load 成功（Content Types 与

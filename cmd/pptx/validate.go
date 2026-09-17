@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/engine"
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/internal/engine"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // cmdRunValidate 执行 L0 结构校验并输出诊断（§23.2）。

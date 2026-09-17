@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/F31/go-pptx/internal/document/media"
+	"github.com/F31/go-pptx/v2/internal/document/media"
 )
 
 // 本文件是 IMAGE-01 媒体输入契约的根包接线：v2.0 已将实现迁入

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // hiddenAudioDeck 构造一个含 sldId@show="0" 的 fixture：模拟 PowerPoint

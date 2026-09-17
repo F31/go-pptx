@@ -9,14 +9,14 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 
 ## [2.0.0] - 2026-09-17
 
-**BREAKING：公共导入路径迁移 `github.com/F31/go-pptx` → `github.com/F31/go-pptx/pptx`**
+**BREAKING：公共导入路径迁移 `github.com/F31/go-pptx/v2` → `github.com/F31/go-pptx/v2/pptx`**
 （ADR-030 演进第 3 步：门面收敛）。
 
 - 模块根变为元仓库（无 `package pptx` 文件）；公共面收窄为 `pptx/` 子包
 - 实现按功能垂直下沉 `internal/document/{model,style,geometry,text,media,table}`
   与 `internal/{bind,chart,opc,xmlstore,errs,diag,ooxmlns,…}`
-- 迁移方法：所有 importer 把 `"github.com/F31/go-pptx"` 改为
-  `"github.com/F31/go-pptx/pptx"`（一次性的 import 路径替换，无 API 签名变化）
+- 迁移方法：所有 importer 把 `"github.com/F31/go-pptx/v2"` 改为
+  `"github.com/F31/go-pptx/v2/pptx"`（一次性的 import 路径替换，无 API 签名变化）
 - api_surface golden 不变（163 type / 40 Stable 段 / 60 符号 / 131 方法 /
   17 哨兵）；`render` 仍为公共契约（`render → pptx/pptx`）
 - 新增英文 API 接口参考文档：`docs/api-reference.md`（AST 驱动生成器

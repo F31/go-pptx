@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	tablepkg "github.com/F31/go-pptx/internal/document/table"
-	"github.com/F31/go-pptx/internal/opc"
+	tablepkg "github.com/F31/go-pptx/v2/internal/document/table"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // ---------- TABLE-01：富文本表格、合并、样式子集（§9.1） ----------

@@ -1,8 +1,8 @@
 package editplan
 
 import (
-	"github.com/F31/go-pptx/internal/document"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/document"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // OpKind identifies a staged document operation.

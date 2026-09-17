@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // transitionDeck 建一个单页演示文稿。

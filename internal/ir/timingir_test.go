@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 const timingPar1 = `<?xml version="1.0" encoding="UTF-8"?>

@@ -5,7 +5,7 @@ package pptx
 // 并提供 shapeNode 上的薄委托。
 
 import (
-	"github.com/F31/go-pptx/internal/document/geometry"
+	"github.com/F31/go-pptx/v2/internal/document/geometry"
 )
 
 // 几何类型（GeometryKind/GeometryInfo/GeomAdjust/GeomGuide/GeomPath/

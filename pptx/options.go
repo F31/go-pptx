@@ -9,7 +9,7 @@
 package pptx
 
 import (
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // ---------- New（库内最小模板创建）----------

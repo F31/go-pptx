@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/ir"
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/internal/ir"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 func deck(t *testing.T) *pptx.Presentation {

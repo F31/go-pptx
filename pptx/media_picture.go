@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/editplan"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/editplan"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 IMAGE-01 的图片形状（方案 §8/§20.2 图片子集）：

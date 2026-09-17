@@ -4,9 +4,9 @@ package style
 // themeDoc/masterDoc 语义，经 DocFunc 解耦文档存储。
 
 import (
-	"github.com/F31/go-pptx/internal/diag"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/diag"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // themeDocOf 解析 Env 链上主题 Part 的文档（nil 表示不可达）。

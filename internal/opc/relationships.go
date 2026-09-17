@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 关系集合（.rels）解析与关系目标解析。

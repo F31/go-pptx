@@ -3,8 +3,8 @@ package pptx
 import (
 	"strings"
 
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 LAYOUT-01（方案 §2.3 + V2.6 §941 工作包收口）：

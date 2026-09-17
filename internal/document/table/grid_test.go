@@ -3,8 +3,8 @@ package table
 import (
 	"testing"
 
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 const dd = "http://schemas.openxmlformats.org/drawingml/2006/main"

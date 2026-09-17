@@ -313,7 +313,7 @@ func pkgNames(m map[string]*ast.Package) []string {
 }
 
 // modulePath 是 go.mod 的模块路径；用于识别根包 import 的模块内包。
-const modulePath = "github.com/F31/go-pptx"
+const modulePath = "github.com/F31/go-pptx/v2"
 
 // addAliasMethods 解析根包 import 的模块内包，把 alias Stable 类型的方法
 // 以其"公开别名名.方法名"补入 stableMethod——使 v2.0「DTO 定义在 internal、

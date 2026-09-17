@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // ---------- TPL-01：模板数据绑定引擎（ADR 013） ----------

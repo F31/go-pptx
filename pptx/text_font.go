@@ -1,10 +1,10 @@
 package pptx
 
 import (
-	"github.com/F31/go-pptx/internal/document/style"
-	textpkg "github.com/F31/go-pptx/internal/document/text"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	textpkg "github.com/F31/go-pptx/v2/internal/document/text"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是 TEXT-01 的**字符格式写入路径**：TextRun 的 a:rPr 读取/增量

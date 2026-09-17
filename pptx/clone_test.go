@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // 本文件覆盖 CLONE-01 验收：同文档受限复制的结构正确性、图表数据隔离

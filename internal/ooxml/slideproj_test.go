@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/ooxml/schema"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/ooxml/schema"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 func TestRelsPartName(t *testing.T) {

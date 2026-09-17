@@ -15,7 +15,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // SaveReport 是一次保存的结果。

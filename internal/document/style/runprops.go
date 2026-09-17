@@ -5,9 +5,9 @@ package style
 // Env + DocFunc（主题链文档只供 highlight 颜色解析）。
 
 import (
-	"github.com/F31/go-pptx/internal/diag"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/diag"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // RunProps 是 Run 字符属性（a:rPr）中 STYLE-01 之外的高级项解析结果。

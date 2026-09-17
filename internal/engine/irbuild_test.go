@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/F31/go-pptx/internal/ir"
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/internal/ir"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // irTestDeck 构建一个最小演示文稿，含三页可演示各种场景。

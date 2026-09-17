@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strconv"
 
-	tablepkg "github.com/F31/go-pptx/internal/document/table"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	tablepkg "github.com/F31/go-pptx/v2/internal/document/table"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 TABLE-01（方案 §9.1：富文本表格、合并、样式子集）。

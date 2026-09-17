@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/F31/go-pptx/internal/editplan"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/editplan"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 TPL-01 模板数据绑定引擎（方案 §2.4 创新方向，ADR 013）。

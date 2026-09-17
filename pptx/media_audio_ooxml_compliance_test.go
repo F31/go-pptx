@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // 本文件守门 ADR-025 修复的两处 OOXML 合规性问题。

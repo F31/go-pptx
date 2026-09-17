@@ -4,7 +4,7 @@ package pptx
 // internal/document/style 的 ParseRunProps（v2.0 域搬迁）。
 
 import (
-	"github.com/F31/go-pptx/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/document/style"
 )
 
 // AdvancedProps 返回 Run 的高级字符属性（§2.3 矩阵"Run 高级属性"

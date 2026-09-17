@@ -3,7 +3,7 @@ package bind
 import (
 	"strings"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是模板绑定的**占位符词法与 XML 补丁辅助**：内联模板 token 扫描

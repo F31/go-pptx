@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 const testPart = opc.PartName("/ppt/presentation.xml")

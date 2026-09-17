@@ -1,9 +1,9 @@
 package pptx
 
 import (
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 STYLE-01（方案 §6.1/§7.1）：Run 有效字体样式解析与

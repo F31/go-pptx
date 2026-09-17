@@ -4,7 +4,7 @@ package pptx
 // internal/document/style 的 ParseStyleMatrixRefs（v2.0 域搬迁）。
 
 import (
-	"github.com/F31/go-pptx/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/document/style"
 )
 
 // StyleMatrixRefs 返回形状的样式矩阵引用链（a:spPr/a:style）。

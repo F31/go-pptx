@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // minimalFontBytes 构造 6 字节最小"字体文件"——仅用于关系可达性断言，

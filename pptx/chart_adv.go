@@ -1,7 +1,7 @@
 package pptx
 
 import (
-	chartinternal "github.com/F31/go-pptx/internal/chart"
+	chartinternal "github.com/F31/go-pptx/v2/internal/chart"
 )
 
 // 本文件实现 CHART-02（方案 §9.2 后续 / §2.3 矩阵）：图表数据标签、

@@ -3,9 +3,9 @@
 package style
 
 import (
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // Spacing 是间距值（百分比为千分比或磅值）。

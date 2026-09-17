@@ -1,6 +1,6 @@
 package pptx
 
-import "github.com/F31/go-pptx/internal/diag"
+import "github.com/F31/go-pptx/v2/internal/diag"
 
 // Severity 是诊断严重级别（方案 §12.1）。
 //

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/F31/go-pptx/internal/engine"
+	"github.com/F31/go-pptx/v2/internal/engine"
 )
 
 // cmdRunCapability 输出 capability manifest（§23.2，CAP-01）。

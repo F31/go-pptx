@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/document"
-	"github.com/F31/go-pptx/internal/editplan"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/document"
+	"github.com/F31/go-pptx/v2/internal/editplan"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 func TestPresentationDocumentStoreAdapter(t *testing.T) {

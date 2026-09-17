@@ -8,8 +8,8 @@
 产品名    go-pptx
 许可证    Apache-2.0
 Go        >= 1.24
-模块路径  github.com/F31/go-pptx
-导入路径  github.com/F31/go-pptx/pptx
+模块路径  github.com/F31/go-pptx/v2
+导入路径  github.com/F31/go-pptx/v2/pptx
 ```
 
 [![CI](https://github.com/F31/go-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/F31/go-pptx/actions/workflows/ci.yml)
@@ -29,7 +29,7 @@ go-pptx 面向"**程序化加工 PPTX**"这一在 Go 生态中长期空缺的场
 ## 安装
 
 ```bash
-go get github.com/F31/go-pptx/pptx
+go get github.com/F31/go-pptx/v2/pptx
 ```
 
 ---
@@ -45,7 +45,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 func main() {
@@ -82,7 +82,7 @@ rep, _ := p.Bind(map[string]any{
 _ = rep // BindReport{...}
 ```
 
-> 完整 API 清单见包文档（`go doc github.com/F31/go-pptx/pptx`）与[实施状态跟踪](docs/go-pptx-实施状态跟踪.md)。
+> 完整 API 清单见包文档（`go doc github.com/F31/go-pptx/v2/pptx`）与[实施状态跟踪](docs/go-pptx-实施状态跟踪.md)。
 
 ---
 
@@ -160,7 +160,7 @@ SpanPatch 区间替换 + 锚定校验 + 冲突检测，同一变更集整体校�
 ```text
 ┌─────────────────────────────────────────────────────────┐
 │                    公共门面层                             │
-│               github.com/F31/go-pptx/pptx              │
+│               github.com/F31/go-pptx/v2/pptx              │
 │  Presentation · Slide · Shape · TextFrame · TableShape  │
 │  ChartShape · PictureShape · AudioShape · VideoShape    │
 │  （158 类型 · 131 Stable 方法 · 17 哨兵）               │

@@ -1,6 +1,6 @@
 package style
 
-import "github.com/F31/go-pptx/internal/opc"
+import "github.com/F31/go-pptx/v2/internal/opc"
 
 // Env 是从某 Part 出发可达的样式链环境（缺失环节留空）：
 // slide → slideLayout → slideMaster → theme；notesSlide → notesMaster → theme。

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // ---------- Shapes/Placeholders 与 §8.1（M2 页面 API + AltText AutoShape） ----------

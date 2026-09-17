@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	chartinternal "github.com/F31/go-pptx/internal/chart"
-	"github.com/F31/go-pptx/internal/editplan"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	chartinternal "github.com/F31/go-pptx/v2/internal/chart"
+	"github.com/F31/go-pptx/v2/internal/editplan"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 CHART-01（方案 §9.2）：受限三类（柱/折/饼）图表的创建、

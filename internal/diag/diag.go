@@ -2,7 +2,7 @@
 // 工具），不反向依赖域层实现。
 package diag
 
-import "github.com/F31/go-pptx/internal/document/model"
+import "github.com/F31/go-pptx/v2/internal/document/model"
 
 // Severity 是诊断严重级别（方案 §12.1）。
 //

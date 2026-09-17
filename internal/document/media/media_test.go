@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/errs"
+	"github.com/F31/go-pptx/v2/internal/errs"
 )
 
 func pngBytes(t *testing.T) []byte {

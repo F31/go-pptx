@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // 本文件把 ADR-025/026/027 系列暴露的"媒体四态"教训固化为**可执行契约**

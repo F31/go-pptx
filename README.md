@@ -8,8 +8,8 @@ A pure Go SDK for creating, editing, and auditing PowerPoint (OOXML / PPTX) file
 Product    go-pptx
 License    Apache-2.0
 Go         >= 1.24
-Module     github.com/F31/go-pptx
-Import     github.com/F31/go-pptx/pptx
+Module     github.com/F31/go-pptx/v2
+Import     github.com/F31/go-pptx/v2/pptx
 ```
 
 [![CI](https://github.com/F31/go-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/F31/go-pptx/actions/workflows/ci.yml)
@@ -29,7 +29,7 @@ Unlike libraries that read and rewrite documents entirely, go-pptx treats **OOXM
 ## Install
 
 ```bash
-go get github.com/F31/go-pptx/pptx
+go get github.com/F31/go-pptx/v2/pptx
 ```
 
 ---
@@ -45,7 +45,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 func main() {
@@ -82,7 +82,7 @@ rep, _ := p.Bind(map[string]any{
 _ = rep // BindReport{...}
 ```
 
-> Full API: `go doc github.com/F31/go-pptx/pptx` · [Implementation Status](docs/go-pptx-实施状态跟踪.md)
+> Full API: `go doc github.com/F31/go-pptx/v2/pptx` · [Implementation Status](docs/go-pptx-实施状态跟踪.md)
 
 ---
 
@@ -160,7 +160,7 @@ Weighted LCS + shape ID set similarity distinguishes "two revisions of the same 
 ```text
 ┌─────────────────────────────────────────────────────────┐
 │                    Public Facade                         │
-│                  github.com/F31/go-pptx/pptx            │
+│                  github.com/F31/go-pptx/v2/pptx            │
 │  Presentation · Slide · Shape · TextFrame · TableShape  │
 │  ChartShape · PictureShape · AudioShape · VideoShape    │
 │  (158 types · 131 Stable methods · 17 sentinels)        │

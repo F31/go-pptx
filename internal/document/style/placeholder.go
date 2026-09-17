@@ -1,8 +1,8 @@
 package style
 
 import (
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是 STYLE-01 的**占位符匹配与层级导航** + 文本样式归类：

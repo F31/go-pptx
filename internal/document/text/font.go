@@ -8,11 +8,11 @@ package text
 import (
 	"strings"
 
-	"github.com/F31/go-pptx/internal/document/model"
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/errs"
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/errs"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // rPr 子元素族别在 schema 中的排列序号（用于新子元素插入定位）。

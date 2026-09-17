@@ -7,7 +7,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // ---------- GEOM-01：单位、组矩阵、四角边界（方案 §5.2/§8） ----------

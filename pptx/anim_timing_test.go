@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // timingDeckWith 构造单页 sld，tail 附加在 </p:sld> 之前（用于注入 p:timing）。

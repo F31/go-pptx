@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	chartinternal "github.com/F31/go-pptx/internal/chart"
+	chartinternal "github.com/F31/go-pptx/v2/internal/chart"
 )
 
 // TestTranslateSentinel 覆盖 chartinternal 哨兵 → 根包哨兵的全部分支：

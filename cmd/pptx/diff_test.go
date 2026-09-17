@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // cliDiffDeck 生成一页含指定正文的 PPTX（zip 手术，同 cliBindDeck 的

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 命名空间常量（与根包同步）。const 不能跨包 alias，必须在内部维护一份。

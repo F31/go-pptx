@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // loadPkgBytes 便于测试中重新装载输出包。

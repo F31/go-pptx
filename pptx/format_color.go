@@ -1,8 +1,8 @@
 package pptx
 
 import (
-	"github.com/F31/go-pptx/internal/document/style"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是 M3 的**颜色解析与颜色变换全集**的根包接线。

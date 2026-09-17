@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/ir"
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/internal/ir"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // irRichCfg 是灵活的投影测试配置（notes/hidden/timing）。

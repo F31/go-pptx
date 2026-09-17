@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/document/style"
-	tablepkg "github.com/F31/go-pptx/internal/document/table"
-	textpkg "github.com/F31/go-pptx/internal/document/text"
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/textutil"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/document/style"
+	tablepkg "github.com/F31/go-pptx/v2/internal/document/table"
+	textpkg "github.com/F31/go-pptx/v2/internal/document/text"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/textutil"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现页面形状枚举与形状句柄（方案 §20.1/§20.2 页面 API 的

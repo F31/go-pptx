@@ -16,7 +16,7 @@ package archlint
 import "strings"
 
 // Module 是 go.mod 的模块路径。
-const Module = "github.com/F31/go-pptx"
+const Module = "github.com/F31/go-pptx/v2"
 
 // Facade 是唯一公共门面包路径。
 const Facade = Module + "/pptx"

@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/F31/go-pptx/internal/engine"
-	"github.com/F31/go-pptx/internal/ir"
+	"github.com/F31/go-pptx/v2/internal/engine"
+	"github.com/F31/go-pptx/v2/internal/ir"
 )
 
 // cmdRunInspect 输出页面、媒体、备注及能力信息（§23.2，方案 §18.3）。

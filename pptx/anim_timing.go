@@ -4,7 +4,7 @@
 package pptx
 
 import (
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // TimingTreeRaw 返回本页 p:timing 元素的原始字节（XML 文本）。

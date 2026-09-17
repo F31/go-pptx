@@ -10,7 +10,7 @@ package ooxml
 import (
 	"io"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // Open 以只读方式加载 OPC 包（包装 opc.Load，默认预算）。调用方负责关闭。

@@ -13,8 +13,8 @@ package engine
 import (
 	"context"
 
-	"github.com/F31/go-pptx/internal/ir"
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/v2/internal/ir"
+	"github.com/F31/go-pptx/v2/pptx"
 )
 
 // InspectResult 是 inspect 的域结果（不含 JSON 外壳/输入名）。

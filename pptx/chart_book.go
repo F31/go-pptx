@@ -3,7 +3,7 @@ package pptx
 import (
 	"strings"
 
-	chartinternal "github.com/F31/go-pptx/internal/chart"
+	chartinternal "github.com/F31/go-pptx/v2/internal/chart"
 )
 
 // 本文件实现 CHART-01 的嵌入工作簿适配（方案 §9.2）：

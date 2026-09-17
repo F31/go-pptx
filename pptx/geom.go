@@ -5,7 +5,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件实现 GEOM-01（方案 §5.2 单位、§8 组矩阵与四角边界）：

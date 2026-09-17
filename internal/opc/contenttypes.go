@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // Content Types（[Content_Types].xml）解析：Override（按 Part 精确覆盖）

@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/bind"
-	textpkg "github.com/F31/go-pptx/internal/document/text"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/bind"
+	textpkg "github.com/F31/go-pptx/v2/internal/document/text"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是模板绑定的**表格处理**：行循环模板行识别与逐格绑定（bindTable）、

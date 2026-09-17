@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // geomDeckWith 与 layoutDeckWith 同型，但仅定制 slide1.xml。返回的

@@ -2,11 +2,11 @@ package pptx
 
 import (
 	"bytes"
-	"github.com/F31/go-pptx/internal/document/style"
+	"github.com/F31/go-pptx/v2/internal/document/style"
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // 本文件覆盖 STYLE-02：颜色变换全集（ECMA EG_ColorTransform 28 种）与

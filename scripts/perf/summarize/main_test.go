@@ -52,7 +52,7 @@ func TestRunWritesReport(t *testing.T) {
 		"goos: linux",
 		"goarch: amd64",
 		"cpu: test-cpu",
-		"pkg: github.com/F31/go-pptx",
+		"pkg: github.com/F31/go-pptx/v2",
 		"BenchmarkPerfOpen/s001-text-8 1 1000 ns/op 1024 B/op 2 allocs/op 4096 pkg-bytes",
 		"BenchmarkPerfOpen/s001-text-8 1 2000 ns/op 2048 B/op 4 allocs/op 4096 pkg-bytes",
 		"BenchmarkPerfPeakHeap/s001-text-8 1 999 ns/op 3072 B/op 6 allocs/op 4096 pkg-bytes 8192 peak-heap-B",
@@ -83,7 +83,7 @@ func TestRunWritesSavePlanSection(t *testing.T) {
 		"# go-version: go version go1.27.0 windows/amd64",
 		"goos: windows",
 		"goarch: amd64",
-		"pkg: github.com/F31/go-pptx/internal/opc",
+		"pkg: github.com/F31/go-pptx/v2/internal/opc",
 		"BenchmarkSavePlanWriteCopyOriginal/3x8MiB-24 20 6428050 ns/op 206296 B/op 148 allocs/op",
 		"BenchmarkSavePlanWriteCopyOriginal/PeakHeap-24 20 6974470 ns/op 3189984 peak_heap_B 319030 B/op 150 allocs/op",
 	}, "\n")

@@ -28,18 +28,18 @@ Package snapshot (2026-09-12 re-measured after `6361bdd`, Windows/amd64 dev box)
 
 | Package | Coverage (2026-09-11) | Coverage (2026-09-12 morning) | Coverage (2026-09-12 afternoon, 5-package push) |
 |---|---:|---:|---:|
-| `github.com/F31/go-pptx` | 82.0% | **82.7%** | **82.8%** |
-| `github.com/F31/go-pptx/cmd/pptx` | 85.6% | **87.2%** | 87.2% |
-| `github.com/F31/go-pptx/internal/audioprobe` | 83.0% | **84.9%** | **88.4%** |
-| `github.com/F31/go-pptx/internal/editplan` | 81.8% | 81.8% | **100.0%** |
-| `github.com/F31/go-pptx/internal/opc` | 86.7% | 86.6% | **88.9% → 90.0%** |
-| `github.com/F31/go-pptx/internal/textmap` | 82.2% | 82.2% | **100.0%** |
-| `github.com/F31/go-pptx/internal/videoprobe` | 92.1% | **92.6%** | 92.6% |
-| `github.com/F31/go-pptx/internal/xmlstore` | 90.2% | **90.8%** | 90.8% |
-| `github.com/F31/go-pptx/internal/ir` | 86.2% | **87.0%** | 87.0% |
-| `github.com/F31/go-pptx/render` | 84.2% | 84.2% | 84.2% |
-| `github.com/F31/go-pptx/scripts/perf/summarize` | 86.4% | **89.5%** | 89.5% |
-| `github.com/F31/go-pptx/wasm/check` | 85.9% | **89.5%** | 89.5% |
+| `github.com/F31/go-pptx/v2` | 82.0% | **82.7%** | **82.8%** |
+| `github.com/F31/go-pptx/v2/cmd/pptx` | 85.6% | **87.2%** | 87.2% |
+| `github.com/F31/go-pptx/v2/internal/audioprobe` | 83.0% | **84.9%** | **88.4%** |
+| `github.com/F31/go-pptx/v2/internal/editplan` | 81.8% | 81.8% | **100.0%** |
+| `github.com/F31/go-pptx/v2/internal/opc` | 86.7% | 86.6% | **88.9% → 90.0%** |
+| `github.com/F31/go-pptx/v2/internal/textmap` | 82.2% | 82.2% | **100.0%** |
+| `github.com/F31/go-pptx/v2/internal/videoprobe` | 92.1% | **92.6%** | 92.6% |
+| `github.com/F31/go-pptx/v2/internal/xmlstore` | 90.2% | **90.8%** | 90.8% |
+| `github.com/F31/go-pptx/v2/internal/ir` | 86.2% | **87.0%** | 87.0% |
+| `github.com/F31/go-pptx/v2/render` | 84.2% | 84.2% | 84.2% |
+| `github.com/F31/go-pptx/v2/scripts/perf/summarize` | 86.4% | **89.5%** | 89.5% |
+| `github.com/F31/go-pptx/v2/wasm/check` | 85.9% | **89.5%** | 89.5% |
 
 **Full-repo weighted total: 84.4%** (re-measured 2026-09-12 afternoon; up from 83.2% on 2026-09-11 / 82.9% after COV-02).
 

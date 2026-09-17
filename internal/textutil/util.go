@@ -3,7 +3,7 @@ package textutil
 import (
 	"strings"
 
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // 本文件是文本模型的**通用 XML 补丁与转义辅助**：属性/元素删除补丁、

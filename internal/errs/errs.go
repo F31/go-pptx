@@ -5,7 +5,7 @@ package errs
 import (
 	"errors"
 
-	"github.com/F31/go-pptx/internal/document/model"
+	"github.com/F31/go-pptx/v2/internal/document/model"
 )
 
 // 稳定错误码（方案 §20.4）。

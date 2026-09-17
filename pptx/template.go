@@ -1,8 +1,8 @@
 package pptx
 
 import (
-	"github.com/F31/go-pptx/internal/ooxmlns"
-	"github.com/F31/go-pptx/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/ooxmlns"
+	"github.com/F31/go-pptx/v2/internal/opc"
 )
 
 // 本文件提供 New() 使用的库内合法最小模板（方案 §5：New() 使用库内合法

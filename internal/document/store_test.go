@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // methodCount 返回接口类型 T 的方法数（编译期取不到，只能反射）。

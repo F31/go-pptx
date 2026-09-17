@@ -1,8 +1,8 @@
 package document
 
 import (
-	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
+	"github.com/F31/go-pptx/v2/internal/opc"
+	"github.com/F31/go-pptx/v2/internal/xmlstore"
 )
 
 // PartStore is the minimal editing boundary used by higher-level semantic
