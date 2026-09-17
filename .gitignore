@@ -41,3 +41,4 @@ __pycache__/
 
 # scripts/gen/schema 生成器二进制（go build ./scripts/gen/schema 会落到 CWD）
 /schema
+/summarize
