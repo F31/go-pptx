@@ -447,13 +447,8 @@ func (s *Slide) lastVideoHandle(hasPoster bool) (*VideoShape, error) {
 		}
 		if hasVideoFile(doc, c) {
 			videoID = c.ID
-			if hasPoster {
-				if i+1 < len(root.Children) {
-					next := doc.Node(root.Children[i+1])
-					if next != nil && next.Local() == "pic" && !hasVideoFile(doc, next) {
-						posterID = next.ID
-					}
-				}
+			if p := posterPicAfter(doc, root, i, hasPoster); p != nil {
+				posterID = p.ID
 			}
 			break
 		}
@@ -480,6 +475,19 @@ func (s *Slide) lastVideoHandle(hasPoster bool) (*VideoShape, error) {
 // 这类重复实现导致 audio/video 两处各自漂移（ADR-025 / ADR-026）。
 func hasVideoFile(doc *xmlstore.XMLDocument, pic *xmlstore.NodeRecord) bool {
 	return picMediaKind(doc, pic) == "video"
+}
+
+// posterPicAfter 返回紧随第 i 个 pic 的相邻非视频 pic（当前实现仅看
+// i+1 紧邻位）；无 poster 需求或不存在时返回 nil。
+func posterPicAfter(doc *xmlstore.XMLDocument, root *xmlstore.NodeRecord, i int, wantPoster bool) *xmlstore.NodeRecord {
+	if !wantPoster || i+1 >= len(root.Children) {
+		return nil
+	}
+	next := doc.Node(root.Children[i+1])
+	if next == nil || next.Local() != "pic" || hasVideoFile(doc, next) {
+		return nil
+	}
+	return next
 }
 
 // findRoleForVideo 默认 main（未解析）。

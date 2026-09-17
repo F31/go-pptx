@@ -126,10 +126,9 @@ func ParseColorNode(doc *xmlstore.XMLDocument, clr *xmlstore.NodeRecord,
 		out.Spec = ColorSpec{Scheme: v}
 		scheme := v
 		if ClrMapIndirect(scheme) {
-			if m := MasterClrMap(masterDoc); m != nil {
-				if mapped, ok := m[scheme]; ok {
-					scheme = mapped
-				}
+			// MasterClrMap 恒非 nil：直接查表。
+			if mapped, ok := MasterClrMap(masterDoc)[scheme]; ok {
+				scheme = mapped
 			}
 		}
 		rgb, partial := SchemeRGB(themeDoc, scheme)

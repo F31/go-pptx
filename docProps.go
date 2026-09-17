@@ -188,14 +188,20 @@ func (p *Presentation) CoreProperties() (CoreProperties, error) {
 		}
 	}
 	// Company 是扩展属性：core.xml 存在时顺读 app.xml（缺失忽略）。
-	if appPart, ok2, err2 := p.rootRelTarget(relExtProps); err2 == nil && ok2 {
-		if doc2, err2 := p.docOf(appPart); err2 == nil {
-			if r2 := doc2.Root(); r2 != nil {
-				if co := childByNSLocal(doc2, r2, nsExtendedProps, "Company"); co != nil && len(co.Children) == 0 {
-					out.Company = NewOptional(textutil.XmlUnescape(string(doc2.ContentSlice(co))))
-				}
-			}
-		}
+	appPart, ok, err := p.rootRelTarget(relExtProps)
+	if err != nil || !ok {
+		return out, nil
+	}
+	appDoc, err := p.docOf(appPart)
+	if err != nil {
+		return out, nil
+	}
+	appRoot := appDoc.Root()
+	if appRoot == nil {
+		return out, nil
+	}
+	if co := childByNSLocal(appDoc, appRoot, nsExtendedProps, "Company"); co != nil && len(co.Children) == 0 {
+		out.Company = NewOptional(textutil.XmlUnescape(string(appDoc.ContentSlice(co))))
 	}
 	return out, nil
 }

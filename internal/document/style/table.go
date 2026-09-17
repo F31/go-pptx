@@ -685,8 +685,8 @@ func resolveColorSpec(doc *xmlstore.XMLDocument, fill *xmlstore.NodeRecord,
 		spec := ColorSpec{Scheme: v}
 		scheme := v
 		if ClrMapIndirect(scheme) {
-			m := MasterClrMap(masterDocOf(docs, env))
-			if mapped, ok := m[scheme]; ok {
+			// MasterClrMap 恒非 nil：直接查表。
+			if mapped, ok := MasterClrMap(masterDocOf(docs, env))[scheme]; ok {
 				scheme = mapped
 			}
 		}
