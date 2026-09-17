@@ -80,9 +80,9 @@ func stripXMLDecl(s string) string {
 
 func decodeTiming(t *testing.T, raw string) PageTiming {
 	t.Helper()
-	pt, err := projectTimingTree("/ppt/slides/slide1.xml", []byte(stripXMLDecl(raw)))
+	pt, err := ProjectTimingTree("/ppt/slides/slide1.xml", []byte(stripXMLDecl(raw)))
 	if err != nil {
-		t.Fatalf("projectTimingTree failed: %v", err)
+		t.Fatalf("ProjectTimingTree failed: %v", err)
 	}
 	return pt
 }
@@ -185,7 +185,7 @@ func TestTimingIR_OpaqueAndDiagnostics(t *testing.T) {
 }
 
 func TestTimingIR_EmptyInput(t *testing.T) {
-	pt, err := projectTimingTree("", nil)
+	pt, err := ProjectTimingTree("", nil)
 	if err != nil {
 		t.Errorf("nil input should not error: %v", err)
 	}
@@ -313,7 +313,7 @@ func xmlQName(prefix, local string) xmlstore.QName {
 
 func TestTimingIR_ParseError(t *testing.T) {
 	raw := []byte("<p:timing broken xml")
-	pt, err := projectTimingTree("/ppt/slides/slide1.xml", raw)
+	pt, err := ProjectTimingTree("/ppt/slides/slide1.xml", raw)
 	if err == nil {
 		t.Errorf("expected error for malformed XML")
 	}
@@ -390,7 +390,7 @@ func TestTimingIR_MultiTnLstDiagnose(t *testing.T) {
 // TIMIR_PARSE_ERR 不出现。
 func TestTimingIR_SelfClosingCondEmptyChildTnLst(t *testing.T) {
 	raw := `<p:timing><p:tnLst><p:par><p:cTn id="900000" dur="indefinite" nodeType="tmRoot"><p:stCondLst><p:cond evt="begin" delay="0"/></p:stCondLst><p:childTnLst></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`
-	pt, err := projectTimingTree("/ppt/slides/slide1.xml", []byte(raw))
+	pt, err := ProjectTimingTree("/ppt/slides/slide1.xml", []byte(raw))
 	if err != nil {
 		t.Fatalf("expected no parse error, got %v", err)
 	}
@@ -418,7 +418,7 @@ func TestTimingIR_SelfClosingCondEmptyChildTnLst(t *testing.T) {
 // childTnLst 也能完整保留子树（不再发生 cond 后续节点被吞的情况）。
 func TestTimingIR_SelfClosingCondFollowedBySubtree(t *testing.T) {
 	raw := `<p:timing><p:tnLst><p:par><p:cTn id="900000" dur="indefinite" nodeType="tmRoot"><p:stCondLst><p:cond evt="begin" delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="1" dur="indefinite"><p:childTnLst><p:anim><p:cTn id="2" dur="500"/><p:tgtEl><p:spTgt spid="42"/></p:tgtEl></p:anim></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`
-	pt, err := projectTimingTree("/ppt/slides/slide1.xml", []byte(raw))
+	pt, err := ProjectTimingTree("/ppt/slides/slide1.xml", []byte(raw))
 	if err != nil {
 		t.Fatalf("expected no parse error, got %v", err)
 	}
@@ -470,7 +470,7 @@ func TestTimingIR_DepthLimitReportsError(t *testing.T) {
 		b.WriteString(`</p:childTnLst></p:cTn>`)
 	}
 	b.WriteString(`</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`)
-	pt, err := projectTimingTree("/ppt/slides/slide1.xml", []byte(b.String()))
+	pt, err := ProjectTimingTree("/ppt/slides/slide1.xml", []byte(b.String()))
 	if err != nil {
 		t.Fatalf("reasonable depth must not error, got %v", err)
 	}

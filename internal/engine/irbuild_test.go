@@ -1,4 +1,4 @@
-package ir
+package engine
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/F31/go-pptx/internal/ir"
 	"github.com/F31/go-pptx/pptx"
 )
 
@@ -33,12 +34,12 @@ func irTestDeck(t *testing.T) *pptx.Presentation {
 func TestFromPresentation_Basic(t *testing.T) {
 	p := irTestDeck(t)
 	defer p.Close()
-	doc, err := FromPresentation(p, DefaultOptions())
+	doc, err := ProjectIR(p, ir.DefaultOptions())
 	if err != nil {
 		t.Fatalf("FromPresentation: %v", err)
 	}
-	if doc.SchemaVersion != SchemaVersion {
-		t.Errorf("schemaVersion = %q, want %q", doc.SchemaVersion, SchemaVersion)
+	if doc.SchemaVersion != ir.SchemaVersion {
+		t.Errorf("schemaVersion = %q, want %q", doc.SchemaVersion, ir.SchemaVersion)
 	}
 	if len(doc.Pages) != 2 {
 		t.Errorf("pages = %d, want 2", len(doc.Pages))
@@ -59,7 +60,7 @@ func TestFromPresentation_Basic(t *testing.T) {
 func TestDocument_MarshalRoundtrip(t *testing.T) {
 	p := irTestDeck(t)
 	defer p.Close()
-	doc, err := FromPresentation(p, DefaultOptions())
+	doc, err := ProjectIR(p, ir.DefaultOptions())
 	if err != nil {
 		t.Fatalf("FromPresentation: %v", err)
 	}
@@ -67,12 +68,12 @@ func TestDocument_MarshalRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-	if !bytes.Contains(data, []byte(`"schemaVersion":"`+SchemaVersion+`"`)) {
+	if !bytes.Contains(data, []byte(`"schemaVersion":"`+ir.SchemaVersion+`"`)) {
 		t.Errorf("marshal missing schemaVersion: %s", data)
 	}
-	out, err := Unmarshal(data)
+	out, err := ir.Unmarshal(data)
 	if err != nil {
-		t.Fatalf("Unmarshal: %v", err)
+		t.Fatalf("ir.Unmarshal: %v", err)
 	}
 	if out.SchemaVersion != doc.SchemaVersion {
 		t.Errorf("roundtrip schemaVersion = %q, want %q", out.SchemaVersion, doc.SchemaVersion)
@@ -84,25 +85,25 @@ func TestDocument_MarshalRoundtrip(t *testing.T) {
 
 func TestUnmarshal_RejectsMismatchedSchemaVersion(t *testing.T) {
 	bad := []byte(`{"schemaVersion":"go-pptx.ir/9999.0","pages":[]}`)
-	if _, err := Unmarshal(bad); err == nil || !strings.Contains(err.Error(), "schemaVersion") {
+	if _, err := ir.Unmarshal(bad); err == nil || !strings.Contains(err.Error(), "schemaVersion") {
 		t.Fatalf("expected schemaVersion error, got %v", err)
 	}
 	missing := []byte(`{"pages":[]}`)
-	if _, err := Unmarshal(missing); err == nil {
+	if _, err := ir.Unmarshal(missing); err == nil {
 		t.Fatal("expected error for missing schemaVersion")
 	}
 }
 
 func TestFromPresentation_PageHiddenProjection(t *testing.T) {
-	// 验证 IR 默认 IncludeHidden=true 时 Page.Hidden 三态：
+	// 验证 IR 默认 IncludeHidden=true 时 ir.Page.Hidden 三态：
 	//   - 新建未显式标记的 page → &false（缺省即可见，已读到）；
 	//   - IncludeHidden=false → nil（opt-out）。
 	// sldId@show="0" 真隐藏路径由 slide_test.go::TestSlide_Hidden_AfterMark 覆盖
-	// （Slide.Hidden() 是 Page.Hidden 的唯一来源；IR 不重复读 OOXML）。
+	// （Slide.Hidden() 是 ir.Page.Hidden 的唯一来源；IR 不重复读 OOXML）。
 	t.Run("default_yields_pointer_false", func(t *testing.T) {
 		p := irTestDeck(t)
 		defer p.Close()
-		doc, err := FromPresentation(p, DefaultOptions())
+		doc, err := ProjectIR(p, ir.DefaultOptions())
 		if err != nil {
 			t.Fatalf("FromPresentation: %v", err)
 		}
@@ -111,7 +112,7 @@ func TestFromPresentation_PageHiddenProjection(t *testing.T) {
 		}
 		h := doc.Pages[0].Hidden
 		if h == nil {
-			t.Fatal("Page.Hidden should be non-nil when IncludeHidden=true (default)")
+			t.Fatal("ir.Page.Hidden should be non-nil when IncludeHidden=true (default)")
 		}
 		if *h {
 			t.Error("fresh deck has no hidden pages; *Hidden should be false")
@@ -120,22 +121,22 @@ func TestFromPresentation_PageHiddenProjection(t *testing.T) {
 	t.Run("opt_out_yields_nil", func(t *testing.T) {
 		p := irTestDeck(t)
 		defer p.Close()
-		opts := DefaultOptions()
+		opts := ir.DefaultOptions()
 		opts.IncludeHidden = false
-		doc, err := FromPresentation(p, opts)
+		doc, err := ProjectIR(p, opts)
 		if err != nil {
 			t.Fatalf("FromPresentation: %v", err)
 		}
 		for i, pg := range doc.Pages {
 			if pg.Hidden != nil {
-				t.Errorf("page %d: Page.Hidden should be nil when IncludeHidden=false, got %v", i, *pg.Hidden)
+				t.Errorf("page %d: ir.Page.Hidden should be nil when IncludeHidden=false, got %v", i, *pg.Hidden)
 			}
 		}
 	})
 }
 
 func TestOptions_Defaults(t *testing.T) {
-	o := DefaultOptions()
+	o := ir.DefaultOptions()
 	if !o.IncludeNotes {
 		t.Error("IncludeNotes default should be true")
 	}
@@ -169,7 +170,7 @@ func TestFromPresentation_AfterChartEnsuresTypedKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddChart: %v", err)
 	}
-	doc, err := FromPresentation(p, DefaultOptions())
+	doc, err := ProjectIR(p, ir.DefaultOptions())
 	if err != nil {
 		t.Fatalf("FromPresentation: %v", err)
 	}
@@ -219,7 +220,7 @@ func TestFromPresentation_TextShapeProjection(t *testing.T) {
 	if err := tb.SetAltText("alt text"); err != nil {
 		t.Fatalf("SetAltText: %v", err)
 	}
-	doc, err := FromPresentation(p, DefaultOptions())
+	doc, err := ProjectIR(p, ir.DefaultOptions())
 	if err != nil {
 		t.Fatalf("FromPresentation: %v", err)
 	}
@@ -258,7 +259,7 @@ func TestFromPresentation_CorePropertiesProjection(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("SetCoreProperties: %v", err)
 	}
-	doc, err := FromPresentation(p, DefaultOptions())
+	doc, err := ProjectIR(p, ir.DefaultOptions())
 	if err != nil {
 		t.Fatalf("FromPresentation: %v", err)
 	}
@@ -280,13 +281,13 @@ func TestFromPresentation_CorePropertiesProjection(t *testing.T) {
 }
 
 func TestSortDiagsOrdersSeverityCodePart(t *testing.T) {
-	diags := Diagnostics{
-		{Severity: SevInfo, Code: "B", Part: "/b"},
-		{Severity: SevError, Code: "C", Part: "/c"},
-		{Severity: SevWarning, Code: "B", Part: "/z"},
-		{Severity: SevWarning, Code: "A", Part: "/a"},
+	diags := ir.Diagnostics{
+		{Severity: ir.SevInfo, Code: "B", Part: "/b"},
+		{Severity: ir.SevError, Code: "C", Part: "/c"},
+		{Severity: ir.SevWarning, Code: "B", Part: "/z"},
+		{Severity: ir.SevWarning, Code: "A", Part: "/a"},
 	}
-	sortDiags(diags)
+	ir.SortDiagnostics(diags)
 	got := []string{
 		string(diags[0].Severity) + ":" + diags[0].Code + ":" + diags[0].Part,
 		string(diags[1].Severity) + ":" + diags[1].Code + ":" + diags[1].Part,

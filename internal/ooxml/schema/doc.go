@@ -26,9 +26,10 @@ import "encoding/xml"
 //go:generate go run ../../../scripts/gen/schema -xsd .xsd -out .
 
 // RawElem 承载未能映射到具体生成类型的元素（跨命名空间未加载的复杂
-// 类型、xsd:any、匿名内联 complexType）。只读投影时保留原始 innerxml，
-// 由调用方按需二次解析。
+// 类型、xsd:any、匿名内联 complexType）。只读投影时保留原始 innerxml 与
+// 属性，由调用方按需二次解析。
 type RawElem struct {
 	XMLName xml.Name
-	Inner   string `xml:",innerxml"`
+	Attrs   []xml.Attr `xml:",any,attr"`
+	Inner   string     `xml:",innerxml"`
 }

@@ -6,17 +6,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/internal/document/model"
 )
 
 // ---------- DIFF-01：语义 diff 与审计报告（§18.3 / §24） ----------
 
 func diffPage(index int, id int, part string, shapes ...Shape) Page {
-	return Page{Index: index, SlideID: pptx.SlideID(id), Part: part, Shapes: shapes}
+	return Page{Index: index, SlideID: model.SlideID(id), Part: part, Shapes: shapes}
 }
 
 func diffShape(id int, kind, name, text string) Shape {
-	return Shape{ID: pptx.ShapeID(id), Name: name, Kind: kind, Text: text,
+	return Shape{ID: model.ShapeID(id), Name: name, Kind: kind, Text: text,
 		NodePath: "p:sld/p:cSld/p:spTree/p:sp[" + strconv.Itoa(id) + "]"}
 }
 

@@ -5,9 +5,9 @@
 // 本包只依赖门面（pptx）与只读 IR（internal/ir），不做任何 I/O、不感知
 // flag/exit code/stdout；调用方负责打开输入与输出形态。
 //
-// 依赖方向注记：按 ADR-030，engine 编排 Open/Save/Bind/Clone，需要门面
-// 公共句柄，故暂允许 internal/engine → pptx（与 internal/ir 同为显式
-// 临时例外，见 internal/archlint）。
+// 依赖方向注记：按 ADR-030，engine 编排 Open/Save/Bind/Clone 并承载
+// 门面→IR 适配器，需要门面公共句柄，故允许 internal/engine → pptx
+// （唯一的显式临时例外，见 internal/archlint）。
 package engine
 
 import (
@@ -31,7 +31,7 @@ func Inspect(p *pptx.Presentation) (InspectResult, error) {
 	if err != nil {
 		return InspectResult{}, err
 	}
-	doc, err := ir.FromPresentation(p, ir.DefaultOptions())
+	doc, err := ProjectIR(p, ir.DefaultOptions())
 	if err != nil {
 		return InspectResult{}, err
 	}

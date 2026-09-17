@@ -255,7 +255,7 @@ type tmlCond struct {
 
 // ---------- 投影入口 ----------
 
-// projectTimingTree 解析 p:timing 原始字节为 PageTiming。
+// ProjectTimingTree 解析 p:timing 原始字节为 PageTiming。
 //
 // 行为：
 //   - 输入空 → 返回 (PageTiming{}, nil)；
@@ -266,7 +266,7 @@ type tmlCond struct {
 // 把每个元素投影到 tmlCTn AST。该路径无 std encoding/xml 自闭合导致的
 // 深度同步问题——xmlstore 对 `<x/>` 仅发射 SelfClosing=true 的 Start，
 // 不发射独立的 End 事件。
-func projectTimingTree(part string, raw []byte) (PageTiming, error) {
+func ProjectTimingTree(part string, raw []byte) (PageTiming, error) {
 	pt := PageTiming{}
 	if len(raw) == 0 {
 		return pt, nil
@@ -348,7 +348,7 @@ func projectTimingTree(part string, raw []byte) (PageTiming, error) {
 			pt.Root.Children = append(pt.Root.Children, tn)
 		}
 	}
-	sortDiags(pt.Diagnostics)
+	SortDiagnostics(pt.Diagnostics)
 	return pt, nil
 }
 

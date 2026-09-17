@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/F31/go-pptx/internal/engine"
 	"github.com/F31/go-pptx/internal/ir"
 )
 
@@ -69,12 +70,12 @@ func cmdRunDiff(args []string) ExitCode {
 
 	// 两侧使用同一份 IR 导出选项，确保投影维度一致。
 	opts := ir.DefaultOptions()
-	da, err := ir.FromPresentation(pa, opts)
+	da, err := engine.ProjectIR(pa, opts)
 	if err != nil {
 		fmt.Fprintf(stderrW, "diff: %s: %v\n", oldPath, err)
 		return classifyError(err, ExitRuntimeError)
 	}
-	db, err := ir.FromPresentation(pb, opts)
+	db, err := engine.ProjectIR(pb, opts)
 	if err != nil {
 		fmt.Fprintf(stderrW, "diff: %s: %v\n", newPath, err)
 		return classifyError(err, ExitRuntimeError)

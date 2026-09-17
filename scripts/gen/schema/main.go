@@ -38,7 +38,7 @@ type xsdSchema struct {
 type xsdParticle struct {
 	Min       string        `xml:"minOccurs,attr"`
 	Max       string        `xml:"maxOccurs,attr"`
-	Elements  []xsdElement `xml:"element"`
+	Elements  []xsdElement  `xml:"element"`
 	Sequences []xsdParticle `xml:"sequence"`
 	Choices   []xsdParticle `xml:"choice"`
 	Alls      []xsdParticle `xml:"all"`
@@ -487,6 +487,10 @@ func (g *generator) genComplexType(b *strings.Builder, s *xsdSchema, short strin
 		add(n, t, tag)
 	}
 	for _, e := range elems {
+		if e.any {
+			add("Any", "[]RawElem", ",any")
+			continue
+		}
 		n, t, tag := g.elemField(e)
 		add(n, t, tag)
 	}
@@ -506,6 +510,7 @@ type flatElem struct {
 	el     *xsdElement
 	ns     *xsdSchema
 	repeat bool
+	any    bool
 }
 
 func (g *generator) flatten(s *xsdSchema, ct *xsdCType) ([]flatAttr, []flatElem) {
@@ -548,6 +553,10 @@ func (g *generator) particleElems(p xsdParticle, s *xsdSchema, repeat bool) []fl
 	}
 	for i := range p.Alls {
 		out = append(out, g.particleElems(p.Alls[i], s, rep)...)
+	}
+	for _, a := range p.Anys {
+		out = append(out, flatElem{ns: s, repeat: true, any: true})
+		_ = a
 	}
 	for _, gr := range p.Groups {
 		grrep := rep || (gr.Max != "" && gr.Max != "1")

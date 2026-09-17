@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/internal/document/model"
 )
 
 // 本文件实现 DIFF-01 语义 diff 与审计报告（方案 §18.3 / §24）。
@@ -111,18 +111,18 @@ type DiffStats struct {
 
 // DiffEntry 是一条语义变更，定位可回溯到 Part/NodePath。
 type DiffEntry struct {
-	Kind       string       `json:"kind"`
-	PageIndexA int          `json:"pageIndexA,omitempty"`
-	PageIndexB int          `json:"pageIndexB,omitempty"`
-	SlideID    pptx.SlideID `json:"slideID,omitempty"`
-	ShapeID    pptx.ShapeID `json:"shapeID,omitempty"`
-	ShapeName  string       `json:"shapeName,omitempty"`
-	Part       string       `json:"part,omitempty"`
-	NodePath   string       `json:"nodePath,omitempty"`
-	Field      string       `json:"field,omitempty"`
-	From       string       `json:"from,omitempty"`
-	To         string       `json:"to,omitempty"`
-	Detail     string       `json:"detail,omitempty"`
+	Kind       string        `json:"kind"`
+	PageIndexA int           `json:"pageIndexA,omitempty"`
+	PageIndexB int           `json:"pageIndexB,omitempty"`
+	SlideID    model.SlideID `json:"slideID,omitempty"`
+	ShapeID    model.ShapeID `json:"shapeID,omitempty"`
+	ShapeName  string        `json:"shapeName,omitempty"`
+	Part       string        `json:"part,omitempty"`
+	NodePath   string        `json:"nodePath,omitempty"`
+	Field      string        `json:"field,omitempty"`
+	From       string        `json:"from,omitempty"`
+	To         string        `json:"to,omitempty"`
+	Detail     string        `json:"detail,omitempty"`
 }
 
 // OpaqueRegion 是一处未识别/未投影区域（§24 DIFF-01 验收项）。
@@ -366,7 +366,7 @@ func (d *differ) diffShapes(pa, pb Page, a, b []Shape) {
 }
 
 // indexOfShape 返回首个匹配 ID 的形状下标。
-func indexOfShape(s []Shape, id pptx.ShapeID) (int, bool) {
+func indexOfShape(s []Shape, id model.ShapeID) (int, bool) {
 	for i := range s {
 		if s[i].ID == id {
 			return i, true
@@ -467,8 +467,8 @@ func timingSignature(p Page) string {
 }
 
 // shapeIDSet 收集页内形状 ID（含组内子形状）。
-func shapeIDSet(shapes []Shape) map[pptx.ShapeID]bool {
-	out := map[pptx.ShapeID]bool{}
+func shapeIDSet(shapes []Shape) map[model.ShapeID]bool {
+	out := map[model.ShapeID]bool{}
 	var walk func([]Shape)
 	walk = func(list []Shape) {
 		for _, s := range list {

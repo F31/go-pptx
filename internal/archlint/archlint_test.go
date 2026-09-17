@@ -20,8 +20,8 @@ func TestCheckRules(t *testing.T) {
 	if r := check(Module+"/internal/document/style", Facade); r != "internal-must-not-import-facade" {
 		t.Errorf("internal->facade rule = %q", r)
 	}
-	if r := check(Module+"/internal/ir", Facade); r != "" {
-		t.Errorf("ir facade exception = %q", r)
+	if r := check(Module+"/internal/ir", Facade); r != "internal-must-not-import-facade" {
+		t.Errorf("ir->facade should now be a violation, got %q", r)
 	}
 	if r := check(Module+"/internal/engine", Facade); r != "" {
 		t.Errorf("engine facade exception = %q", r)

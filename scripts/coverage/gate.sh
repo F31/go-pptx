@@ -47,6 +47,7 @@ FLOORS=(
   "github.com/F31/go-pptx/internal/ooxml/schema=90"
   "github.com/F31/go-pptx/internal/archlint=85"
   "github.com/F31/go-pptx/internal/engine=85"
+  "github.com/F31/go-pptx/internal/ooxml=90"
   "github.com/F31/go-pptx/internal/document/geometry=90"
   "github.com/F31/go-pptx/internal/document/style=90"
   "github.com/F31/go-pptx/internal/document/text=90"

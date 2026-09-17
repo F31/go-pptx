@@ -653,7 +653,8 @@ type A_CT_GraphicalObject struct {
 
 // A_CT_GraphicalObjectData 由 CT_GraphicalObjectData 生成（只读投影；仅用于 encoding/xml 反序列化）。
 type A_CT_GraphicalObjectData struct {
-	Uri string `xml:"uri,attr,omitempty"`
+	Uri string    `xml:"uri,attr,omitempty"`
+	Any []RawElem `xml:",any"`
 }
 
 // A_CT_GraphicalObjectFrameLocking 由 CT_GraphicalObjectFrameLocking 生成（只读投影；仅用于 encoding/xml 反序列化）。
@@ -1020,7 +1021,8 @@ type A_CT_ObjectStyleDefaults struct {
 
 // A_CT_OfficeArtExtension 由 CT_OfficeArtExtension 生成（只读投影；仅用于 encoding/xml 反序列化）。
 type A_CT_OfficeArtExtension struct {
-	Uri string `xml:"uri,attr,omitempty"`
+	Uri string    `xml:"uri,attr,omitempty"`
+	Any []RawElem `xml:",any"`
 }
 
 // A_CT_OfficeArtExtensionList 由 CT_OfficeArtExtensionList 生成（只读投影；仅用于 encoding/xml 反序列化）。

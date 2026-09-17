@@ -565,15 +565,28 @@ Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收�
   importer（`cmd/pptx/{inspect,exportir,diff}.go`、`wasm/check/check.go`）改
   `.../go-pptx/ir` → `.../go-pptx/internal/ir`；gate 门槛 `/ir=85` →
   `/internal/ir=85`（实测 85.2%）
-- **尚未完成的"实为改造"**：目标态 `internal/ir` 只吃 `internal/ooxml`
-  （只读投影，不依赖门面）。现状 `ir.go`/`diff.go` 仍 import `pptx/pptx`
-  公共类型（Presentation/Slide/Shape/ChartData/…）——该重写依赖演进第 1 步
-  `internal/ooxml` 生成管线，**现阻塞**（ECMA-376 XSD 输入未解）。故本步
-  仅完成位置下沉；反向依赖 `internal/ir → pptx` 为**显式临时例外**，待第 1
-  步落地后消除，并由第 6 步 CI 依赖方向校验守护
+- **门面解耦（同日续）**：`internal/ir` **不再 import `pptx`**——投影入口
+  `FromPresentation`（门面→IR 适配器）移入 `internal/engine`（`ProjectIR`；
+  engine 允许依赖门面），`internal/ir` 只吃 `internal/document/model`（
+  SlideID/ShapeID/Optional）与 `xmlstore`/stdlib。`Page.SlideID`/`Shape.ID`
+  改 `model.*`（原先即门面 alias，JSON 字段不变）；`diff.go`/`diff_test.go`
+  同步换 `model`。
+- **真改造（同日续）**：engine `ProjectIR` 的形状/文本/表格投影**改由
+  `internal/ooxml` 的 schema 只读投影驱动**——新增 `internal/ooxml/ooxml.go`
+  （`Open`=opc.Load、`Bytes`=Part 只读字节桥）与 `internal/ooxml/shapes.go`
+  （`SlideShapes`：p:sld 解码 + 形状 kind 推断/组内联扁平化/表格行列与文本/
+  graphicFrame table+chart 捕获，含 `xsd:any` RawElem + `RawElem.Attrs`），
+  门面侧 `pptx/bridge.go` 提供 `PartBytes(p, opc.PartName)` 只读桥（包级函数，
+  不进 api-surface golden）。`internal/ir` 真改造仍在长尾：notes/timing/hidden
+  仍经门面句柄，由 `internal/engine.ProjectIR` 承载，下一步将其逐个换掉。
+  `archlint` 临时例外面收敛为仅 **`internal/engine`**（R1 由 archlint_test
+  守护 ir→pptx=违规）。
+- 测试随迁（ADR-016 陷阱免疫）：`ir_test.go`/`table_ir_test.go` 迁入
+  engine（`irbuild_test.go`/`irbuild_table_test.go`）；`timingir_test`/
+  `diff_test` 留守 `internal/ir`
 - `render/` 按决策**保留**（有意发布的公共契约），未动
-- 守恒：`go test ./...` 24/24 + corpus 24；vet/gofmt clean；golden 不变；
-  gate PASS
+- 守恒：`go test ./...` 27/27 + corpus 27；vet/gofmt clean；golden 不变；
+  gate PASS（engine 86.6% ≥85；ir 85.2% ≥85；ooxml 93.4% ≥90；archlint 全合规）
 
 ### 编排层：`internal/engine` 起步（2026-09-17，演进第 5 步）
 
@@ -599,7 +612,8 @@ flag/exit/stdout）：
 std-lib 自建规则包（零新依赖），`archlint_test.go` 调 `go list` 取真实
 导入边后断言：
 
-- R1 `internal/*` 不得 import 门面（临时例外：`internal/ir`、`internal/engine`）
+- R1 `internal/*` 不得 import 门面（临时例外：仅 `internal/engine`——
+  `internal/ir` 已于同日完成门面解耦）
 - R2 `internal/*` 不得 import `render`/`cmd`/`wasm`
 - R3 门面不得 import `render`/`cmd`/`wasm`/`internal/ir`/`internal/engine`
 - R4 `render` 只依赖门面（不下沉 internal）

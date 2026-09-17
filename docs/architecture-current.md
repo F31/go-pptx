@@ -176,10 +176,11 @@ internal/ooxmlns / textmap / audioprobe / videoprobe -> (无 go-pptx 依赖)
 ```
 
 规则不变：**internal 不得反向 import 门面**。v2.0 门面收敛后 `pptx/` 为公共
-门面；`internal/*` 只依赖更低层。**临时例外**：`internal/ir` 仍 import
-`pptx/pptx`（演进第 4 步已把 `ir/` 下沉，但"只吃 `internal/ooxml`"的重写依赖
-第 1 步生成管线，现阻塞）——第 1 步落地后消除该反向依赖，届时由第 6 步 CI
-依赖方向校验守护。v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
+门面；`internal/*` 只依赖更低层。**唯一临时例外**：`internal/engine`（编排层，
+承载门面→IR 适配器与 Open/Save 编排，需门面公共句柄）。`internal/ir` 已于
+2026-09-17 完成门面解耦（改吃 `internal/document/model` + `xmlstore`；投影
+适配器 `ProjectIR` 移入 engine）——R1 由 `internal/archlint`（Step 6）守护。
+v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
 
 ### 剩余「压力点」处置
 
@@ -209,20 +210,24 @@ internal/ooxmlns / textmap / audioprobe / videoprobe -> (无 go-pptx 依赖)
   clean；coverage gate PASS（`pptx` 83.3% ≥ 82）
 
 - **Step 4（同日）**：顶层 `ir/` → `internal/ir`（importer 与 gate 门槛同步；
-  实测 85.2%）；`render/` 保留。`internal/ir` 暂仍 import `pptx`（"只吃
-  `internal/ooxml`"的重写依赖第 1 步生成管线，现阻塞）
+  实测 85.2%）；`render/` 保留。同日完成**门面解耦**：`FromPresentation`
+  投影适配器移入 `internal/engine.ProjectIR`，`internal/ir` 不再 import
+  `pptx`（改吃 `internal/document/model` + `xmlstore`）；投影测试随迁 engine
 
 - **Step 5（同日）**：新建 `internal/engine`（编排层起步）——统一 CLI 与
   WASM 的 Inspect/Validate/Capability 核心；`wasm/check` 与
-  `cmd/pptx/{inspect,validate,capability}` 改委托（实测 92.3%）
+  `cmd/pptx/{inspect,validate,capability}` 改委托（实测 92.3%）；承接
+  `ProjectIR` 适配器后 86.6%
 - **Step 6（同日）**：新建 `internal/archlint`（std-lib 依赖方向校验），
-  CI 经 `go test` 执行；当前模块全合规（临时例外 `internal/ir`、
-  `internal/engine` 登记在案）
+  CI 经 `go test` 执行；当前模块全合规（临时例外收敛为仅 `internal/engine`）
 - **Step 1（同日）**：ooxml 生成管线落地——`scripts/gen/schema`（std-lib
   XSD→Go）+ `internal/ooxml/schema`（Transitional schema，只读投影，100%）。
   输入源更正为 ECMA-376 **Part 4 Transitional**（`schemas.openxmlformats.org`），
-  非 Part 1 的 Strict（`purl.oclc.org`）。`internal/ir` 改为只吃该 schema 的
-  真改造仍待办（现 import `pptx`，见上）
+  非 Part 1 的 Strict（`purl.oclc.org`）。**格式层真改造（续）**：新增
+  `internal/ooxml`（`Open`/`Bytes` + `SlideShapes` schema 只读投影），engine
+  `ProjectIR` 的形状/文本/表格改由 `pptx.PartBytes` 只读桥 + `ooxml.SlideShapes`
+  驱动（图表仍按 ID 回退门面 ChartShape）；notes/timing/hidden 仍走门面句柄，
+  属 Step 1 长尾
 
 当前导入路径：**`github.com/F31/go-pptx/pptx`**（breaking change，
 v2.0 一次性迁移）。

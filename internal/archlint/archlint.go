@@ -5,9 +5,10 @@
 //
 //	pptx (门面) → internal/document (域) → internal/ooxml (格式) → opc/xmlstore (传输)
 //
-// 现状有两条**显式临时例外**（待演进第 1 步 ooxml 生成管线落地后消除）：
-//   - internal/ir 仍 import 门面（"只吃 ooxml"的重写被第 1 步阻塞）
-//   - internal/engine 编排 Open/Save/Bind/Clone，需要门面公共句柄
+// 现状有一条**显式临时例外**：`internal/engine` 作为编排层（Open/Save/
+// Bind/Clone 与门面→IR 适配器）需要门面公共句柄。`internal/ir` 已于
+// 2026-09-17 完成门面解耦（改吃 internal/document/model + xmlstore），
+// 不再例外——由本包 R1 守护。
 //
 // 本包不引入任何外部依赖，遵守 ci.yml 零依赖政策。
 package archlint
@@ -22,7 +23,6 @@ const Facade = Module + "/pptx"
 
 // tempFacadeImporters 是允许 import 门面的 internal 包（临时例外）。
 var tempFacadeImporters = map[string]bool{
-	Module + "/internal/ir":     true,
 	Module + "/internal/engine": true,
 }
 

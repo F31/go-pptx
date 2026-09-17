@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/F31/go-pptx/internal/engine"
 	"github.com/F31/go-pptx/internal/ir"
 )
 
@@ -57,7 +58,7 @@ func cmdRunExportIR(args []string) ExitCode {
 	}
 	defer closer()
 
-	doc, err := ir.FromPresentation(p, ir.DefaultOptions())
+	doc, err := engine.ProjectIR(p, ir.DefaultOptions())
 	if err != nil {
 		fmt.Fprintf(stderrW, "export-ir: %v\n", err)
 		return classifyError(err, ExitRuntimeError)

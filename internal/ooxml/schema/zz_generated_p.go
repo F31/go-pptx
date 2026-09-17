@@ -192,7 +192,8 @@ type P_CT_Empty struct {
 
 // P_CT_Extension 由 CT_Extension 生成（只读投影；仅用于 encoding/xml 反序列化）。
 type P_CT_Extension struct {
-	Uri string `xml:"uri,attr,omitempty"`
+	Uri string    `xml:"uri,attr,omitempty"`
+	Any []RawElem `xml:",any"`
 }
 
 // P_CT_ExtensionList 由 CT_ExtensionList 生成（只读投影；仅用于 encoding/xml 反序列化）。
