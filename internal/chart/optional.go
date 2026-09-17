@@ -1,15 +1,10 @@
 package chart
 
+import "github.com/F31/go-pptx/internal/document/model"
+
 // Optional[T] 是"未设置/显式设置"的双态包装。
-//
-// ADR-017 第二批：与 ChartAxisOptions 等值对象一起搬到 internal/chart，
-// 根包用 type alias 引用。
-//
-// Set=false 表示无本地覆盖（继承）；Set=true 时必须按 Value 理解。
-type Optional[T any] struct {
-	Value T
-	Set   bool
-}
+// v2.0：定义在 internal/document/model，此处 alias 供本包沿用。
+type Optional[T any] = model.Optional[T]
 
 // NewOptional 构造显式设置值。
-func NewOptional[T any](v T) Optional[T] { return Optional[T]{Value: v, Set: true} }
+func NewOptional[T any](v T) Optional[T] { return model.NewOptional(v) }

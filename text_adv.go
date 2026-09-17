@@ -609,7 +609,7 @@ func buildFieldFragment(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord, sp
 		sb.WriteString(` fldGuide="` + spec.Guide + `"`)
 	}
 	sb.WriteString(">")
-	if spec.Style.anySet() {
+	if spec.Style.AnySet() {
 		f, err := buildRPrFragment(prefix, spec.Style)
 		if err != nil {
 			return "", err

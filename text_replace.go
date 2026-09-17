@@ -413,7 +413,7 @@ func replacePatches(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord, old, r
 		occ := rebuildExec[k]
 		repRPr := ""
 		if o.mode == ReplaceExplicitStyle {
-			if o.style.anySet() {
+			if o.style.AnySet() {
 				frag, err := buildRPrFragment(occ.blk.runs[occ.ri].prefix, o.style)
 				if err != nil {
 					return res, nil, Annotate(err, "replacePatches")

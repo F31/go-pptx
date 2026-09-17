@@ -46,6 +46,7 @@ FLOORS=(
   "github.com/F31/go-pptx/internal/errs=90"
   "github.com/F31/go-pptx/internal/document/geometry=90"
   "github.com/F31/go-pptx/internal/document/style=90"
+  "github.com/F31/go-pptx/internal/document/model=90"
   "github.com/F31/go-pptx/render=84"
 )
 
@@ -53,7 +54,6 @@ FLOORS=(
 SKIP=(
   "github.com/F31/go-pptx/internal/document"  # 纯接口/类型声明，无可测语句
   "github.com/F31/go-pptx/internal/ooxmlns"   # 纯命名空间常量，无可测语句
-  "github.com/F31/go-pptx/internal/document/model"  # 纯标识类型声明，无可测语句
   "github.com/F31/go-pptx/scripts/gen_audio"  # 一次性生成工具（package main）
   "github.com/F31/go-pptx/scripts/gen_media"  # 一次性生成工具（package main）
 )

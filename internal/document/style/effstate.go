@@ -1,17 +1,26 @@
-package pptx
+package style
 
 import (
 	"strconv"
 	"strings"
 
-	"github.com/F31/go-pptx/internal/document/style"
+	"github.com/F31/go-pptx/internal/diag"
+	"github.com/F31/go-pptx/internal/document/model"
+	"github.com/F31/go-pptx/internal/errs"
+	"github.com/F31/go-pptx/internal/ooxmlns"
+	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
-// 本文件是 STYLE-01 的**有效样式解析状态机**：effState 与逐属性族解析
+// 本文件是 STYLE-01 的**有效样式解析状态机**：逐属性族解析
 // （bold/italic/size/color/typeface），产出 ResolvedFont/ResolvedColor。
+// 演示文稿存储访问通过注入的 DocFunc 解耦。
 
-// ---------- 逐属性解析状态 ----------
+// DocFunc 返回 Part 的 XML 文档（不可达/出错返回 nil）。由门面注入。
+type DocFunc func(part opc.PartName) *xmlstore.XMLDocument
+
+// propNames 是全部属性族名（strict 检查与诊断用，固定顺序）。
+var propNames = []string{"bold", "italic", "size", "color", "latin", "ea", "cs"}
 
 // famSource 是解析链上的一层 rPr（run rPr / pPr defRPr / 列表级 defRPr）。
 type famSource struct {
@@ -19,54 +28,82 @@ type famSource struct {
 	step  StyleStep
 }
 
-// effState 承载一次 EffectiveFont 的全部中间状态。
+// effState 承载一次有效样式解析的全部中间状态。
 type effState struct {
-	ctx ResolveContext
-	env *style.Env
-	p   *Presentation
-	doc *xmlstore.XMLDocument
-	run *xmlstore.NodeRecord
+	ctx  ResolveContext
+	env  *Env
+	docs DocFunc
+	doc  *xmlstore.XMLDocument
+	run  *xmlstore.NodeRecord
 
-	class   style.TextClass
+	class   TextClass
 	lvl     int
-	phKey   style.PhKey
+	phKey   PhKey
 	isPh    bool
 	sources []famSource // L1..L3
 	res     map[string]bool
-	diags   []Diagnostic
+	diags   []diag.Diagnostic
+}
+
+// ResolveEffectiveFont 解析 run 的有效字符样式（方案 §6.1 契约）。
+//
+// 逐属性独立沿解析链取第一个显式值。错误仅在文档不可达 / 结构错误
+// （及 ctx.Strict 触发）时返回；属性级解析不足通过字段与诊断表达。
+func ResolveEffectiveFont(ctx ResolveContext, env *Env, docs DocFunc,
+	doc *xmlstore.XMLDocument, run *xmlstore.NodeRecord, part string) (ResolvedFont, []diag.Diagnostic, error) {
+	st := newEffState(ctx, env, docs, doc, run)
+	rf := st.resolve()
+	if ctx.Strict {
+		for _, name := range propNames {
+			if !st.res[name] {
+				st.diags = append(st.diags, diag.Diagnostic{
+					Code: "STYLE_STRICT", Severity: diag.SeverityWarning,
+					Part: part, Message: "property unresolved under strict context: " + name,
+				})
+			}
+		}
+		if len(st.diags) > 0 {
+			return rf, st.diags, &errs.OperationError{
+				Op: "TextRun.EffectiveFont", Part: part,
+				Message: "effective font not fully resolved (strict)",
+				Err:     errs.ErrUnresolvedStyle,
+			}
+		}
+	}
+	return rf, st.diags, nil
 }
 
 // newEffState 收集解析链上下文与 L1..L3 源。
-func newEffState(p *Presentation, ctx ResolveContext, env *style.Env, doc *xmlstore.XMLDocument, run *xmlstore.NodeRecord) *effState {
+func newEffState(ctx ResolveContext, env *Env, docs DocFunc, doc *xmlstore.XMLDocument, run *xmlstore.NodeRecord) *effState {
 	st := &effState{
-		ctx: ctx, env: env, p: p, doc: doc, run: run,
+		ctx: ctx, env: env, docs: docs, doc: doc, run: run,
 		res: make(map[string]bool),
 	}
 	// 占位符与 class。
-	if sp := style.AncestorShape(doc, run); sp != nil {
-		if k, ok := style.PhKeyOf(doc, sp); ok {
+	if sp := AncestorShape(doc, run); sp != nil {
+		if k, ok := PhKeyOf(doc, sp); ok {
 			st.phKey, st.isPh = k, true
 		}
 	}
-	st.class = style.ClassOf(st.phKey, st.isPh, env.Kind)
+	st.class = ClassOf(st.phKey, st.isPh, env.Kind)
 	// 级别（L3 需要）。
 	var para *xmlstore.NodeRecord
-	if para = style.RunPara(doc, run); para != nil {
-		st.lvl = style.ParaLevel(doc, para)
+	if para = RunPara(doc, run); para != nil {
+		st.lvl = ParaLevel(doc, para)
 	}
 	// L1 run rPr。
-	if rPr := childOfKind(doc, run, nsDrawingML, "rPr", 0); rPr != nil {
+	if rPr := xmlstore.ChildOfKind(doc, run, ooxmlns.DrawingML, "rPr", 0); rPr != nil {
 		st.sources = append(st.sources, famSource{
-			style: parseLocalFont(doc, rPr),
+			style: ParseLocalFont(doc, rPr),
 			step:  StyleStep{Source: SourceRun, Detail: "run rPr"},
 		})
 	}
 	// L2 段落默认字符。
 	if para != nil {
-		if pPr := childOfKind(doc, para, nsDrawingML, "pPr", 0); pPr != nil {
-			if d := childOfKind(doc, pPr, nsDrawingML, "defRPr", 0); d != nil {
+		if pPr := xmlstore.ChildOfKind(doc, para, ooxmlns.DrawingML, "pPr", 0); pPr != nil {
+			if d := xmlstore.ChildOfKind(doc, pPr, ooxmlns.DrawingML, "defRPr", 0); d != nil {
 				st.sources = append(st.sources, famSource{
-					style: parseLocalFont(doc, d),
+					style: ParseLocalFont(doc, d),
 					step:  StyleStep{Source: SourceParagraphDefault, Detail: "pPr defRPr"},
 				})
 			}
@@ -81,15 +118,14 @@ func newEffState(p *Presentation, ctx ResolveContext, env *style.Env, doc *xmlst
 //     master txStyles[class]，逐级取 lvl 的 defRPr；
 //   - 非占位符：master txStyles[otherStyle]。
 func (st *effState) appendListSources() {
-	p := st.p
 	lvl := strconv.Itoa(st.lvl)
 	if st.isPh {
 		if st.env.Layout != "" {
-			if ldoc, err := p.docOf(st.env.Layout); err == nil {
-				if sp := style.FindPlaceholderShape(ldoc, st.phKey); sp != nil {
-					if d := style.DefRPrAtLevel(ldoc, style.LstStyleOf(ldoc, sp), st.lvl); d != nil {
+			if ldoc := st.docs(st.env.Layout); ldoc != nil {
+				if sp := FindPlaceholderShape(ldoc, st.phKey); sp != nil {
+					if d := DefRPrAtLevel(ldoc, LstStyleOf(ldoc, sp), st.lvl); d != nil {
 						st.sources = append(st.sources, famSource{
-							style: parseLocalFont(ldoc, d),
+							style: ParseLocalFont(ldoc, d),
 							step: StyleStep{Source: SourceListStyle, Part: string(st.env.Layout),
 								Detail: st.phDetail() + " lvl=" + lvl + " layout lstStyle"},
 						})
@@ -98,11 +134,11 @@ func (st *effState) appendListSources() {
 			}
 		}
 		if st.env.Master != "" {
-			if mdoc := p.masterDoc(st.env); mdoc != nil {
-				if sp := style.FindPlaceholderShape(mdoc, st.phKey); sp != nil {
-					if d := style.DefRPrAtLevel(mdoc, style.LstStyleOf(mdoc, sp), st.lvl); d != nil {
+			if mdoc := st.docs(st.env.Master); mdoc != nil {
+				if sp := FindPlaceholderShape(mdoc, st.phKey); sp != nil {
+					if d := DefRPrAtLevel(mdoc, LstStyleOf(mdoc, sp), st.lvl); d != nil {
 						st.sources = append(st.sources, famSource{
-							style: parseLocalFont(mdoc, d),
+							style: ParseLocalFont(mdoc, d),
 							step: StyleStep{Source: SourceListStyle, Part: string(st.env.Master),
 								Detail: st.phDetail() + " lvl=" + lvl + " master lstStyle"},
 						})
@@ -112,11 +148,11 @@ func (st *effState) appendListSources() {
 		}
 	}
 	if st.env.Master != "" {
-		if mdoc := p.masterDoc(st.env); mdoc != nil {
-			if ts := style.TextStyleNode(mdoc, st.class); ts != nil {
-				if d := style.DefRPrAtLevel(mdoc, ts, st.lvl); d != nil {
+		if mdoc := st.docs(st.env.Master); mdoc != nil {
+			if ts := TextStyleNode(mdoc, st.class); ts != nil {
+				if d := DefRPrAtLevel(mdoc, ts, st.lvl); d != nil {
 					st.sources = append(st.sources, famSource{
-						style: parseLocalFont(mdoc, d),
+						style: ParseLocalFont(mdoc, d),
 						step: StyleStep{Source: SourceListStyle, Part: string(st.env.Master),
 							Detail: "txStyles " + string(st.class) + "Style lvl=" + lvl},
 					})
@@ -136,14 +172,14 @@ func (st *effState) note(name string, resolved bool) { st.res[name] = resolved }
 
 func (st *effState) unresolvedDiag(name string) {
 	st.note(name, false)
-	st.diags = append(st.diags, Diagnostic{
-		Code: "STYLE_UNRESOLVED", Severity: SeverityWarning,
+	st.diags = append(st.diags, diag.Diagnostic{
+		Code: "STYLE_UNRESOLVED", Severity: diag.SeverityWarning,
 		Message: "property unresolved: " + name,
 	})
 }
 
 // pickFirst 返回链上第一个显式值及其来源。
-func pickFirst[T any](sources []famSource, pick func(FontStyle) Optional[T]) (T, StyleStep, bool) {
+func pickFirst[T any](sources []famSource, pick func(FontStyle) model.Optional[T]) (T, StyleStep, bool) {
 	for _, s := range sources {
 		if v := pick(s.style); v.Set {
 			return v.Value, s.step, true
@@ -154,7 +190,7 @@ func pickFirst[T any](sources []famSource, pick func(FontStyle) Optional[T]) (T,
 }
 
 // fallbackOrUnresolved 处理链上无值的属性：调用方回退或标记未决。
-func fallbackOrUnresolved[T any](st *effState, name string, fb func(ResolveContext) Optional[T]) ResolvedValue[T] {
+func fallbackOrUnresolved[T any](st *effState, name string, fb func(ResolveContext) model.Optional[T]) ResolvedValue[T] {
 	if f := fb(st.ctx); f.Set {
 		st.note(name, true)
 		return ResolvedValue[T]{Value: f.Value, Resolved: true, Fallback: true,
@@ -167,23 +203,23 @@ func fallbackOrUnresolved[T any](st *effState, name string, fb func(ResolveConte
 // resolve 执行逐属性解析（顺序即 propNames）。
 func (st *effState) resolve() ResolvedFont {
 	var rf ResolvedFont
-	rf.Bold = st.resolveBool("bold", func(f FontStyle) Optional[bool] { return f.Bold },
-		func(c ResolveContext) Optional[bool] { return c.Fallback.Bold })
-	rf.Italic = st.resolveBool("italic", func(f FontStyle) Optional[bool] { return f.Italic },
-		func(c ResolveContext) Optional[bool] { return c.Fallback.Italic })
+	rf.Bold = st.resolveBool("bold", func(f FontStyle) model.Optional[bool] { return f.Bold },
+		func(c ResolveContext) model.Optional[bool] { return c.Fallback.Bold })
+	rf.Italic = st.resolveBool("italic", func(f FontStyle) model.Optional[bool] { return f.Italic },
+		func(c ResolveContext) model.Optional[bool] { return c.Fallback.Italic })
 	rf.Size = st.resolveSize()
 	rf.Color = st.resolveColor()
-	rf.Latin = st.resolveTypeface("latin", "latin", func(f FontStyle) Optional[string] { return f.Latin },
-		func(c ResolveContext) Optional[string] { return c.Fallback.Latin })
-	rf.EastAsian = st.resolveTypeface("ea", "ea", func(f FontStyle) Optional[string] { return f.EastAsian },
-		func(c ResolveContext) Optional[string] { return c.Fallback.EastAsian })
-	rf.ComplexScript = st.resolveTypeface("cs", "cs", func(f FontStyle) Optional[string] { return f.ComplexScript },
-		func(c ResolveContext) Optional[string] { return c.Fallback.ComplexScript })
+	rf.Latin = st.resolveTypeface("latin", "latin", func(f FontStyle) model.Optional[string] { return f.Latin },
+		func(c ResolveContext) model.Optional[string] { return c.Fallback.Latin })
+	rf.EastAsian = st.resolveTypeface("ea", "ea", func(f FontStyle) model.Optional[string] { return f.EastAsian },
+		func(c ResolveContext) model.Optional[string] { return c.Fallback.EastAsian })
+	rf.ComplexScript = st.resolveTypeface("cs", "cs", func(f FontStyle) model.Optional[string] { return f.ComplexScript },
+		func(c ResolveContext) model.Optional[string] { return c.Fallback.ComplexScript })
 	return rf
 }
 
 // resolveBool 解析布尔属性（粗体/斜体）。
-func (st *effState) resolveBool(name string, pick func(FontStyle) Optional[bool], fb func(ResolveContext) Optional[bool]) ResolvedValue[bool] {
+func (st *effState) resolveBool(name string, pick func(FontStyle) model.Optional[bool], fb func(ResolveContext) model.Optional[bool]) ResolvedValue[bool] {
 	if v, step, ok := pickFirst(st.sources, pick); ok {
 		st.note(name, true)
 		return ResolvedValue[bool]{Value: v, Resolved: true, Trace: []StyleStep{step}}
@@ -193,8 +229,8 @@ func (st *effState) resolveBool(name string, pick func(FontStyle) Optional[bool]
 
 // resolveSize 解析字号。
 func (st *effState) resolveSize() ResolvedValue[FontSize] {
-	pick := func(f FontStyle) Optional[FontSize] { return f.Size }
-	fb := func(c ResolveContext) Optional[FontSize] { return c.Fallback.Size }
+	pick := func(f FontStyle) model.Optional[FontSize] { return f.Size }
+	fb := func(c ResolveContext) model.Optional[FontSize] { return c.Fallback.Size }
 	if v, step, ok := pickFirst(st.sources, pick); ok {
 		st.note("size", true)
 		return ResolvedValue[FontSize]{Value: v, Resolved: true, Trace: []StyleStep{step}}
@@ -205,15 +241,15 @@ func (st *effState) resolveSize() ResolvedValue[FontSize] {
 // resolveTypeface 解析字体族：命中值若是主题引用（+mj-*/+mn-*）即展开；
 // 全部未命中时按 class 用主题缺省字体（标题 major，其余 minor）；
 // kind 为主题 fontScheme 子元素名（latin/ea/cs）。
-func (st *effState) resolveTypeface(name, kind string, pick func(FontStyle) Optional[string], fb func(ResolveContext) Optional[string]) ResolvedValue[string] {
-	tdoc := st.p.themeDoc(st.env)
+func (st *effState) resolveTypeface(name, kind string, pick func(FontStyle) model.Optional[string], fb func(ResolveContext) model.Optional[string]) ResolvedValue[string] {
+	tdoc := st.docs(st.env.Theme)
 	for _, s := range st.sources {
 		v := pick(s.style)
 		if !v.Set {
 			continue
 		}
 		trace := []StyleStep{s.step}
-		if final, tstep, ok := style.ExpandTypeface(tdoc, v.Value, kind); ok {
+		if final, tstep, ok := ExpandTypeface(tdoc, v.Value, kind); ok {
 			if tstep.Source != 0 || tstep.Detail != "" {
 				trace = append(trace, tstep)
 			}
@@ -222,20 +258,20 @@ func (st *effState) resolveTypeface(name, kind string, pick func(FontStyle) Opti
 		}
 		// 主题引用但无法展开（无主题/主题缺该字体）：部分解析。
 		st.note(name, false)
-		st.diags = append(st.diags, Diagnostic{
-			Code: "STYLE_PARTIAL", Severity: SeverityWarning,
+		st.diags = append(st.diags, diag.Diagnostic{
+			Code: "STYLE_PARTIAL", Severity: diag.SeverityWarning,
 			Message: "theme typeface reference cannot be expanded: " + v.Value,
 		})
 		return ResolvedValue[string]{Value: v.Value, Resolved: false, Trace: trace}
 	}
 	// 主题缺省字体（L4）。
 	if tdoc != nil {
-		major := st.class == style.ClassTitle
-		if face, found := style.ThemeFontFace(tdoc, major, kind); found && face != "" {
+		major := st.class == ClassTitle
+		if face, found := ThemeFontFace(tdoc, major, kind); found && face != "" {
 			st.note(name, true)
 			return ResolvedValue[string]{Value: face, Resolved: true, Trace: []StyleStep{{
 				Source: SourceTheme,
-				Detail: "fontScheme default " + kind + " (" + style.FontSchemeName(major) + ")",
+				Detail: "fontScheme default " + kind + " (" + FontSchemeName(major) + ")",
 			}}}
 		}
 	}
@@ -259,20 +295,20 @@ func (st *effState) resolveColor() ResolvedColor {
 		}
 		if spec.Scheme == "phClr" {
 			st.note("color", false)
-			st.diags = append(st.diags, Diagnostic{
-				Code: "STYLE_PARTIAL", Severity: SeverityWarning,
+			st.diags = append(st.diags, diag.Diagnostic{
+				Code: "STYLE_PARTIAL", Severity: diag.SeverityWarning,
 				Message: "scheme color phClr (placeholder color mapping) is not resolved by STYLE-01",
 			})
 			return ResolvedColor{Spec: spec, Resolved: false, Trace: trace}
 		}
 		scheme := spec.Scheme
-		if style.ClrMapIndirect(scheme) {
-			m := style.MasterClrMap(st.p.masterDoc(st.env))
+		if ClrMapIndirect(scheme) {
+			m := MasterClrMap(st.docs(st.env.Master))
 			mapped, ok := m[scheme]
 			if !ok {
 				st.note("color", false)
-				st.diags = append(st.diags, Diagnostic{
-					Code: "STYLE_PARTIAL", Severity: SeverityWarning,
+				st.diags = append(st.diags, diag.Diagnostic{
+					Code: "STYLE_PARTIAL", Severity: diag.SeverityWarning,
 					Message: "clrMap has no entry for scheme color " + scheme,
 				})
 				return ResolvedColor{Spec: spec, Resolved: false, Trace: trace}
@@ -281,12 +317,12 @@ func (st *effState) resolveColor() ResolvedColor {
 				Detail: "clrMap " + scheme + " → " + mapped})
 			scheme = mapped
 		}
-		tdoc := st.p.themeDoc(st.env)
-		rgb, partial := style.SchemeRGB(tdoc, scheme)
+		tdoc := st.docs(st.env.Theme)
+		rgb, partial := SchemeRGB(tdoc, scheme)
 		if partial {
 			st.note("color", false)
-			st.diags = append(st.diags, Diagnostic{
-				Code: "STYLE_PARTIAL", Severity: SeverityWarning,
+			st.diags = append(st.diags, diag.Diagnostic{
+				Code: "STYLE_PARTIAL", Severity: diag.SeverityWarning,
 				Message: "theme color cannot be fully resolved: " + spec.Scheme,
 			})
 			if rgb != "" {

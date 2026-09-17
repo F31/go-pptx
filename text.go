@@ -215,7 +215,7 @@ func (p *Paragraph) AddRun(text string, style FontStyle) (*TextRun, error) {
 	}
 	prefix := runPrefix(doc, para)
 	rPr := ""
-	if style.anySet() {
+	if style.AnySet() {
 		frag, err := buildRPrFragment(prefix, style)
 		if err != nil {
 			return nil, Annotate(err, "Paragraph.AddRun")

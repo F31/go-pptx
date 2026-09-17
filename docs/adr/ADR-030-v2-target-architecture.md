@@ -386,6 +386,30 @@ style 域庞大且与 `Presentation`/`styleEnv` 深度耦合，按切片推进�
   新增 `color_test.go` 覆盖变换/`SchemeRGB`/`ParseColorNode` 全分支；覆盖率 **92.7%**
 - 守恒：`go test ./...` 与 `-tags=corpus` **20/20** 全绿；`api_surface_test` golden 不变
 
+### 域搬迁 2 续四：font 类型 + effState 有效样式解析（2026-09-16）
+
+把 STYLE-01 有效样式解析完整下沉，前提是 font 类型一并下沉：
+
+- **`Optional[T]` 从 internal/chart 迁至 `internal/document/model`**（generic 值包装，
+  与 chart 解耦；chart/根包以 alias 引用）——消除 style→chart 的不正依赖
+- 迁出 `internal/document/style`：
+  - `fonttype.go`：`FontSize` / `FontProperty` / `FontStyle`(+`String`/`AnySet`/`AnyChildSet`)
+  - `resolved.go`：`ResolvedValue[T]` / `ResolvedColor` / `ResolvedFont` / `ResolveContext`
+  - `parsefont.go`：`ParseLocalFont` + `parseSolidFill`/`parseCentipoints`（原 text_fontparse）
+  - `effstate.go`：`effState` 状态机 + `ResolveEffectiveFont(ctx, env, docs, doc, run, part)`
+- **解耦手法（函数式文档源）**：`DocFunc = func(opc.PartName) *xmlstore.XMLDocument` 注入，
+  替代 `p.docOf`/`p.masterDoc`/`p.themeDoc` 三处根绑定；`style_resolve.go` 整文件删除
+- 根包：`text_fonttypes.go`/`style.go` 以 alias 暴露；`TextRun.EffectiveFont` 薄委托；
+  `TextRun.ExplicitFont` 转调 `style.ParseLocalFont`（注意 `style` 在该文件是参数名，
+  仅包路径处引用不受影响）
+- 命名冲突处置：`CoreProperties.anySet`（docProps，另一类型）未被误伤；`FontStyle.
+  anySet/anyChildSet` 上移为导出方法并更新调用点
+- 测试：`internal/document/style/effstate_test.go`（L1/L2/L3/L4 全链、schemeClr 间接色、
+  缺 clrMap、主题引用展开、strict、fallback）；`model` 补 EMU/Optional 测试 → **100%**，
+  由 SKIP 移入 FLOORS=90
+- 守恒：`go test ./...` 与 `-tags=corpus` **21/21** 全绿；`api_surface_test` golden 不变；
+  `internal/document/style` **92.3%**
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

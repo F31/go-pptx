@@ -280,9 +280,9 @@ func (t *TextFrame) AddParagraph(spec ParagraphSpec) (*Paragraph, error) {
 	}
 	var sb strings.Builder
 	sb.WriteString("<a:p>")
-	if spec.Text != "" || spec.Style.anySet() {
+	if spec.Text != "" || spec.Style.AnySet() {
 		sb.WriteString("<a:r>")
-		if spec.Style.anySet() {
+		if spec.Style.AnySet() {
 			frag, err := buildRPrFragment("a", spec.Style)
 			if err != nil {
 				return nil, Annotate(err, op)

@@ -1,6 +1,7 @@
 package pptx
 
 import (
+	"github.com/F31/go-pptx/internal/document/style"
 	"strings"
 
 	"github.com/F31/go-pptx/internal/textutil"
@@ -24,13 +25,13 @@ func (r *TextRun) ExplicitFont() (FontStyle, error) {
 	if rPr == nil {
 		return FontStyle{}, nil
 	}
-	return parseLocalFont(doc, rPr), nil
+	return style.ParseLocalFont(doc, rPr), nil
 }
 
 // SetFont 以 patch 语义应用 style（方案 §20.2）：仅 Set=true 的字段被
 // 写入，其余不变；恢复继承请用 ResetFontProperty。
 func (r *TextRun) SetFont(style FontStyle) error {
-	if !style.anySet() {
+	if !style.AnySet() {
 		return nil
 	}
 	doc, run, err := r.locateRun()
@@ -368,7 +369,7 @@ func expandSelfClosingRPr(doc *xmlstore.XMLDocument, rPr *xmlstore.NodeRecord, p
 			sb.WriteString(" " + k + "=\"" + v + "\"")
 		}
 	}
-	if !style.anyChildSet() {
+	if !style.AnyChildSet() {
 		sb.WriteString("/>")
 		return sb.String(), nil
 	}
