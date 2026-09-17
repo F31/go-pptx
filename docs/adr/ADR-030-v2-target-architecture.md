@@ -589,7 +589,10 @@ Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收�
     @show="0"）；门面侧补 `pptx/bridge.go` `MainPartBytes` 只读桥
   - `internal/engine/irbuild.go`——`projectNotes`/`projectHidden` + 直接
     调 ooxml 时序投影；`IR_NOTES_READ`/`IR_TIMING_READ`/`IR_HIDDEN_READ`
-    诊断语义不变；图表仍按 ID 回退门面 ChartShape（category 投影未解前）
+    诊断语义不变；**图表投影收尾**：`chart.go`（`ChartPartOf`/`ChartData`，slide
+    rels→chart part→schema 解码 C_CT_ChartSpace 抽 type/title/categories），engine
+    `projectShapes` 全路径零门面句柄读取（`chartShapesByID`/`DataWithDiagnostics`
+    已删除）
   - `archlint` 临时例外面保持收敛为仅 **`internal/engine`**（R1 由
     archlint_test 守护 ir→pptx=违规）
 - 测试随迁（ADR-016 陷阱免疫）：`ir_test.go`/`table_ir_test.go` 迁入
@@ -597,7 +600,7 @@ Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收�
   `diff_test` 留守 `internal/ir`
 - `render/` 按决策**保留**（有意发布的公共契约），未动
 - 守恒：`go test ./...` 全绿；vet/gofmt clean；golden 不变；
-  gate PASS（engine 92.1% ≥85；ir 85.2% ≥85；ooxml 93.4% ≥90；
+  gate PASS（engine 91.1% ≥85；ir 85.2% ≥85；ooxml 92.7% ≥90；
   ooxml/schema 100% ≥90；archlint 全合规）
 
 ### 编排层：`internal/engine` 起步（2026-09-17，演进第 5 步）

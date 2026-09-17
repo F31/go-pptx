@@ -100,7 +100,7 @@ func projectPage(p *pptx.Presentation, s *pptx.Slide, idx int, opts ir.Options) 
 			Part: s.PartName(), Message: "slide part unreadable",
 		})
 	} else {
-		shapes, diags := projectShapes(slideBytes, s.PartName(), s)
+		shapes, diags := projectShapes(slideBytes, s.PartName(), p, part)
 		page.Shapes = shapes
 		page.Diagnostics = append(page.Diagnostics, diags...)
 	}
@@ -186,9 +186,8 @@ func projectHidden(p *pptx.Presentation, slideID uint32) (bool, error) {
 }
 
 // projectShapes 以 internal/ooxml 的 schema 只读投影枚举形状（取代门面
-// 句柄 Shapes），文本/表格亦由 schema 抽取；图表经门面 ChartShape（按
-// ID 匹配）补 ChartType/Text（category 投影未解前）。
-func projectShapes(b []byte, partStr string, s *pptx.Slide) ([]ir.Shape, ir.Diagnostics) {
+// 句柄 Shapes），文本/表格/图表亦由 schema 投影抽取。
+func projectShapes(b []byte, partStr string, p *pptx.Presentation, source opc.PartName) ([]ir.Shape, ir.Diagnostics) {
 	infos, err := ooxml.SlideShapes(b)
 	if err != nil {
 		return nil, ir.Diagnostics{{
@@ -196,43 +195,52 @@ func projectShapes(b []byte, partStr string, s *pptx.Slide) ([]ir.Shape, ir.Diag
 			Part: partStr, Message: err.Error(),
 		}}
 	}
-	var charts map[model.ShapeID]*pptx.ChartShape
-	if hasChart(infos) {
-		charts = chartShapesByID(s)
+	// 预解析含图表的形状（rid → chart info 映射）。
+	var chartMap map[model.ShapeID]*ooxml.ChartInfo
+	for _, info := range infos {
+		if info.Chart && info.ChartRID != "" {
+			if chartMap == nil {
+				chartMap = map[model.ShapeID]*ooxml.ChartInfo{}
+			}
+			if ci := projectChart(p, source, info.ChartRID); ci != nil {
+				chartMap[model.ShapeID(info.ID)] = ci
+			}
+		}
 	}
 	out := make([]ir.Shape, 0, len(infos))
 	for _, info := range infos {
-		out = append(out, toIRShape(info, charts[model.ShapeID(info.ID)]))
+		var ci *ooxml.ChartInfo
+		if chartMap != nil {
+			ci = chartMap[model.ShapeID(info.ID)]
+		}
+		out = append(out, toIRShape(info, ci))
 	}
 	return out, nil
 }
 
-func hasChart(infos []ooxml.ShapeInfo) bool {
-	for _, i := range infos {
-		if i.Chart {
-			return true
-		}
+// projectChart 通过 ooxml 投影解析图表数据（rid → chart part → decode）。
+func projectChart(p *pptx.Presentation, source opc.PartName, rid string) *ooxml.ChartInfo {
+	relsPart := ooxml.RelsPartName(source)
+	relsData, ok := pptx.PartBytes(p, relsPart)
+	if !ok || len(relsData) == 0 {
+		return nil
 	}
-	return false
-}
-
-// chartShapesByID 把门面 Shapes 中的 ChartShape 按 ID 建索引（仅供图表
-// 退化链路使用）。
-func chartShapesByID(s *pptx.Slide) map[model.ShapeID]*pptx.ChartShape {
-	out := map[model.ShapeID]*pptx.ChartShape{}
-	shapes, err := s.Shapes()
+	chartPart, ok := ooxml.ChartPartOf(relsData, source, rid)
+	if !ok {
+		return nil
+	}
+	chartBytes, ok := pptx.PartBytes(p, chartPart)
+	if !ok || len(chartBytes) == 0 {
+		return nil
+	}
+	ci, err := ooxml.ChartData(chartBytes)
 	if err != nil {
-		return out
+		return nil
 	}
-	for _, sh := range shapes {
-		if cs, ok := sh.(*pptx.ChartShape); ok && cs != nil {
-			out[cs.ID()] = cs
-		}
-	}
-	return out
+	return &ci
 }
 
-func toIRShape(info ooxml.ShapeInfo, cs *pptx.ChartShape) ir.Shape {
+func toIRShape(info ooxml.ShapeInfo, chart *ooxml.ChartInfo) ir.Shape {
 	s2 := ir.Shape{
 		ID:         model.ShapeID(info.ID),
 		Name:       info.Name,
@@ -247,26 +255,20 @@ func toIRShape(info ooxml.ShapeInfo, cs *pptx.ChartShape) ir.Shape {
 	if info.Bounds != nil {
 		s2.Bounds = &ir.Box{X: info.Bounds.X, Y: info.Bounds.Y, Width: info.Bounds.Width, Height: info.Bounds.Height}
 	}
-	if cs != nil {
-		data, diags, err := cs.DataWithDiagnostics()
-		if err == nil {
-			s2.ChartType = data.Type.String()
-			var sb strings.Builder
-			if data.Title != "" {
-				sb.WriteString(data.Title)
-				sb.WriteString(": ")
-			}
-			for i, c := range data.Categories {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(c)
-			}
-			s2.Text = sb.String()
-			if len(diags) > 0 {
-				s2.Diagnostics = append(s2.Diagnostics, convertDiagnostics(diags)...)
-			}
+	if chart != nil {
+		s2.ChartType = chart.Type
+		var sb strings.Builder
+		if chart.Title != "" {
+			sb.WriteString(chart.Title)
+			sb.WriteString(": ")
 		}
+		for i, c := range chart.Categories {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(c)
+		}
+		s2.Text = sb.String()
 	}
 	return s2
 }
