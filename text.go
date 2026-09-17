@@ -3,6 +3,7 @@ package pptx
 import (
 	"strings"
 
+	textpkg "github.com/F31/go-pptx/internal/document/text"
 	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -72,14 +73,14 @@ func (t *TextFrame) SetPlainText(text string) error {
 	if err != nil {
 		return Annotate(err, "TextFrame.SetPlainText")
 	}
-	if !body.SelfClosing() && !bodyRawShapeOK(doc, body) {
+	if !body.SelfClosing() && !textpkg.BodyRawShapeOK(doc, body) {
 		return &OperationError{
 			Op: "TextFrame.SetPlainText", Part: string(t.part),
 			Message: "txBody contains extensions that SetPlainText cannot safely delete",
 			Err:     ErrUnsupportedEdit,
 		}
 	}
-	prefix := paraPrefix(doc, body)
+	prefix := textpkg.ParaPrefix(doc, body)
 
 	var kept, ps []string
 	for _, cid := range body.Children {
@@ -90,7 +91,7 @@ func (t *TextFrame) SetPlainText(text string) error {
 	}
 	lines := strings.Split(text, "\n")
 	for _, ln := range lines {
-		ps = append(ps, buildPlainParagraph(prefix, ln))
+		ps = append(ps, textpkg.BuildPlainParagraph(prefix, ln))
 	}
 	if len(ps) == 0 {
 		ps = append(ps, "<"+prefix+":p/>")
@@ -111,41 +112,6 @@ func (t *TextFrame) SetPlainText(text string) error {
 		return Annotate(err, "TextFrame.SetPlainText")
 	}
 	return nil
-}
-
-// bodyRawShapeOK 检查 txBody 的子元素只属于 {a:bodyPr, a:lstStyle, a:p}
-// （未知命名空间/未知本地名的元素视为不可安全删除的扩展）。
-func bodyRawShapeOK(doc *xmlstore.XMLDocument, body *xmlstore.NodeRecord) bool {
-	for _, cid := range body.Children {
-		c := doc.Node(cid)
-		if c.Namespace == nsDrawingML &&
-			(c.Local() == "bodyPr" || c.Local() == "lstStyle" || c.Local() == "p") {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-// paraPrefix 返回正文段落应使用的前缀（取首个 a:p 的前缀；txBody 至少
-// 含一个 a:p 才合法，缺失时回退 "a" 依赖作用域）。
-func paraPrefix(doc *xmlstore.XMLDocument, body *xmlstore.NodeRecord) string {
-	for _, cid := range body.Children {
-		c := doc.Node(cid)
-		if c.Namespace == nsDrawingML && c.Local() == "p" && c.QName.Prefix != "" {
-			return c.QName.Prefix
-		}
-	}
-	return "a"
-}
-
-// buildPlainParagraph 生成无字符格式的段落：<p:…><a:r><a:t>…</a:t></a:r></p:…>。
-func buildPlainParagraph(prefix, text string) string {
-	esc, err := xmlstore.EscapeText(text)
-	if err != nil {
-		return "" // 非法 XML 字符由上层 EscapeText 在 SetPlainText 内统一拒绝
-	}
-	return "<" + prefix + ":p><" + prefix + ":r><" + prefix + ":t>" + esc + "</" + prefix + ":t></" + prefix + ":r></" + prefix + ":p>"
 }
 
 // ---------- Paragraph ----------
@@ -184,7 +150,7 @@ func (p *Paragraph) Text() (string, error) {
 	if err != nil {
 		return "", Annotate(err, "Paragraph.Text")
 	}
-	return paragraphText(doc, para), nil
+	return textpkg.ParagraphText(doc, para), nil
 }
 
 // Runs 返回段落内普通 Run（a:r）句柄切片（文档序；br/fld 等非普通
@@ -208,21 +174,21 @@ func (p *Paragraph) Runs() ([]*TextRun, error) {
 
 // AddRun 在段落末尾（a:endParaRPr 之前，若存在）追加一个普通 Run，
 // 应用 style 中 Set=true 的字段。返回新 Run 句柄。
-func (p *Paragraph) AddRun(text string, style FontStyle) (*TextRun, error) {
+func (p *Paragraph) AddRun(s string, style FontStyle) (*TextRun, error) {
 	doc, para, err := p.locatePara()
 	if err != nil {
 		return nil, Annotate(err, "Paragraph.AddRun")
 	}
-	prefix := runPrefix(doc, para)
+	prefix := textpkg.RunPrefix(doc, para)
 	rPr := ""
 	if style.AnySet() {
-		frag, err := buildRPrFragment(prefix, style)
+		frag, err := textpkg.BuildRPrFragment(prefix, style)
 		if err != nil {
 			return nil, Annotate(err, "Paragraph.AddRun")
 		}
 		rPr = frag
 	}
-	esc, err := xmlstore.EscapeText(text)
+	esc, err := xmlstore.EscapeText(s)
 	if err != nil {
 		return nil, Annotate(mapXMLError(err), "Paragraph.AddRun")
 	}
@@ -230,7 +196,7 @@ func (p *Paragraph) AddRun(text string, style FontStyle) (*TextRun, error) {
 
 	// 插入位置：endParaRPr 之前；否则段落末尾（AppendChild）。
 	var patch xmlstore.SpanPatch
-	anchor, endIdx := p.endParaAnchor(doc, para)
+	anchor, endIdx := textpkg.EndParaAnchor(doc, para)
 	if anchor != nil {
 		patch, err = xmlstore.InsertBefore(anchor, []byte(run))
 	} else {
@@ -250,17 +216,6 @@ func (p *Paragraph) AddRun(text string, style FontStyle) (*TextRun, error) {
 	return p.lastRun(), nil
 }
 
-// endParaAnchor 返回段落末的 a:endParaRPr 元素（存在时），供插入定位。
-func (p *Paragraph) endParaAnchor(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord) (*xmlstore.NodeRecord, int) {
-	for i := len(para.Children) - 1; i >= 0; i-- {
-		c := doc.Node(para.Children[i])
-		if c.Namespace == nsDrawingML && c.Local() == "endParaRPr" {
-			return c, i
-		}
-	}
-	return nil, -1
-}
-
 // lastRun 在提交后重新解析段落并返回最后一个 a:r 的句柄。
 func (p *Paragraph) lastRun() *TextRun {
 	doc, para, err := p.locatePara()
@@ -269,17 +224,6 @@ func (p *Paragraph) lastRun() *TextRun {
 	}
 	n := countKind(doc, para, nsDrawingML, "r")
 	return &TextRun{textNode: p.textNode, paraIdx: p.idx, runIdx: n - 1}
-}
-
-// runPrefix 返回段落内 Run 应使用的前缀（取首个 a:r 前缀，缺省 "a"）。
-func runPrefix(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord) string {
-	for _, cid := range para.Children {
-		c := doc.Node(cid)
-		if c.Namespace == nsDrawingML && c.Local() == "r" && c.QName.Prefix != "" {
-			return c.QName.Prefix
-		}
-	}
-	return "a"
 }
 
 // ---------- TextRun ----------

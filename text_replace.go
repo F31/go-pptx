@@ -4,6 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	textpkg "github.com/F31/go-pptx/internal/document/text"
 	"github.com/F31/go-pptx/internal/textmap"
 	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -72,7 +73,7 @@ func (m ReplaceMode) String() string {
 	case ReplaceExplicitStyle:
 		return "ExplicitStyle"
 	}
-	return "ReplaceMode(" + intString(int(m)) + ")"
+	return "ReplaceMode(" + textpkg.IntString(int(m)) + ")"
 }
 
 // replaceOptions / ReplaceOption / WithReplaceMode / WithReplacementStyle 已迁出至 options.go。
@@ -414,7 +415,7 @@ func replacePatches(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord, old, r
 		repRPr := ""
 		if o.mode == ReplaceExplicitStyle {
 			if o.style.AnySet() {
-				frag, err := buildRPrFragment(occ.blk.runs[occ.ri].prefix, o.style)
+				frag, err := textpkg.BuildRPrFragment(occ.blk.runs[occ.ri].prefix, o.style)
 				if err != nil {
 					return res, nil, Annotate(err, "replacePatches")
 				}

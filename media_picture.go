@@ -76,13 +76,13 @@ type PictureSpec struct {
 // pictureGeometry 计算放置几何与裁剪。
 // 返回 offX/offY/extCx/extCy（EMU）与 srcRect 片段（空串表示无裁剪）。
 func pictureGeometry(kind imageKind, spec PictureSpec) (int64, int64, int64, int64, string, error) {
-	if kind.width <= 0 || kind.hgt <= 0 {
+	if kind.Width <= 0 || kind.Hgt <= 0 {
 		return 0, 0, 0, 0, "", &OperationError{
 			Op: "AddPicture", Message: "image has invalid zero dimension", Err: ErrInvalidArgument,
 		}
 	}
-	wE := int64(kind.width) * emuPerPixel96
-	hE := int64(kind.hgt) * emuPerPixel96
+	wE := int64(kind.Width) * emuPerPixel96
+	hE := int64(kind.Hgt) * emuPerPixel96
 	needWH := func() error {
 		if spec.Width <= 0 || spec.Height <= 0 {
 			return &OperationError{
@@ -588,11 +588,11 @@ func removeRelEntry(rels []byte, id string) []byte {
 
 func (p *Presentation) planMedia(data []byte, kind imageKind) (opc.PartName, *editplan.Operation, error) {
 	sum := sha256.Sum256(data)
-	if name, ok := p.findExistingMedia(sum, kind.ct); ok {
+	if name, ok := p.findExistingMedia(sum, kind.CT); ok {
 		return name, nil, nil
 	}
-	name := p.newMediaName(kind.ext)
-	op := editplan.Add(name, data, kind.ct)
+	name := p.newMediaName(kind.Ext)
+	op := editplan.Add(name, data, kind.CT)
 	return name, &op, nil
 }
 

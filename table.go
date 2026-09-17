@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
+	tablepkg "github.com/F31/go-pptx/internal/document/table"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -30,27 +30,6 @@ import (
 // vMerge="1"（纵向）作为 continuation。库按此维护逻辑网格：逻辑格位
 // → (单元格节点, 锚点节点)，读取与合并均以逻辑网格为准，不按 DOM 序号
 // 猜测（§9.1"合并必须验证矩形区域、不重叠"）。
-
-// tblGraphicURI 是表格图形数据的 URI（a:graphicData@uri）。
-const tblGraphicURI = "http://schemas.openxmlformats.org/drawingml/2006/table"
-
-// ---------- 表格定位 ----------
-
-// tableOfGraphic 返回图形框内的 a:tbl（非表格图形框返回 nil）。
-func tableOfGraphic(doc *xmlstore.XMLDocument, frame *xmlstore.NodeRecord) *xmlstore.NodeRecord {
-	g := childOfKind(doc, frame, nsDrawingML, "graphic", 0)
-	if g == nil {
-		return nil
-	}
-	gd := childOfKind(doc, g, nsDrawingML, "graphicData", 0)
-	if gd == nil {
-		return nil
-	}
-	if uri, ok := gd.Attr("", "uri"); !ok || uri != tblGraphicURI {
-		return nil
-	}
-	return childOfKind(doc, gd, nsDrawingML, "tbl", 0)
-}
 
 // ---------- TableShape ----------
 
@@ -85,7 +64,7 @@ func (t *TableShape) locateTbl() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, e
 			Err:     ErrUnsupportedFormat,
 		}
 	}
-	tbl := tableOfGraphic(doc, el)
+	tbl := tablepkg.TableOfGraphic(doc, el)
 	if tbl == nil {
 		return nil, nil, &OperationError{
 			Op: "TableShape", Part: string(t.part),
@@ -93,203 +72,6 @@ func (t *TableShape) locateTbl() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, e
 		}
 	}
 	return doc, tbl, nil
-}
-
-// ---------- 逻辑网格 ----------
-
-// cellSlot 是逻辑网格中的一个格位（对应一个 a:tc）。
-type cellSlot struct {
-	// tc 是该格位 DOM 中的 a:tc（continuation 也有自己的节点）。
-	tc *xmlstore.NodeRecord
-	// anchor 是该格位所属合并区的锚点 tc（自身为锚点时等于 tc）。
-	anchor *xmlstore.NodeRecord
-	// row/col 是格位坐标。
-	row, col int
-	// isContinuation 表示该格位被其它锚点覆盖（hMerge/vMerge）。
-	isContinuation bool
-}
-
-// tableGrid 是表格的逻辑网格映射（行 × 列）。
-type tableGrid struct {
-	cols  int
-	slots [][]*cellSlot
-	trs   []*xmlstore.NodeRecord // 行节点（文档序）
-	gcols []*xmlstore.NodeRecord // 列节点（文档序）
-}
-
-// rows 返回行数。
-func (g *tableGrid) rows() int { return len(g.trs) }
-
-// at 返回格位；越界或网格缺失返回 nil。
-func (g *tableGrid) at(r, c int) *cellSlot {
-	if r < 0 || r >= len(g.slots) || c < 0 || c >= g.cols {
-		return nil
-	}
-	return g.slots[r][c]
-}
-
-// buildTableGrid 构建逻辑网格：按 DOM 顺序为每个 a:tc 分配格位，
-// 由 gridSpan/rowSpan 占据后续格位，continuation（hMerge/vMerge）认领
-// 锚点覆盖区内尚未分配节点的格位。
-func buildTableGrid(doc *xmlstore.XMLDocument, tbl *xmlstore.NodeRecord) (*tableGrid, error) {
-	grid := childOfKind(doc, tbl, nsDrawingML, "tblGrid", 0)
-	g := &tableGrid{}
-	if grid != nil {
-		for _, cid := range grid.Children {
-			c := doc.Node(cid)
-			if c.Namespace == nsDrawingML && c.Local() == "gridCol" {
-				g.gcols = append(g.gcols, c)
-			}
-		}
-	}
-	for _, cid := range tbl.Children {
-		c := doc.Node(cid)
-		if c.Namespace == nsDrawingML && c.Local() == "tr" {
-			g.trs = append(g.trs, c)
-		}
-	}
-	g.cols = len(g.gcols)
-	if g.cols == 0 {
-		// 列数缺失：由首行 tc 数与跨度推断（不臆造 gridCol，仅用于读取）。
-		g.cols = inferCols(doc, g.trs)
-	}
-	if g.cols == 0 || len(g.trs) == 0 {
-		return g, nil
-	}
-	g.slots = make([][]*cellSlot, len(g.trs))
-	for i := range g.slots {
-		g.slots[i] = make([]*cellSlot, g.cols)
-	}
-	for r, tr := range g.trs {
-		c := 0
-		for _, cid := range tr.Children {
-			tc := doc.Node(cid)
-			if tc.Namespace != nsDrawingML || tc.Local() != "tc" {
-				continue
-			}
-			cont := cellIsContinuation(tc)
-			// 非 continuation 跳过已被（上方 rowSpan 或本行 gridSpan）占据的格。
-			if !cont {
-				for c < g.cols && g.slots[r][c] != nil {
-					c++
-				}
-			}
-			if c >= g.cols {
-				break
-			}
-			if cont {
-				// 归属：纵向取上方同列锚点，横向取本行左侧锚点。
-				anchor := tc
-				if r > 0 && g.slots[r-1][c] != nil {
-					anchor = g.slots[r-1][c].anchor
-				} else if c > 0 && g.slots[r][c-1] != nil {
-					anchor = g.slots[r][c-1].anchor
-				}
-				g.slots[r][c] = &cellSlot{tc: tc, anchor: anchor, row: r, col: c, isContinuation: true}
-				c++
-				continue
-			}
-			gs, rs := cellSpans(tc)
-			for i := 0; i < rs && r+i < len(g.slots); i++ {
-				for j := 0; j < gs && c+j < g.cols; j++ {
-					if g.slots[r+i][c+j] == nil {
-						g.slots[r+i][c+j] = &cellSlot{tc: tc, anchor: tc, row: r + i, col: c + j}
-					}
-				}
-			}
-			// 只推进一格：覆盖区内的后续格位由 continuation 节点认领。
-			c++
-		}
-	}
-	return g, nil
-}
-
-// inferCols 在无 a:tblGrid 时由行内 tc 数与 gridSpan 推断列数。
-func inferCols(doc *xmlstore.XMLDocument, trs []*xmlstore.NodeRecord) int {
-	max := 0
-	for _, tr := range trs {
-		n := 0
-		for _, cid := range tr.Children {
-			tc := doc.Node(cid)
-			if tc.Namespace != nsDrawingML || tc.Local() != "tc" {
-				continue
-			}
-			if cellIsContinuation(tc) {
-				n++
-				continue
-			}
-			gs, _ := cellSpans(tc)
-			n += gs
-		}
-		if n > max {
-			max = n
-		}
-	}
-	return max
-}
-
-// cellSpans 返回单元格的 gridSpan/rowSpan（缺省 1，非法值按 1）。
-func cellSpans(tc *xmlstore.NodeRecord) (gridSpan, rowSpan int) {
-	gs, rs := 1, 1
-	if v, ok := tc.Attr("", "gridSpan"); ok {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
-			gs = n
-		}
-	}
-	if v, ok := tc.Attr("", "rowSpan"); ok {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
-			rs = n
-		}
-	}
-	return gs, rs
-}
-
-// cellIsContinuation 返回单元格是否为合并覆盖区的 continuation
-// （hMerge 或 vMerge 为真）。
-func cellIsContinuation(tc *xmlstore.NodeRecord) bool {
-	if v, ok := tc.Attr("", "hMerge"); ok && (v == "1" || v == "true") {
-		return true
-	}
-	if v, ok := tc.Attr("", "vMerge"); ok && (v == "1" || v == "true") {
-		return true
-	}
-	return false
-}
-
-// cellHasText 返回单元格正文是否含非空白文本。
-func cellHasText(doc *xmlstore.XMLDocument, tc *xmlstore.NodeRecord) bool {
-	tx := childOfKind(doc, tc, nsDrawingML, "txBody", 0)
-	if tx == nil {
-		return false
-	}
-	for _, pid := range tx.Children {
-		p := doc.Node(pid)
-		if p.Namespace != nsDrawingML || p.Local() != "p" {
-			continue
-		}
-		for _, rid := range p.Children {
-			r := doc.Node(rid)
-			if r.Namespace != nsDrawingML || (r.Local() != "r" && r.Local() != "fld") {
-				continue
-			}
-			if r.Local() == "fld" {
-				return true // 字段视为有内容（不臆测是否可见）
-			}
-			for _, tid := range r.Children {
-				t := doc.Node(tid)
-				if t.Namespace == nsDrawingML && t.Local() == "t" {
-					raw := ""
-					if !t.SelfClosing() {
-						raw = string(doc.Original()[t.OpenEnd:t.CloseStart])
-					}
-					if strings.TrimSpace(textutil.XmlUnescape(raw)) != "" {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
 }
 
 // ---------- Cell ----------
@@ -349,8 +131,8 @@ func (c *Cell) IsMerged() (bool, error) {
 	if err != nil {
 		return false, Annotate(err, "Cell.IsMerged")
 	}
-	gs, rs := cellSpans(tc)
-	return gs > 1 || rs > 1 || cellIsContinuation(tc), nil
+	gs, rs := tablepkg.CellSpans(tc)
+	return gs > 1 || rs > 1 || tablepkg.CellIsContinuation(tc), nil
 }
 
 // IsContinuation 返回该格位是否为合并区中被覆盖的 continuation
@@ -360,7 +142,7 @@ func (c *Cell) IsContinuation() (bool, error) {
 	if err != nil {
 		return false, Annotate(err, "Cell.IsContinuation")
 	}
-	return cellIsContinuation(tc), nil
+	return tablepkg.CellIsContinuation(tc), nil
 }
 
 // Spans 返回锚点单元格的跨度（gridSpan/rowSpan，缺省 1）。
@@ -370,7 +152,7 @@ func (c *Cell) Spans() (gridSpan, rowSpan int, err error) {
 	if err2 != nil {
 		return 0, 0, Annotate(err2, "Cell.Spans")
 	}
-	gs, rs := cellSpans(tc)
+	gs, rs := tablepkg.CellSpans(tc)
 	return gs, rs, nil
 }
 
@@ -399,11 +181,11 @@ func (t *TableShape) RowCount() (int, error) {
 	if err != nil {
 		return 0, Annotate(err, "TableShape.RowCount")
 	}
-	g, err := buildTableGrid(doc, tbl)
+	g, err := tablepkg.BuildGrid(doc, tbl)
 	if err != nil {
 		return 0, err
 	}
-	return g.rows(), nil
+	return g.Rows(), nil
 }
 
 // ColumnCount 返回表格列数（a:tblGrid/a:gridCol 数）。
@@ -412,11 +194,11 @@ func (t *TableShape) ColumnCount() (int, error) {
 	if err != nil {
 		return 0, Annotate(err, "TableShape.ColumnCount")
 	}
-	g, err := buildTableGrid(doc, tbl)
+	g, err := tablepkg.BuildGrid(doc, tbl)
 	if err != nil {
 		return 0, err
 	}
-	return g.cols, nil
+	return g.Cols, nil
 }
 
 // Cell 返回逻辑坐标 (row,col) 的单元格句柄；越界或网格缺失返回
@@ -427,25 +209,25 @@ func (t *TableShape) Cell(row, col int) (*Cell, error) {
 	if err != nil {
 		return nil, Annotate(err, "TableShape.Cell")
 	}
-	g, err := buildTableGrid(doc, tbl)
+	g, err := tablepkg.BuildGrid(doc, tbl)
 	if err != nil {
 		return nil, err
 	}
-	if row < 0 || col < 0 || row >= g.rows() || col >= g.cols {
+	if row < 0 || col < 0 || row >= g.Rows() || col >= g.Cols {
 		return nil, &OperationError{
 			Op: "TableShape.Cell", Part: string(t.part),
-			Message: fmt.Sprintf("cell (%d,%d) out of range [0,%d)x[0,%d)", row, col, g.rows(), g.cols),
+			Message: fmt.Sprintf("cell (%d,%d) out of range [0,%d)x[0,%d)", row, col, g.Rows(), g.Cols),
 			Err:     ErrOutOfRange,
 		}
 	}
-	s := g.at(row, col)
+	s := g.At(row, col)
 	if s == nil {
 		return nil, &OperationError{
 			Op: "TableShape.Cell", Part: string(t.part),
 			Message: fmt.Sprintf("cell (%d,%d) has no a:tc", row, col), Err: ErrMalformedPackage,
 		}
 	}
-	return &Cell{p: t.p, part: t.part, path: recordPath(doc, s.tc.ID), row: row, col: col, shapeHint: t.idHint}, nil
+	return &Cell{p: t.p, part: t.part, path: recordPath(doc, s.TC.ID), row: row, col: col, shapeHint: t.idHint}, nil
 }
 
 // ---------- 行高与列宽 ----------
@@ -535,17 +317,17 @@ func (t *TableShape) rowNode(row int) (*xmlstore.XMLDocument, *xmlstore.NodeReco
 	if err != nil {
 		return nil, nil, Annotate(err, "TableShape")
 	}
-	g, err := buildTableGrid(doc, tbl)
+	g, err := tablepkg.BuildGrid(doc, tbl)
 	if err != nil {
 		return nil, nil, err
 	}
-	if row < 0 || row >= g.rows() {
+	if row < 0 || row >= g.Rows() {
 		return nil, nil, &OperationError{
 			Op: "TableShape", Part: string(t.part),
-			Message: fmt.Sprintf("row %d out of range [0,%d)", row, g.rows()), Err: ErrOutOfRange,
+			Message: fmt.Sprintf("row %d out of range [0,%d)", row, g.Rows()), Err: ErrOutOfRange,
 		}
 	}
-	return doc, g.trs[row], nil
+	return doc, g.TRs[row], nil
 }
 
 func (t *TableShape) colNode(col int) (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error) {
@@ -553,17 +335,17 @@ func (t *TableShape) colNode(col int) (*xmlstore.XMLDocument, *xmlstore.NodeReco
 	if err != nil {
 		return nil, nil, Annotate(err, "TableShape")
 	}
-	g, err := buildTableGrid(doc, tbl)
+	g, err := tablepkg.BuildGrid(doc, tbl)
 	if err != nil {
 		return nil, nil, err
 	}
-	if col < 0 || col >= g.cols || col >= len(g.gcols) {
+	if col < 0 || col >= g.Cols || col >= len(g.GCols) {
 		return nil, nil, &OperationError{
 			Op: "TableShape", Part: string(t.part),
-			Message: fmt.Sprintf("column %d out of range [0,%d)", col, g.cols), Err: ErrOutOfRange,
+			Message: fmt.Sprintf("column %d out of range [0,%d)", col, g.Cols), Err: ErrOutOfRange,
 		}
 	}
-	return doc, g.gcols[col], nil
+	return doc, g.GCols[col], nil
 }
 
 // apply 以一次事务提交补丁。
@@ -632,7 +414,7 @@ func (t *TableShape) Merge(r CellRange, opts ...MergeOption) error {
 	if err != nil {
 		return Annotate(err, "TableShape.Merge")
 	}
-	g, err := buildTableGrid(doc, tbl)
+	g, err := tablepkg.BuildGrid(doc, tbl)
 	if err != nil {
 		return err
 	}
@@ -642,10 +424,10 @@ func (t *TableShape) Merge(r CellRange, opts ...MergeOption) error {
 			Message: fmt.Sprintf("invalid range size %dx%d", r.Rows, r.Cols), Err: ErrInvalidArgument,
 		}
 	}
-	if r.Row < 0 || r.Col < 0 || r.Row+r.Rows > g.rows() || r.Col+r.Cols > g.cols {
+	if r.Row < 0 || r.Col < 0 || r.Row+r.Rows > g.Rows() || r.Col+r.Cols > g.Cols {
 		return &OperationError{
 			Op: "TableShape.Merge", Part: string(t.part),
-			Message: fmt.Sprintf("range (%d,%d,%dx%d) outside grid %dx%d", r.Row, r.Col, r.Rows, r.Cols, g.rows(), g.cols),
+			Message: fmt.Sprintf("range (%d,%d,%dx%d) outside grid %dx%d", r.Row, r.Col, r.Rows, r.Cols, g.Rows(), g.Cols),
 			Err:     ErrOutOfRange,
 		}
 	}
@@ -658,10 +440,10 @@ func (t *TableShape) Merge(r CellRange, opts ...MergeOption) error {
 
 	// 收集区域内格位；要求每个格位所属锚点完整落在区域内。
 	seen := map[*xmlstore.NodeRecord]bool{}
-	var nonEmpty []*cellSlot
+	var nonEmpty []*tablepkg.Slot
 	for i := 0; i < r.Rows; i++ {
 		for j := 0; j < r.Cols; j++ {
-			s := g.at(r.Row+i, r.Col+j)
+			s := g.At(r.Row+i, r.Col+j)
 			if s == nil {
 				return &OperationError{
 					Op: "TableShape.Merge", Part: string(t.part),
@@ -669,19 +451,19 @@ func (t *TableShape) Merge(r CellRange, opts ...MergeOption) error {
 					Err:     ErrMalformedPackage,
 				}
 			}
-			if !s.isContinuation {
-				gs, rs := cellSpans(s.tc)
+			if !s.IsContinuation {
+				gs, rs := tablepkg.CellSpans(s.TC)
 				// 锚点跨度必须完整落在区域内。
-				if s.row+rs > r.Row+r.Rows || s.col+gs > r.Col+r.Cols {
+				if s.Row+rs > r.Row+r.Rows || s.Col+gs > r.Col+r.Cols {
 					return &OperationError{
 						Op: "TableShape.Merge", Part: string(t.part),
-						Message: fmt.Sprintf("existing merge at (%d,%d) spans outside range", s.row, s.col),
+						Message: fmt.Sprintf("existing merge at (%d,%d) spans outside range", s.Row, s.Col),
 						Err:     ErrUnsupportedEdit,
 					}
 				}
 			}
-			if cellHasText(doc, s.tc) && !seen[s.tc] {
-				seen[s.tc] = true
+			if tablepkg.CellHasText(doc, s.TC) && !seen[s.TC] {
+				seen[s.TC] = true
 				nonEmpty = append(nonEmpty, s)
 			}
 		}
@@ -696,15 +478,15 @@ func (t *TableShape) Merge(r CellRange, opts ...MergeOption) error {
 		}
 	}
 
-	anchorSlot := g.at(r.Row, r.Col)
-	if anchorSlot == nil || anchorSlot.isContinuation {
+	anchorSlot := g.At(r.Row, r.Col)
+	if anchorSlot == nil || anchorSlot.IsContinuation {
 		return &OperationError{
 			Op: "TableShape.Merge", Part: string(t.part),
 			Message: fmt.Sprintf("anchor cell (%d,%d) is not a merge anchor", r.Row, r.Col),
 			Err:     ErrUnsupportedEdit,
 		}
 	}
-	anchor := anchorSlot.tc
+	anchor := anchorSlot.TC
 
 	var patches []xmlstore.SpanPatch
 	// 锚点跨度。
@@ -737,27 +519,27 @@ func (t *TableShape) Merge(r CellRange, opts ...MergeOption) error {
 			if i == 0 && j == 0 {
 				continue
 			}
-			s := g.at(r.Row+i, r.Col+j)
-			if s == nil || s.tc == anchor {
+			s := g.At(r.Row+i, r.Col+j)
+			if s == nil || s.TC == anchor {
 				continue
 			}
 			if j > 0 {
-				p, err := setOrAddAttr(doc, s.tc, "hMerge", "1")
+				p, err := setOrAddAttr(doc, s.TC, "hMerge", "1")
 				if err != nil {
 					return Annotate(err, "TableShape.Merge")
 				}
 				patches = append(patches, p)
 			}
 			if i > 0 {
-				p, err := setOrAddAttr(doc, s.tc, "vMerge", "1")
+				p, err := setOrAddAttr(doc, s.TC, "vMerge", "1")
 				if err != nil {
 					return Annotate(err, "TableShape.Merge")
 				}
 				patches = append(patches, p)
 			}
-			if o.policy == MergeKeepAnchorText && !cleared[s.tc] && cellHasText(doc, s.tc) {
-				cleared[s.tc] = true
-				patches = append(patches, clearCellTextPatches(doc, s.tc)...)
+			if o.policy == MergeKeepAnchorText && !cleared[s.TC] && tablepkg.CellHasText(doc, s.TC) {
+				cleared[s.TC] = true
+				patches = append(patches, tablepkg.ClearCellTextPatches(doc, s.TC)...)
 			}
 		}
 	}
@@ -772,7 +554,7 @@ func (t *TableShape) Unmerge(r CellRange) error {
 	if err != nil {
 		return Annotate(err, "TableShape.Unmerge")
 	}
-	g, err := buildTableGrid(doc, tbl)
+	g, err := tablepkg.BuildGrid(doc, tbl)
 	if err != nil {
 		return err
 	}
@@ -782,10 +564,10 @@ func (t *TableShape) Unmerge(r CellRange) error {
 			Message: fmt.Sprintf("invalid range size %dx%d", r.Rows, r.Cols), Err: ErrInvalidArgument,
 		}
 	}
-	if r.Row < 0 || r.Col < 0 || r.Row+r.Rows > g.rows() || r.Col+r.Cols > g.cols {
+	if r.Row < 0 || r.Col < 0 || r.Row+r.Rows > g.Rows() || r.Col+r.Cols > g.Cols {
 		return &OperationError{
 			Op: "TableShape.Unmerge", Part: string(t.part),
-			Message: fmt.Sprintf("range (%d,%d,%dx%d) outside grid %dx%d", r.Row, r.Col, r.Rows, r.Cols, g.rows(), g.cols),
+			Message: fmt.Sprintf("range (%d,%d,%dx%d) outside grid %dx%d", r.Row, r.Col, r.Rows, r.Cols, g.Rows(), g.Cols),
 			Err:     ErrOutOfRange,
 		}
 	}
@@ -793,13 +575,13 @@ func (t *TableShape) Unmerge(r CellRange) error {
 	done := map[*xmlstore.NodeRecord]bool{}
 	for i := 0; i < r.Rows; i++ {
 		for j := 0; j < r.Cols; j++ {
-			s := g.at(r.Row+i, r.Col+j)
-			if s == nil || done[s.tc] {
+			s := g.At(r.Row+i, r.Col+j)
+			if s == nil || done[s.TC] {
 				continue
 			}
-			done[s.tc] = true
+			done[s.TC] = true
 			for _, name := range []string{"gridSpan", "rowSpan", "hMerge", "vMerge"} {
-				patches = append(patches, dropAttrPatch(doc, s.tc, name)...)
+				patches = append(patches, dropAttrPatch(doc, s.TC, name)...)
 			}
 		}
 	}
@@ -832,23 +614,6 @@ func dropAttrPatch(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, name strin
 		}
 	}
 	return nil
-}
-
-// clearCellTextPatches 返回清空单元格正文（删除 a:txBody 内全部 a:p）
-// 的补丁；保留 a:bodyPr/a:lstStyle 与其它结构。
-func clearCellTextPatches(doc *xmlstore.XMLDocument, tc *xmlstore.NodeRecord) []xmlstore.SpanPatch {
-	tx := childOfKind(doc, tc, nsDrawingML, "txBody", 0)
-	if tx == nil {
-		return nil
-	}
-	var out []xmlstore.SpanPatch
-	for _, cid := range tx.Children {
-		c := doc.Node(cid)
-		if c.Namespace == nsDrawingML && c.Local() == "p" {
-			out = append(out, xmlstore.SpanPatch{Start: c.Source.Start, End: c.Source.End})
-		}
-	}
-	return out
 }
 
 // errIsNotFound 报告错误是否为 ErrNotFound（含包装）。

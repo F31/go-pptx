@@ -7,6 +7,7 @@ package pptx
 
 import (
 	"github.com/F31/go-pptx/internal/document/style"
+	tablepkg "github.com/F31/go-pptx/internal/document/table"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -80,7 +81,7 @@ func (p *Presentation) tableGeom(doc *xmlstore.XMLDocument, tc *xmlstore.NodeRec
 	if tbl == nil {
 		return 0, 0, flags
 	}
-	g, err := buildTableGrid(doc, tbl)
+	g, err := tablepkg.BuildGrid(doc, tbl)
 	if err != nil {
 		return 0, 0, flags
 	}
@@ -92,7 +93,7 @@ func (p *Presentation) tableGeom(doc *xmlstore.XMLDocument, tc *xmlstore.NodeRec
 		flags.BandCol = style.ParseToggle(pr.Attr("", "bandCol"))
 		flags.LastCol = style.ParseToggle(pr.Attr("", "lastCol"))
 	}
-	return g.rows(), g.cols, flags
+	return g.Rows(), g.Cols, flags
 }
 
 // EffectiveCellStyle 解析单元格的有效样式（§9.1）。

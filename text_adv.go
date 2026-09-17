@@ -1,9 +1,7 @@
 package pptx
 
 import (
-	"strconv"
-	"strings"
-
+	textpkg "github.com/F31/go-pptx/internal/document/text"
 	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
@@ -27,37 +25,11 @@ import (
 
 // ---------- BodyProps（文本框级高级属性） ----------
 
-// BodyProps 描述 a:bodyPr 中可安全写入的子集（TEXT-03 R 档）：
-//   - Columns（numCol）：分栏数，>0；Columns=0 等价于"未设置"，删除
-//     本地属性以恢复主题继承；
-//   - Vertical（vert）：竖排方向；未设置取空串。合法取值见 vertAllowed；
-//   - AnchorCenter（anchorCtr）：文本框内垂直居中（bool）。
+// BodyProps 描述 a:bodyPr 中可安全写入的子集（TEXT-03 R 档）。
 //
-// 三个字段都遵循"未提及属性 = 不动"语义：调用方仅 Set=true 的字段会
-// 被写入或覆盖；其它字段在 XML 中保留原值。
-type BodyProps struct {
-	Columns      Optional[int]
-	Vertical     Optional[string]
-	AnchorCenter Optional[bool]
-}
-
-// vertAllowed 是 vert 属性的合法取值（OOXML ST_TextVerticalType）。
-// 不在表内的值（如自定义字符串）→ ErrInvalidArgument，不写也不返回
-// "未知"，避免半生不熟的状态。
-var vertAllowed = map[string]bool{
-	"":              true, // 空串用作"删除本地属性"
-	"horz":          true,
-	"vert":          true,
-	"vert270":       true,
-	"wordArtVert":   true,
-	"eaVert":        true,
-	"mongolianVert": true,
-}
-
-// bodyPropsAnySet 检查 BodyProps 是否含显式设置。
-func bodyPropsAnySet(p BodyProps) bool {
-	return p.Columns.Set || p.Vertical.Set || p.AnchorCenter.Set
-}
+// v2.0：类型与解析/构造已下沉 internal/document/text，此处以 alias
+// 暴露（句柄 TextFrame.BodyProps/SetBodyProps 仍在本包）。
+type BodyProps = textpkg.BodyProps
 
 // TextFrame 公开 BodyProps：BodyProps() 读取当前本地属性（Set=false
 // 表示"未设置/继承"），SetBodyProps(p) 以 patch 语义应用。
@@ -72,7 +44,7 @@ func (t *TextFrame) BodyProps() (BodyProps, error) {
 	if bp == nil {
 		return BodyProps{}, nil
 	}
-	return parseBodyProps(doc, bp), nil
+	return textpkg.ParseBodyProps(doc, bp), nil
 }
 
 // SetBodyProps 应用 bodyPr 补丁：Columns=0/Vertical=""/AnchorCenter 未
@@ -91,7 +63,7 @@ func (t *TextFrame) SetBodyProps(p BodyProps) error {
 			Message: "Columns must be >= 0 (use 0 to clear)", Err: ErrInvalidArgument,
 		}
 	}
-	if p.Vertical.Set && !vertAllowed[p.Vertical.Value] {
+	if p.Vertical.Set && !textpkg.VertAllowed(p.Vertical.Value) {
 		return &OperationError{
 			Op: "TextFrame.SetBodyProps", Part: string(t.part),
 			Message: "Vertical value not in whitelist: " + p.Vertical.Value, Err: ErrInvalidArgument,
@@ -99,18 +71,18 @@ func (t *TextFrame) SetBodyProps(p BodyProps) error {
 	}
 	bp := childOfKind(doc, body, nsDrawingML, "bodyPr", 0)
 	if bp == nil {
-		if !bodyPropsAnySet(p) {
+		if !textpkg.BodyPropsAnySet(p) {
 			return nil // 无显式字段，bodyPr 也不存在 → no-op
 		}
 		// 新建 bodyPr（按 schema 序置于 txBody 首位）。
-		frag, err := buildBodyPrFragment("a", p)
+		frag, err := textpkg.BuildBodyPrFragment("a", p)
 		if err != nil {
 			return Annotate(err, "TextFrame.SetBodyProps")
 		}
 		var patch xmlstore.SpanPatch
 		if body.SelfClosing() {
 			start, end := body.Source.Start, body.Source.End
-			expanded := "<" + nsPrefix(body) + ":txBody>" + frag + "</" + nsPrefix(body) + ":txBody>"
+			expanded := "<" + textpkg.NSPrefix(body) + ":txBody>" + frag + "</" + textpkg.NSPrefix(body) + ":txBody>"
 			patch = xmlstore.SpanPatch{Start: start, End: end, Replacement: []byte(expanded)}
 		} else {
 			patch = xmlstore.SpanPatch{Start: body.OpenEnd, End: body.OpenEnd, Replacement: []byte(frag)}
@@ -124,7 +96,7 @@ func (t *TextFrame) SetBodyProps(p BodyProps) error {
 		}
 		return nil
 	}
-	patches, err := applyBodyPropsPatch(doc, bp, "a", p)
+	patches, err := textpkg.ApplyBodyPropsPatch(doc, bp, "a", p)
 	if err != nil {
 		return Annotate(err, "TextFrame.SetBodyProps")
 	}
@@ -141,196 +113,23 @@ func (t *TextFrame) SetBodyProps(p BodyProps) error {
 	return nil
 }
 
-// parseBodyProps 从 a:bodyPr 抽取 R 档字段（全部以 Set=true 输出）。
-func parseBodyProps(doc *xmlstore.XMLDocument, bp *xmlstore.NodeRecord) BodyProps {
-	var out BodyProps
-	for i := range bp.Attrs {
-		a := &bp.Attrs[i]
-		if a.Namespace != "" {
-			continue
-		}
-		switch a.RawName {
-		case "numCol":
-			out.Columns = Optional[int]{Value: int(xmlstore.IntAttr(a.Value)), Set: true}
-		case "vert":
-			out.Vertical = Optional[string]{Value: a.Value, Set: true}
-		case "anchorCtr":
-			out.AnchorCenter = Optional[bool]{Value: a.Value == "1" || a.Value == "true", Set: true}
-		}
-	}
-	return out
-}
-
-// applyBodyPropsPatch 计算对既有 bodyPr 的属性补丁集。
-//
-// Columns/Vertical/AnchorCenter 三个字段各自独立：
-//   - Columns.Set：Columns.Value>0 写入/更新；Columns.Value<=0 删除
-//   - Vertical.Set：Vertical.Value 非空写入/更新；空串删除
-//   - AnchorCenter.Set：按 Value 写入/更新 true/false
-func applyBodyPropsPatch(doc *xmlstore.XMLDocument, bp *xmlstore.NodeRecord, prefix string, p BodyProps) ([]xmlstore.SpanPatch, error) {
-	var patches []xmlstore.SpanPatch
-	// numCol
-	if p.Columns.Set {
-		if p.Columns.Value >= 1 {
-			v := strconv.Itoa(p.Columns.Value)
-			if pat, err := setAttrPatch(bp, "numCol", v, prefix); err != nil {
-				return nil, err
-			} else if pat != nil {
-				patches = append(patches, *pat)
-			}
-		} else {
-			if pat := removeAttrIfExists(doc, bp, "numCol"); pat != nil {
-				patches = append(patches, *pat)
-			}
-		}
-	}
-	// vert
-	if p.Vertical.Set {
-		if p.Vertical.Value != "" {
-			if pat, err := setAttrPatch(bp, "vert", p.Vertical.Value, prefix); err != nil {
-				return nil, err
-			} else if pat != nil {
-				patches = append(patches, *pat)
-			}
-		} else {
-			if pat := removeAttrIfExists(doc, bp, "vert"); pat != nil {
-				patches = append(patches, *pat)
-			}
-		}
-	}
-	// anchorCtr
-	if p.AnchorCenter.Set {
-		v := "0"
-		if p.AnchorCenter.Value {
-			v = "1"
-		}
-		if pat, err := setAttrPatch(bp, "anchorCtr", v, prefix); err != nil {
-			return nil, err
-		} else if pat != nil {
-			patches = append(patches, *pat)
-		}
-	}
-	return patches, nil
-}
-
-// setAttrPatch 在 bp 上写入/更新属性值；返回 nil 表示值未变化。
-//
-// 自闭合元素（<foo …/>）的 OpenEnd 指向 '>' 之后；插入位置需取 '/'
-// 之前（即 OpenEnd-2）；非自闭合元素 OpenEnd 指向 '>' 之后，插入位
-// 置取 '>' 之前（OpenEnd-1）。
-func setAttrPatch(n *xmlstore.NodeRecord, name, value, _ string) (*xmlstore.SpanPatch, error) {
-	for i := range n.Attrs {
-		a := &n.Attrs[i]
-		if a.Namespace == "" && a.RawName == name {
-			if a.Value == value {
-				return nil, nil
-			}
-			p := xmlstore.SpanPatch{Start: a.ValueStart, End: a.ValueEnd, Replacement: []byte(value)}
-			return &p, nil
-		}
-	}
-	pos := n.OpenEnd - 1
-	if n.SelfClosing() {
-		pos = n.OpenEnd - 2
-	}
-	repl := []byte(" " + name + `="` + value + `"`)
-	p := xmlstore.SpanPatch{Start: pos, End: pos, Replacement: repl}
-	return &p, nil
-}
-
-// removeAttrIfExists 删除指定本地属性；不存在返回 nil。复用 text.go
-// removeAttrPatch（前导空白 + 闭合引号一并删除）。
-func removeAttrIfExists(doc *xmlstore.XMLDocument, n *xmlstore.NodeRecord, name string) *xmlstore.SpanPatch {
-	for i := range n.Attrs {
-		a := &n.Attrs[i]
-		if a.Namespace == "" && a.RawName == name {
-			sp := textutil.RemoveAttrPatch(doc, n, i)
-			return &sp
-		}
-	}
-	return nil
-}
-
-// buildBodyPrFragment 构造完整 bodyPr 片段（自闭合形式）。
-func buildBodyPrFragment(prefix string, p BodyProps) (string, error) {
-	var sb strings.Builder
-	sb.WriteString("<" + prefix + ":bodyPr")
-	if p.Columns.Set && p.Columns.Value >= 1 {
-		sb.WriteString(` numCol="` + strconv.Itoa(p.Columns.Value) + `"`)
-	}
-	if p.Vertical.Set && p.Vertical.Value != "" {
-		sb.WriteString(` vert="` + p.Vertical.Value + `"`)
-	}
-	if p.AnchorCenter.Set {
-		v := "0"
-		if p.AnchorCenter.Value {
-			v = "1"
-		}
-		sb.WriteString(` anchorCtr="` + v + `"`)
-	}
-	sb.WriteString("/>")
-	return sb.String(), nil
-}
-
-// nsPrefix 返回节点 QName 的前缀；缺省回落 "a"。
-func nsPrefix(n *xmlstore.NodeRecord) string {
-	if n.QName.Prefix != "" {
-		return n.QName.Prefix
-	}
-	return "a"
-}
-
 // ---------- Field（a:fld 白名单字段） ----------
 
-// FieldKind 是 a:fld@type 的白名单（TEXT-03 R 档全集）。未列入表内的
-// 类型（如 user/pageNumber/fileName/title 等含动态行为或高度依赖客
-// 户端数据的字段）本库不实现，按 ErrUnsupportedEdit 拒绝整体写入。
+// FieldKind 是 a:fld@type 的白名单（TEXT-03 R 档全集）。
 //
-// slidenum：当前页码（PowerPoint 渲染时重算）；
-// datetime：日期/时间（guide 指定格式串；空 guide 视作默认长格式）。
-type FieldKind string
+// v2.0：类型与校验/构造已下沉 internal/document/text，此处以 alias 暴露。
+type FieldKind = textpkg.FieldKind
 
+// 字段类型常量（alias 到 internal/document/text）。
 const (
 	// FieldSlideNumber 是页码字段（a:fld type="slidenum"）。
-	FieldSlideNumber FieldKind = "slidenum"
+	FieldSlideNumber = textpkg.FieldSlideNumber
 	// FieldDateTime 是日期/时间字段（a:fld type="datetime"）。
-	// FieldSpec.Guide 指定格式串（如 "YYYY-MM-DD"、"h:mm AM/PM"），
-	// 白名单见 datetimeGuideAllowed；不在表内的 guide → ErrInvalidArgument。
-	FieldDateTime FieldKind = "datetime"
+	FieldDateTime = textpkg.FieldDateTime
 )
 
-// datetimeGuideAllowed 是 datetime 字段格式白名单。OOXML 文档定义
-// 了一组预置格式（"YYYY-MM-DD"/"hh:mm:ss"/...）；不在表内的字符串按
-// 字面保留写回但运行时不会被 PowerPoint 识别——本库采取保守策略，
-// 拒绝未识别的 guide。
-var datetimeGuideAllowed = map[string]bool{
-	"":                true, // 空 guide 由 PowerPoint 取默认
-	"YYYY-MM-DD":      true,
-	"YYYY/MM/DD":      true,
-	"DD-MM-YYYY":      true,
-	"DD/MM/YYYY":      true,
-	"MM-DD-YYYY":      true,
-	"MM/DD/YYYY":      true,
-	"hh:mm:ss":        true,
-	"h:mm:ss AM/PM":   true,
-	"hh:mm":           true,
-	"h:mm AM/PM":      true,
-	"YYYY-MM":         true,
-	"YYYY/MM":         true,
-	"MMM YY":          true,
-	"MMMM YYYY":       true,
-	"MMMM YY":         true,
-	"MMM YYYY":        true,
-	"DDDD, MMMM YYYY": true,
-}
-
 // FieldSpec 描述插入或读取的字段规格。
-type FieldSpec struct {
-	Kind  FieldKind // 类型
-	Guide string    // 仅 datetime 有效；其它类型必填空串
-	Text  string    // 缓存显示文本（写入时作为 a:t 初值；读取时是当前缓存）
-	Style FontStyle // 可选 rPr（Set=true 字段应用）
-}
+type FieldSpec = textpkg.FieldSpec
 
 // Field 是段落级字段（a:fld）的受控句柄。路径与 TextRun 平行：定位至
 // 段落内 a:fld 同名单元素的 nth 个。
@@ -425,7 +224,7 @@ func (f *Field) SetText(text string) error {
 		})
 	} else {
 		// 自闭合 fld 必须先把 '/>' 替换为 '>…</a:fld>'，再插入 a:t。
-		pfx := nsPrefix(fld)
+		pfx := textpkg.NSPrefix(fld)
 		expanded := ">{" + pfx + ":t}" + esc + "</" + pfx + ":t></" + pfx + ":fld>"
 		patches = append(patches, xmlstore.SpanPatch{
 			Start:       fld.Source.End - 2, // '/' 之前
@@ -487,15 +286,15 @@ func (p *Paragraph) AppendField(spec FieldSpec) (*Field, error) {
 	if err != nil {
 		return nil, Annotate(err, "Paragraph.AppendField")
 	}
-	if err := validateFieldSpec(spec); err != nil {
+	if err := textpkg.ValidateFieldSpec(spec); err != nil {
 		return nil, Annotate(err, "Paragraph.AppendField")
 	}
-	frag, err := buildFieldFragment(doc, para, spec)
+	frag, err := textpkg.BuildFieldFragment(doc, para, spec)
 	if err != nil {
 		return nil, Annotate(err, "Paragraph.AppendField")
 	}
 	// 定位插入点（与 AddRun 同款：endParaRPr 之前）。
-	anchor, _ := p.endParaAnchor(doc, para)
+	anchor, _ := textpkg.EndParaAnchor(doc, para)
 	var patch xmlstore.SpanPatch
 	if anchor != nil {
 		patch, err = xmlstore.InsertBefore(anchor, []byte(frag))
@@ -535,10 +334,10 @@ func (p *Paragraph) InsertField(at *TextRun, spec FieldSpec) (*Field, error) {
 			Message: "anchor run not in target paragraph", Err: ErrStaleHandle,
 		}
 	}
-	if err := validateFieldSpec(spec); err != nil {
+	if err := textpkg.ValidateFieldSpec(spec); err != nil {
 		return nil, Annotate(err, "Paragraph.InsertField")
 	}
-	frag, err := buildFieldFragment(doc, para, spec)
+	frag, err := textpkg.BuildFieldFragment(doc, para, spec)
 	if err != nil {
 		return nil, Annotate(err, "Paragraph.InsertField")
 	}
@@ -563,119 +362,4 @@ func (p *Paragraph) lastField() *Field {
 	}
 	n := countKind(doc, para, nsDrawingML, "fld")
 	return &Field{textNode: p.textNode, paraIdx: p.idx, fldIdx: n - 1}
-}
-
-// validateFieldSpec 校验 FieldSpec：kind 白名单 + datetime guide 白名单。
-func validateFieldSpec(spec FieldSpec) error {
-	switch spec.Kind {
-	case FieldSlideNumber:
-		if spec.Guide != "" {
-			return &OperationError{
-				Op: "validateFieldSpec", Message: "slidenum field has no guide",
-				Err: ErrInvalidArgument,
-			}
-		}
-	case FieldDateTime:
-		if !datetimeGuideAllowed[spec.Guide] {
-			return &OperationError{
-				Op:      "validateFieldSpec",
-				Message: "datetime guide not in whitelist: " + spec.Guide,
-				Err:     ErrInvalidArgument,
-			}
-		}
-	default:
-		return &OperationError{
-			Op:      "validateFieldSpec",
-			Message: "Unknown field kind: " + string(spec.Kind),
-			Err:     ErrUnsupportedEdit,
-		}
-	}
-	if spec.Text != "" {
-		if _, err := xmlstore.EscapeText(spec.Text); err != nil {
-			return Annotate(mapXMLError(err), "validateFieldSpec")
-		}
-	}
-	return nil
-}
-
-// buildFieldFragment 生成 a:fld 片段：总是展开形态（含 a:t），便于
-// PowerPoint 在打开时识别为字段并按 guide 重新计算。
-func buildFieldFragment(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord, spec FieldSpec) (string, error) {
-	prefix := runPrefix(doc, para) // 与 Run/Field 共用前缀约定
-	var sb strings.Builder
-	sb.WriteString("<" + prefix + ":fld")
-	sb.WriteString(` type="` + string(spec.Kind) + `"`)
-	if spec.Kind == FieldDateTime && spec.Guide != "" {
-		sb.WriteString(` fldGuide="` + spec.Guide + `"`)
-	}
-	sb.WriteString(">")
-	if spec.Style.AnySet() {
-		f, err := buildRPrFragment(prefix, spec.Style)
-		if err != nil {
-			return "", err
-		}
-		sb.WriteString(f)
-	}
-	esc, err := xmlstore.EscapeText(spec.Text)
-	if err != nil {
-		return "", err
-	}
-	sb.WriteString("<" + prefix + ":t>" + esc + "</" + prefix + ":t>")
-	sb.WriteString("</" + prefix + ":fld>")
-	return sb.String(), nil
-}
-
-// ---------- 段落 Text() 字段展示（TEXT-03 必含 §7.1） ----------
-
-// paragraphRunOrField 是段落内 a:r 与 a:fld 的有序序列（XML 文档序）。
-type paragraphRunOrField struct {
-	isField bool
-	run     *xmlstore.NodeRecord
-	fld     *xmlstore.NodeRecord
-}
-
-// paragraphChildren 解析段落子元素为 a:r / a:fld 有序列表（忽略 pPr /
-// endParaRPr / extLst 等非内容元素）。
-func paragraphChildren(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord) []paragraphRunOrField {
-	var out []paragraphRunOrField
-	for _, cid := range para.Children {
-		c := doc.Node(cid)
-		if c.Namespace != nsDrawingML {
-			continue
-		}
-		switch c.Local() {
-		case "r":
-			out = append(out, paragraphRunOrField{run: c})
-		case "fld":
-			out = append(out, paragraphRunOrField{isField: true, fld: c})
-		}
-	}
-	return out
-}
-
-// paragraphText 拼接段落 a:r/a:fld 缓存文本；与原 Paragraph.Text 唯一
-// 差异是 a:fld 节点以 a:t 缓存文本嵌入（字段位置即显示位置）。
-// 此函数在 text.go Paragraph.Text() 内调用，避免循环 import。
-func paragraphText(doc *xmlstore.XMLDocument, para *xmlstore.NodeRecord) string {
-	var sb strings.Builder
-	for _, item := range paragraphChildren(doc, para) {
-		if item.isField {
-			tNode := childOfKind(doc, item.fld, nsDrawingML, "t", 0)
-			if tNode == nil || tNode.SelfClosing() {
-				continue
-			}
-			sb.WriteString(textutil.XmlUnescape(string(doc.Original()[tNode.OpenEnd:tNode.CloseStart])))
-			continue
-		}
-		for _, tid := range item.run.Children {
-			tt := doc.Node(tid)
-			if tt.Namespace == nsDrawingML && tt.Local() == "t" {
-				if tt.SelfClosing() {
-					continue
-				}
-				sb.WriteString(textutil.XmlUnescape(string(doc.Original()[tt.OpenEnd:tt.CloseStart])))
-			}
-		}
-	}
-	return sb.String()
 }

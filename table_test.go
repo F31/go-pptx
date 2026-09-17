@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
+	tablepkg "github.com/F31/go-pptx/internal/document/table"
 	"github.com/F31/go-pptx/internal/opc"
-	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
 // ---------- TABLE-01：富文本表格、合并、样式子集（§9.1） ----------
@@ -41,7 +41,7 @@ func tableFrame(id, tblPrAttrs string, widths []string, rows string) string {
 	return `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="` + id + `" name="Table ` + id + `"/>` +
 		`<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr>` +
 		`<p:xfrm><a:off x="1000" y="2000"/><a:ext cx="5000" cy="3000"/></p:xfrm>` +
-		`<a:graphic><a:graphicData uri="` + tblGraphicURI + `"><a:tbl>` +
+		`<a:graphic><a:graphicData uri="` + tablepkg.GraphicURI + `"><a:tbl>` +
 		`<a:tblPr` + tblPrAttrs + `/>` + grid + rows +
 		`</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`
 }
@@ -548,40 +548,5 @@ func TestTableSaveRoundTrip(t *testing.T) {
 	cont, _ := tb2.Cell(0, 1)
 	if ok, _ := cont.IsContinuation(); !ok {
 		t.Error("continuation flag lost across save")
-	}
-}
-
-// ---------- 纯函数（零覆盖消除，2026-09-13 第 5 轮） ----------
-
-// TestInferCols 验证无 a:tblGrid 时的列数推断：普通 tc 计 1、gridSpan
-// 计跨度、hMerge continuation 计 1、取各行最大值、空表返回 0。
-func TestInferCols(t *testing.T) {
-	doc, err := xmlstore.Index([]byte(
-		`<a:tbl xmlns:a="` + nsDrawingML + `">` +
-			`<a:tr><a:tc/><a:tc gridSpan="2"/></a:tr>` + // 1 + 2 = 3
-			`<a:tr><a:tc/><a:tc/><a:tc/><a:tc hMerge="1"/></a:tr>` + // 3 + 1 = 4
-			`<a:tr><a:notTc/></a:tr>` + // 非 tc 不计
-			`</a:tbl>`))
-	if err != nil {
-		t.Fatalf("Index: %v", err)
-	}
-	root := doc.Root()
-	var trs []*xmlstore.NodeRecord
-	for _, cid := range root.Children {
-		if n := doc.Node(cid); n.Namespace == nsDrawingML && n.Local() == "tr" {
-			trs = append(trs, n)
-		}
-	}
-	if len(trs) != 3 {
-		t.Fatalf("trs = %d, want 3", len(trs))
-	}
-	if got := inferCols(doc, trs); got != 4 {
-		t.Errorf("inferCols = %d, want 4 (row2: 3 normal + 1 hMerge continuation)", got)
-	}
-	if got := inferCols(doc, trs[:1]); got != 3 {
-		t.Errorf("inferCols(row1) = %d, want 3 (1 + gridSpan 2)", got)
-	}
-	if got := inferCols(doc, nil); got != 0 {
-		t.Errorf("inferCols(nil) = %d, want 0", got)
 	}
 }

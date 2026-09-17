@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/F31/go-pptx/internal/document/style"
+	tablepkg "github.com/F31/go-pptx/internal/document/table"
+	textpkg "github.com/F31/go-pptx/internal/document/text"
 	"github.com/F31/go-pptx/internal/opc"
 	"github.com/F31/go-pptx/internal/textutil"
 	"github.com/F31/go-pptx/internal/xmlstore"
@@ -359,7 +361,7 @@ func (s *shapeNode) NodePath() string {
 		}
 		b.WriteString(st.local)
 		b.WriteByte('[')
-		b.WriteString(intString(st.nth))
+		b.WriteString(textpkg.IntString(st.nth))
 		b.WriteByte(']')
 	}
 	return b.String()
@@ -666,7 +668,7 @@ func classifyShape(p *Presentation, part opc.PartName, doc *xmlstore.XMLDocument
 	case "graphicFrame":
 		// 图形框内含 a:tbl → 表格句柄（TABLE-01）；引用 chart Part →
 		// 图表句柄（CHART-01）；其余按不透明容器。
-		if tableOfGraphic(doc, el) != nil {
+		if tablepkg.TableOfGraphic(doc, el) != nil {
 			return &TableShape{shapeNode: node}
 		}
 		if chartOfGraphic(doc, el) != nil {

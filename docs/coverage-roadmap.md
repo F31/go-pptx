@@ -7,6 +7,9 @@ This document tracks the 1.x coverage-improvement work that was deferred from th
 
 | internal/document/style | 90.5% | v2.0: runprops/line/matrix/表格样式下沉（访问器 1+2） |
 | internal/document/geometry | 92.2% | v2.0: fill/effect 下沉（GEOM-02） |
+| internal/document/text | 94.0% | v2.0: 文本域（字符格式片段/补丁 + bodyPr/字段/段落辅助） |
+| internal/document/media | 95.8% | v2.0: 媒体域切片 1（MediaSource/有界复制/图片探测） |
+| internal/document/table | 94.1% | v2.0: 表格域切片 1（逻辑网格 + 单元格纯辅助） |
 
 ## Current Snapshot
 
@@ -125,6 +128,9 @@ python3 -m py_compile scripts/gen_corpus/corpus.py
 | `internal/document/geometry` | 90% | v2.0 域搬迁 1（纯几何只读解析，实测 91.2%） |
 | `internal/errs` | 90% | v2.0 地基包（稳定错误码 + OperationError，实测 100%） |
 | `internal/document/style` | 90% | v2.0 域搬迁 2 切片 1（段落属性解析，实测 94.9%） |
+| `internal/document/text` | 90% | v2.0 域搬迁 4（文本域：字符格式 + bodyPr/字段/段落，实测 94.0%） |
+| `internal/document/media` | 90% | v2.0 域搬迁 5 切片 1（媒体输入契约/图片探测，实测 95.8%） |
+| `internal/document/table` | 90% | v2.0 域搬迁 6 切片 1（逻辑网格/单元格辅助，实测 94.1%） |
 
 **完整性校验**（2026-09-16）：`go list ./...` 中每个包必须出现在 `FLOORS`
 （百分比门槛）或 `SKIP`（无可测语句 / 一次性工具包，须注明理由），否则

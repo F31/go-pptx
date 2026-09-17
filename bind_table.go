@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/F31/go-pptx/internal/bind"
+	textpkg "github.com/F31/go-pptx/internal/document/text"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -166,7 +167,7 @@ func (s *bindScanner) renderRow(rowBytes []byte, item any) ([]byte, error) {
 	for _, tc := range bind.ChildElems(tmp, tr, "tc") {
 		for _, tx := range bind.ChildElems(tmp, tc, "txBody") {
 			for _, p := range bind.ChildElems(tmp, tx, "p") {
-				text := paragraphText(tmp, p)
+				text := textpkg.ParagraphText(tmp, p)
 				if kind, _, ok := bind.ParseDirective(strings.TrimSpace(text)); ok {
 					switch kind {
 					case "each", "endeach":

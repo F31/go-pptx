@@ -440,6 +440,82 @@ style 域庞大且与 `Presentation`/`styleEnv` 深度耦合，按切片推进�
   scene3d+sp3d）→ 92.2%
 - 守恒：`go test ./...` 21/21 + corpus；api_surface golden 不变；gate PASS
 
+### 域搬迁 4：文本域（2026-09-17）
+
+新建 `internal/document/text`（文本垂直切片；句柄 TextFrame/Paragraph/
+TextRun/Field 仍留根门面，纯函数下沉、根方法薄委托）：
+
+- **切片 A（字符格式写入）**：
+  - 片段构造/解析从 root `text_fontparse.go` 迁入 `font.go`：
+    `RPrChildRank`/`FillChildOf`/`SolidFillFragment`/`BuildRPrFragment`/
+    `BoolVal`/`SizeCentipoints`/`IntString`/`IsNSDeclAttr` + rank 常量
+  - 写入补丁计算从 root `text_font.go` 迁入 `fontwrite.go`：
+    `BuildFontPatches`/`PatchExistingRPr`/`SetRPrAttr`/`InsertRPrChild`/
+    `ExpandSelfClosingRPr`/`RPrChildrenFragment`；`text_fontparse.go` 删除；
+    根 `TextRun.SetFont` 只留 locate+ApplyPatches+提交，helper 全委托
+  - 依赖解耦：`nsDrawingML`→`ooxmlns.DrawingML`、`Annotate`/
+    `mapXMLError`/`OperationError`/哨兵→`internal/errs`；根调用点经
+    alias `textpkg` 收敛（`intString` 同时供 shape/text_replace）
+- **切片 B（文本框/字段/段落纯辅助）**：
+  - `body.go`：`BodyProps` DTO + `VertAllowed`/`BodyPropsAnySet`/
+    `ParseBodyProps`/`ApplyBodyPropsPatch`/`SetAttrPatch`/
+    `RemoveAttrIfExists`/`BuildBodyPrFragment`/`NSPrefix`
+  - `field.go`：`FieldKind`/字段常量/`FieldSpec` + `ValidateFieldSpec`/
+    `BuildFieldFragment`（datetime guide 白名单随迁）
+  - `fragment.go`：`BodyRawShapeOK`/`ParaPrefix`/`BuildPlainParagraph`/
+    `RunPrefix`/`EndParaAnchor`/`ParagraphText`
+  - 命名守恒：`BodyProps`/`FieldKind`/`FieldSpec` 根别名暴露（text_adv.go）；
+    `Paragraph.Text`/`SetPlainText`/`AddRun`、`TextFrame.BodyProps`/
+    `SetBodyProps`、`Paragraph.AppendField`/`InsertField` 改为薄委托
+- 测试随迁（ADR-016 陷阱免疫）：`TestRPrChildRank`/`TestSizeCentipoints`
+  （原 text_test.go）、`TestNsPrefix`（原 text_adv_test.go）迁入；新增
+  `font_test.go`/`body_test.go` 白盒用例
+- 门槛：`internal/document/text` 入 gate `FLOORS=90`（实测 **94.0%**）
+- 守恒：`go test ./...` 22/22 + corpus 22；api_surface golden 不变；gate PASS
+
+### 域搬迁 5：媒体域 切片 1——媒体输入契约与图片探测（2026-09-17）
+
+新建 `internal/document/media`（媒体垂直切片起步）。媒体域的句柄/编排
+（AudioShape/VideoShape/PictureShape 与 `*Presentation`/`*Slide` 的
+Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收敛才能整体
+下沉；本切片先搬**无状态、自包含**的输入契约与探测原语：
+
+- `media.go`：`MediaSource` 接口 + `FileMedia`/`BytesMedia`/`FuncMedia`/
+  `ReaderMedia` 适配器；`ReadMedia`/`ReadBounded` 有界复制；
+  `ImageKind` + `ProbeImage`/`SniffImage`/`ImageTypeEqual`；
+  `MaxStagingBytes`/`RelImage`/`CTImagePNG`/`CTImageJPEG`
+- 解耦：`Annotate`/`OperationError`/哨兵 → `internal/errs`；`RelTypePrefix`
+  经 `internal/opc`
+- 命名守恒：`MediaSource` 根别名；`imageKind` 根别名（字段改导出
+  `CT/Ext/Width/Hgt/ByteSize`，root 调用点同步）；常量根别名
+- 根 `media.go`（234 → 92 行）保留同名薄委托（`FileMedia`/`BytesMedia`/
+  `FuncMedia`/`ReaderMedia` + `readMedia`/`readBounded`/`probeImage`/
+  `sniffImage`/`imageTypeEqual`），消费方零改动
+- 门槛：`internal/document/media` 入 gate `FLOORS=90`（实测 **95.8%**）
+- 守恒：`go test ./...` 23/23 + corpus 23；api_surface golden 不变；gate PASS
+- 后续媒体切片（profile DTO/片段构造/编排）待门面收敛后推进
+
+### 域搬迁 6：表格域 切片 1——逻辑网格与单元格纯辅助（2026-09-17）
+
+新建 `internal/document/table`，搬入表格域最实质的纯逻辑：a:tbl 逻辑网格
+（gridSpan/rowSpan/hMerge/vMerge → 行×列映射）与单元格辅助。`TableShape`/
+`Cell` 句柄与 Merge/Unmerge 事务仍留根门面（依赖 shapeNode + 补丁提交）。
+
+- `grid.go`：`Slot`/`Grid`（导出字段 TC/Anchor/Row/Col/IsContinuation/
+  Cols/Slots/TRs/GCols + `Rows`/`At`）；`BuildGrid`/`InferCols`/`CellSpans`/
+  `CellIsContinuation`/`CellHasText`/`ClearCellTextPatches`/`TableOfGraphic`
+  + `GraphicURI`
+- 解耦：`nsDrawingML`→`ooxmlns.DrawingML`、`childOfKind`→
+  `xmlstore.ChildOfKind`；根 `tblGraphicURI` 删除（改用 `table.GraphicURI`）
+- 根 `table.go` 858 → ~600 行：网格类型/handler 移除，调用点直呼
+  `tablepkg.*`；`table_style.go`/`shape.go` 同步；字段改导出后 root
+  调用点随改（`g.Rows()`/`g.Cols`/`s.TC`/`s.IsContinuation` 等）
+- 测试随迁（ADR-016 陷阱免疫）：`TestInferCols`（原 table_test.go）迁入；
+  新增 `grid_test.go`（网格锚点/continuation/行列推断/span 校验/cellHasText
+  /clear/TableOfGraphic）
+- 门槛：`internal/document/table` 入 gate `FLOORS=90`（实测 **94.1%**）
+- 守恒：`go test ./...` 24/24 + corpus 24；api_surface golden 不变；gate PASS
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

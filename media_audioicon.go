@@ -16,12 +16,12 @@ var audioSpeakerIconPNG []byte
 // audioSpeakerIconKind 描述内置图标的媒体类型与尺寸（供
 // Presentation.planMedia 去重/命名使用）。
 var audioSpeakerIconKind = imageKind{
-	ct:    "image/png",
-	ext:   "png",
-	width: 64,
-	hgt:   64,
+	CT:    "image/png",
+	Ext:   "png",
+	Width: 64,
+	Hgt:   64,
 }
 
 func init() {
-	audioSpeakerIconKind.byteSize = int64(len(audioSpeakerIconPNG))
+	audioSpeakerIconKind.ByteSize = int64(len(audioSpeakerIconPNG))
 }

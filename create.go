@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/F31/go-pptx/internal/bind"
+	textpkg "github.com/F31/go-pptx/internal/document/text"
 	"github.com/F31/go-pptx/internal/xmlstore"
 )
 
@@ -283,7 +284,7 @@ func (t *TextFrame) AddParagraph(spec ParagraphSpec) (*Paragraph, error) {
 	if spec.Text != "" || spec.Style.AnySet() {
 		sb.WriteString("<a:r>")
 		if spec.Style.AnySet() {
-			frag, err := buildRPrFragment("a", spec.Style)
+			frag, err := textpkg.BuildRPrFragment("a", spec.Style)
 			if err != nil {
 				return nil, Annotate(err, op)
 			}
