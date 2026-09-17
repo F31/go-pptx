@@ -54,3 +54,78 @@ const (
 	// FontSlotMinor 是 a:fontScheme/a:minorFont。
 	FontSlotMinor = style.FontSlotMinor
 )
+
+// ---------- 表格样式 ----------
+
+// StyleToggle 是表格样式区域开关的三态（ST_OnOffStyleType）。
+type StyleToggle = style.StyleToggle
+
+// 三态开关常量（alias 到 internal/document/style）。
+const (
+	// ToggleDefault 表示未指定（沿用样式定义）。
+	ToggleDefault = style.ToggleDefault
+	// ToggleOn 表示显式启用。
+	ToggleOn = style.ToggleOn
+	// ToggleOff 表示显式关闭。
+	ToggleOff = style.ToggleOff
+)
+
+// TableStyleFlags 是表格级区域开关（a:tblPr 属性）。
+type TableStyleFlags = style.TableStyleFlags
+
+// StylePart 是表格样式的区域部分（ECMA tblStyle 的部分）。
+type StylePart = style.StylePart
+
+// 区域部分常量（alias 到 internal/document/style）。
+const (
+	// PartWholeTable 是整表兜底（优先级最低）。
+	PartWholeTable = style.PartWholeTable
+	PartBand1H     = style.PartBand1H
+	PartBand2H     = style.PartBand2H
+	PartBand1V     = style.PartBand1V
+	PartBand2V     = style.PartBand2V
+	PartFirstRow   = style.PartFirstRow
+	PartLastRow    = style.PartLastRow
+	PartFirstCol   = style.PartFirstCol
+	PartLastCol    = style.PartLastCol
+	PartNWCell     = style.PartNWCell
+	PartNECell     = style.PartNECell
+	PartSWCell     = style.PartSWCell
+	PartSECell     = style.PartSECell
+)
+
+// FillKind 是单元格填充类型（首版子集）。
+type FillKind = style.FillKind
+
+// 填充类型常量（alias 到 internal/document/style）。
+const (
+	// FillUnspecified 表示未给出填充定义（未知或未解析）。
+	FillUnspecified = style.FillUnspecified
+	// FillNone 表示显式无填充（a:noFill）。
+	FillNone = style.FillNone
+	// FillSolid 表示纯色填充（a:solidFill）。
+	FillSolid = style.FillSolid
+	// FillGradient 表示渐变填充（首版不解析颜色）。
+	FillGradient = style.FillGradient
+	// FillPattern 表示图案填充（首版不解析）。
+	FillPattern = style.FillPattern
+	// FillPicture 表示图片填充（首版不解析）。
+	FillPicture = style.FillPicture
+	// FillGroup 表示继承组填充（首版不解析）。
+	FillGroup = style.FillGroup
+)
+
+// CellFill 是单元格填充的解析结果。
+type CellFill = style.CellFill
+
+// CellBorder 是单元格单条边框的解析结果。
+type CellBorder = style.CellBorder
+
+// CellText 是单元格文本相关属性（首版：对齐与内边距）。
+type CellText = style.CellText
+
+// CellBorders 是单元格四边边框。
+type CellBorders = style.CellBorders
+
+// EffectiveCellStyle 是单元格的逐属性样式解析结果。
+type EffectiveCellStyle = style.EffectiveCellStyle
