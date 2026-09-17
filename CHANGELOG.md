@@ -7,7 +7,7 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 [`docs/v1.0-freeze-list.md`](docs/v1.0-freeze-list.md).
 
-## [Unreleased] — v2.0（进行中）
+## [2.0.0] - 2026-09-17
 
 **BREAKING：公共导入路径迁移 `github.com/F31/go-pptx` → `github.com/F31/go-pptx/pptx`**
 （ADR-030 演进第 3 步：门面收敛）。
@@ -19,6 +19,13 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
   `"github.com/F31/go-pptx/pptx"`（一次性的 import 路径替换，无 API 签名变化）
 - api_surface golden 不变（163 type / 40 Stable 段 / 60 符号 / 131 方法 /
   17 哨兵）；`render` 仍为公共契约（`render → pptx/pptx`）
+- 新增英文 API 接口参考文档：`docs/api-reference.md`（AST 驱动生成器
+  `scripts/gen/apidoc`，163 types / 36 顶层函数 / 143 导出方法 / 149 常量 / 18 哨兵）
+- 架构（ADR-030 全闭环）：ooxml/schema 生成管线、逐域搬迁
+  （geometry/style/text/media/table/bind）、ir 门面解耦、
+  `internal/engine` 编排层（CLI+WASM 共享）、`internal/archlint` CI 依赖校验、
+  gate 完整性收口；`projectShapes` 全路径零门面句柄读取（chart 投影改走
+  `internal/ooxml` schema）
 
 ## [1.0.7] - 2026-09-16
 

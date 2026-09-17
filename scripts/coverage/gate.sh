@@ -64,6 +64,7 @@ SKIP=(
   "github.com/F31/go-pptx/scripts/gen_audio"  # 一次性生成工具（package main）
   "github.com/F31/go-pptx/scripts/gen_media"  # 一次性生成工具（package main）
   "github.com/F31/go-pptx/scripts/gen/schema" # XSD→Go 生成器（package main；见 ADR-030 Step 1）
+  "github.com/F31/go-pptx/scripts/gen/apidoc" # API 参考文档生成器（package main）
 )
 
 tags_flag=()
