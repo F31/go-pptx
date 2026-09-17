@@ -10,6 +10,8 @@ This document tracks the 1.x coverage-improvement work that was deferred from th
 | internal/document/text | 94.0% | v2.0: 文本域（字符格式片段/补丁 + bodyPr/字段/段落辅助） |
 | internal/document/media | 95.8% | v2.0: 媒体域切片 1（MediaSource/有界复制/图片探测） |
 | internal/document/table | 94.1% | v2.0: 表格域切片 1（逻辑网格 + 单元格纯辅助） |
+| internal/engine | 92.3% | v2.0: 编排层起步（CLI/WASM 共享 Inspect/Validate/Capability） |
+| internal/archlint | 100.0% | v2.0: CI 依赖方向校验（ADR-030 机制 4） |
 | internal/bind | 92.1% | v2.0: 绑定域切片 1（Member/AsSlice/Truthy/FormatBindValue） |
 
 ## Current Snapshot
@@ -33,7 +35,7 @@ Package snapshot (2026-09-12 re-measured after `6361bdd`, Windows/amd64 dev box)
 | `github.com/F31/go-pptx/internal/textmap` | 82.2% | 82.2% | **100.0%** |
 | `github.com/F31/go-pptx/internal/videoprobe` | 92.1% | **92.6%** | 92.6% |
 | `github.com/F31/go-pptx/internal/xmlstore` | 90.2% | **90.8%** | 90.8% |
-| `github.com/F31/go-pptx/ir` | 86.2% | **87.0%** | 87.0% |
+| `github.com/F31/go-pptx/internal/ir` | 86.2% | **87.0%** | 87.0% |
 | `github.com/F31/go-pptx/render` | 84.2% | 84.2% | 84.2% |
 | `github.com/F31/go-pptx/scripts/perf/summarize` | 86.4% | **89.5%** | 89.5% |
 | `github.com/F31/go-pptx/wasm/check` | 85.9% | **89.5%** | 89.5% |
@@ -123,13 +125,15 @@ python3 -m py_compile scripts/gen_corpus/corpus.py
 | `cmd/pptx` / `wasm/check` / `scripts/perf/summarize` | 85% | COV-03 |
 | `internal/opc` / `xmlstore` / `videoprobe` / `textmap` / `editplan` | 90% | COV-04 |
 | `internal/audioprobe` | 86% | B-2 决策豁免 90（不可达防御代码） |
-| `internal/chart` / `ir` / `render` | 90 / 85 / 84% | 行为优先，取防回归下界 |
+| `internal/chart` / `internal/ir` / `render` | 90 / 85 / 84% | 行为优先，取防回归下界 |
 | `internal/textutil` / `bind` / `style` | 90% | v2.0 试点新增包（测试随包走） |
 | `internal/diag` | 90% | v2.0 地基包（跨层诊断类型，实测 100%） |
 | `internal/document/geometry` | 90% | v2.0 域搬迁 1（纯几何只读解析，实测 91.2%） |
 | `internal/errs` | 90% | v2.0 地基包（稳定错误码 + OperationError，实测 100%） |
 | `internal/document/style` | 90% | v2.0 域搬迁 2 切片 1（段落属性解析，实测 94.9%） |
 | `internal/document/text` | 90% | v2.0 域搬迁 4（文本域：字符格式 + bodyPr/字段/段落，实测 94.0%） |
+| `internal/engine` | 85% | v2.0 编排层（CLI/WASM 共享核心，实测 92.3%） |
+| `internal/archlint` | 85% | v2.0 CI 依赖方向校验（实测 100%） |
 | `internal/document/media` | 90% | v2.0 域搬迁 5 切片 1（媒体输入契约/图片探测，实测 95.8%） |
 | `internal/document/table` | 90% | v2.0 域搬迁 6 切片 1（逻辑网格/单元格辅助，实测 94.1%） |
 

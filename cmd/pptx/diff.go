@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/F31/go-pptx/ir"
+	"github.com/F31/go-pptx/internal/ir"
 )
 
 // cmdRunDiff 比较两个 PPTX 的语义 diff（DIFF-01，只读）。

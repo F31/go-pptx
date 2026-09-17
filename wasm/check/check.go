@@ -19,7 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/F31/go-pptx/ir"
+	"github.com/F31/go-pptx/internal/engine"
+	"github.com/F31/go-pptx/internal/ir"
 	"github.com/F31/go-pptx/pptx"
 )
 
@@ -88,20 +89,16 @@ func Inspect(ctx context.Context, input []byte, fileName string) (string, error)
 	}
 	defer p.Close()
 
-	slides, err := p.Slides()
-	if err != nil {
-		return marshalError(&InspectResult{Input: fileName, ReadOnly: true}, fmt.Errorf("slides: %w", err))
-	}
-	doc, err := ir.FromPresentation(p, ir.DefaultOptions())
+	r, err := engine.Inspect(p)
 	if err != nil {
 		return marshalError(&InspectResult{Input: fileName, ReadOnly: true}, fmt.Errorf("ir: %w", err))
 	}
 	res := &InspectResult{
 		OK:         true,
 		Input:      fileName,
-		Pages:      len(slides),
-		SDKVersion: pptx.SDKVersion,
-		Document:   doc,
+		Pages:      r.Pages,
+		SDKVersion: r.SDKVersion,
+		Document:   r.Document,
 		ReadOnly:   true,
 	}
 	return marshalOK(res)
@@ -110,24 +107,17 @@ func Inspect(ctx context.Context, input []byte, fileName string) (string, error)
 // Capability 不需要输入字节，返回 SDK 编译期的能力 manifest（CAP-01）。
 // 内存代价为 O(1)（manifest 是固定结构）。
 func Capability(fileName string) (string, error) {
-	m := pptx.NewCapabilityManifest()
-	pptx.PopulateCapabilityDimensions(&m)
-	pptx.PopulateCapabilityFeatures(&m)
-	pptx.SortCapabilityFeatures(&m)
-	// 同时填充 ManifestJSON 字符串视图，UI 可直接展示而不必再做 MarshalIndent
-	if fileName != "" {
-		m.Source.Input = fileName
-	}
-	b, err := pptx.MarshalManifestIndent(m, "  ")
+	r, err := engine.Capability(fileName, 0)
 	if err != nil {
 		return marshalError(&CapabilityResult{Input: fileName}, err)
 	}
+	// 同时填充 ManifestJSON 字符串视图，UI 可直接展示而不必再做 MarshalIndent
 	var pretty map[string]any
-	_ = json.Unmarshal(b, &pretty)
+	_ = json.Unmarshal(r.IndentJSON, &pretty)
 	res := &CapabilityResult{
 		OK:           true,
 		Input:        fileName,
-		Manifest:     &m,
+		Manifest:     &r.Manifest,
 		ManifestJSON: pretty,
 	}
 	return marshalOK(res)
@@ -140,21 +130,15 @@ func Validate(ctx context.Context, input []byte, fileName string) (string, error
 		return marshalError(&ValidateResult{Input: fileName, Level: "structural"}, err)
 	}
 	defer p.Close()
-	report := p.Validate(ctx)
+	r := engine.Validate(ctx, p)
 	res := &ValidateResult{
 		OK:          true,
 		Input:       fileName,
-		Level:       "structural",
-		Mode:        report.Mode,
-		Diagnostics: report.Diagnostics,
-	}
-	for _, d := range report.Diagnostics {
-		switch d.Severity {
-		case pptx.SeverityError:
-			res.ErrorCount++
-		case pptx.SeverityWarning:
-			res.WarnCount++
-		}
+		Level:       r.Level,
+		Mode:        r.Mode,
+		Diagnostics: r.Diagnostics,
+		ErrorCount:  r.ErrorCount,
+		WarnCount:   r.WarnCount,
 	}
 	return marshalOK(res)
 }

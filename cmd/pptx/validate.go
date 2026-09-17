@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/F31/go-pptx/internal/engine"
 	"github.com/F31/go-pptx/pptx"
 )
 
@@ -38,22 +39,14 @@ func cmdRunValidate(args []string) ExitCode {
 	}
 	defer closer()
 
-	report := p.Validate(context.Background())
+	r := engine.Validate(context.Background(), p)
 	out := validateSummary{
 		Input:      input,
-		Level:      "structural",
-		Mode:       report.Mode,
-		Diagnostic: report.Diagnostics,
-		ErrorCount: 0,
-		WarnCount:  0,
-	}
-	for _, d := range report.Diagnostics {
-		switch d.Severity {
-		case pptx.SeverityError:
-			out.ErrorCount++
-		case pptx.SeverityWarning:
-			out.WarnCount++
-		}
+		Level:      r.Level,
+		Mode:       r.Mode,
+		Diagnostic: r.Diagnostics,
+		ErrorCount: r.ErrorCount,
+		WarnCount:  r.WarnCount,
 	}
 	if code := writeJSON(out); code != ExitOK {
 		return code

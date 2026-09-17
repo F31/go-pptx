@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/F31/go-pptx/ir"
+	"github.com/F31/go-pptx/internal/ir"
 )
 
 // cmdRunExportIR 导出 IR 到 --output；也可写 --stdout（默认 stdout）。

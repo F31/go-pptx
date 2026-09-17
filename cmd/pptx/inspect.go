@@ -4,7 +4,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/F31/go-pptx/ir"
+	"github.com/F31/go-pptx/internal/engine"
+	"github.com/F31/go-pptx/internal/ir"
 )
 
 // cmdRunInspect 输出页面、媒体、备注及能力信息（§23.2，方案 §18.3）。
@@ -33,13 +34,7 @@ func cmdRunInspect(args []string) ExitCode {
 	}
 	defer closer()
 
-	slides, err := p.Slides()
-	if err != nil {
-		fmt.Fprintf(stderrW, "slides: %v\n", err)
-		return classifyError(err, ExitRuntimeError)
-	}
-
-	doc, err := ir.FromPresentation(p, ir.DefaultOptions())
+	res, err := engine.Inspect(p)
 	if err != nil {
 		fmt.Fprintf(stderrW, "ir: %v\n", err)
 		return classifyError(err, ExitRuntimeError)
@@ -47,9 +42,9 @@ func cmdRunInspect(args []string) ExitCode {
 
 	out := inspectSummary{
 		Input:    input,
-		Pages:    len(slides),
+		Pages:    res.Pages,
 		Schemas:  PPTXVersion,
-		Document: doc,
+		Document: res.Document,
 		ReadOnly: true,
 	}
 	_ = jsonMode

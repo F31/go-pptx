@@ -553,8 +553,58 @@ Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收�
   `fuzz.yml` 4 个 root fuzz 目标 `'.'` → `'./pptx'`；README import 示例同步
 - 守恒：api_surface golden 零变更（163 type / 40 Stable 段 / 60 符号 /
   131 方法 / 17 哨兵）；`go test ./...` 24/24 + corpus 24；vet/gofmt clean；
-  coverage gate PASS（`pptx` 83.3% ≥ 82）。`ir/` 暂仍 import `pptx`（演进
-  第 4 步改造为只吃 `internal/ooxml`）
+  coverage gate PASS（`pptx` 83.3% ≥ 82）。
+
+### 顶层包收编：`ir/` → `internal/ir`（2026-09-17，演进第 4 步·机械下沉）
+
+- `ir/`（7 文件：ir.go/diff.go/timingir.go + 4 测试）`git mv` → `internal/ir/`；
+  importer（`cmd/pptx/{inspect,exportir,diff}.go`、`wasm/check/check.go`）改
+  `.../go-pptx/ir` → `.../go-pptx/internal/ir`；gate 门槛 `/ir=85` →
+  `/internal/ir=85`（实测 85.2%）
+- **尚未完成的"实为改造"**：目标态 `internal/ir` 只吃 `internal/ooxml`
+  （只读投影，不依赖门面）。现状 `ir.go`/`diff.go` 仍 import `pptx/pptx`
+  公共类型（Presentation/Slide/Shape/ChartData/…）——该重写依赖演进第 1 步
+  `internal/ooxml` 生成管线，**现阻塞**（ECMA-376 XSD 输入未解）。故本步
+  仅完成位置下沉；反向依赖 `internal/ir → pptx` 为**显式临时例外**，待第 1
+  步落地后消除，并由第 6 步 CI 依赖方向校验守护
+- `render/` 按决策**保留**（有意发布的公共契约），未动
+- 守恒：`go test ./...` 24/24 + corpus 24；vet/gofmt clean；golden 不变；
+  gate PASS
+
+### 编排层：`internal/engine` 起步（2026-09-17，演进第 5 步）
+
+CLI（`cmd/pptx`）与 WASM（`wasm/check`）此前各自重复实现 Inspect/
+Validate/Capability 的核心逻辑（wasm 文档自陈"CLI 保持独立实现"）。新建
+`internal/engine`（T2，依赖门面 + `internal/ir`，不做 I/O、不感知
+flag/exit/stdout）：
+
+- `Inspect(p) InspectResult`——Slides + `ir.FromPresentation` 投影
+- `Validate(ctx, p) ValidateResult`——`p.Validate` + 分级计数
+  （`countSeverities` 纯函数，便于白盒测试）
+- `Capability(sourceInput, sourceSize) CapabilityResult`——manifest 构建 +
+  缩进 JSON
+- 接线：`wasm/check` 三个入口改委托 engine（保留自身 JSON 外壳/schema）；
+  `cmd/pptx/{inspect,validate,capability}.go` 改委托 engine（保留 flag/
+  exit code/输出形态）；两处事实来源合一
+- 门槛：`internal/engine` 入 gate `FLOORS=85`（实测 **92.3%**）
+- 依赖方向：`internal/engine → pptx` 是经 `internal/archlint` 登记的
+  临时例外（编排层需门面公共句柄）
+
+### CI 依赖方向校验：`internal/archlint`（2026-09-17，演进第 6 步）
+
+std-lib 自建规则包（零新依赖），`archlint_test.go` 调 `go list` 取真实
+导入边后断言：
+
+- R1 `internal/*` 不得 import 门面（临时例外：`internal/ir`、`internal/engine`）
+- R2 `internal/*` 不得 import `render`/`cmd`/`wasm`
+- R3 门面不得 import `render`/`cmd`/`wasm`/`internal/ir`/`internal/engine`
+- R4 `render` 只依赖门面（不下沉 internal）
+- R5 叶子包（`xmlstore`/`ooxmlns`/`textmap`/`audioprobe`/`videoprobe`）零模块内依赖
+- 门槛：`internal/archlint` 入 gate `FLOORS=85`（实测 **100%**）；当前模块
+  R1–R5 全合规
+
+- 守恒：`go test ./...` 26/26 + corpus 26；vet/gofmt clean；golden 不变；
+  gate PASS
 
 ## 参考
 

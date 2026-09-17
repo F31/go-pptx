@@ -5,8 +5,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
-	"github.com/F31/go-pptx/pptx"
+	"github.com/F31/go-pptx/internal/engine"
 )
 
 // cmdRunCapability 输出 capability manifest（§23.2，CAP-01）。
@@ -32,19 +33,22 @@ func cmdRunCapability(args []string) ExitCode {
 	}
 	input := fs.Arg(0)
 
-	p, closer, code := openPresentation(input)
+	_, closer, code := openPresentation(input)
 	if code != ExitOK {
 		return code
 	}
 	defer func() { _ = closer() }()
 
-	m := p.Capability(input)
-	b, err := pptx.MarshalManifestIndent(m, "  ")
+	var size int64
+	if info, err := os.Stat(input); err == nil && !info.IsDir() {
+		size = info.Size()
+	}
+	r, err := engine.Capability(input, size)
 	if err != nil {
 		fmt.Fprintf(stderrW, "manifest marshal: %v\n", err)
 		return ExitRuntimeError
 	}
-	if _, err := stdoutW.Write(b); err != nil {
+	if _, err := stdoutW.Write(r.IndentJSON); err != nil {
 		fmt.Fprintf(stderrW, "stdout write: %v\n", err)
 		return ExitRuntimeError
 	}

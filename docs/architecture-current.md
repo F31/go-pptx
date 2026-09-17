@@ -175,8 +175,11 @@ internal/opc   -> internal/xmlstore
 internal/ooxmlns / textmap / audioprobe / videoprobe -> (无 go-pptx 依赖)
 ```
 
-规则不变：**internal 不得反向 import 根包**（现满足；`ir` 例外，属名义公共包，
-v2.0 改造项）。v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
+规则不变：**internal 不得反向 import 门面**。v2.0 门面收敛后 `pptx/` 为公共
+门面；`internal/*` 只依赖更低层。**临时例外**：`internal/ir` 仍 import
+`pptx/pptx`（演进第 4 步已把 `ir/` 下沉，但"只吃 `internal/ooxml`"的重写依赖
+第 1 步生成管线，现阻塞）——第 1 步落地后消除该反向依赖，届时由第 6 步 CI
+依赖方向校验守护。v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
 
 ### 剩余「压力点」处置
 
@@ -204,6 +207,17 @@ v2.0 改造项）。v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architectu
 - 守恒：api_surface golden 零变更（163 type / 40 Stable 段 / 60 符号 /
   131 方法 / 17 哨兵）；`go test ./...` 24/24 + corpus 24；go vet/gofmt
   clean；coverage gate PASS（`pptx` 83.3% ≥ 82）
+
+- **Step 4（同日）**：顶层 `ir/` → `internal/ir`（importer 与 gate 门槛同步；
+  实测 85.2%）；`render/` 保留。`internal/ir` 暂仍 import `pptx`（"只吃
+  `internal/ooxml`"的重写依赖第 1 步生成管线，现阻塞）
+
+- **Step 5（同日）**：新建 `internal/engine`（编排层起步）——统一 CLI 与
+  WASM 的 Inspect/Validate/Capability 核心；`wasm/check` 与
+  `cmd/pptx/{inspect,validate,capability}` 改委托（实测 92.3%）
+- **Step 6（同日）**：新建 `internal/archlint`（std-lib 依赖方向校验），
+  CI 经 `go test` 执行；当前模块全合规（临时例外 `internal/ir`、
+  `internal/engine` 登记在案）
 
 当前导入路径：**`github.com/F31/go-pptx/pptx`**（breaking change，
 v2.0 一次性迁移）。
