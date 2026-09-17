@@ -118,48 +118,60 @@ func newEffState(ctx ResolveContext, env *Env, docs DocFunc, doc *xmlstore.XMLDo
 //     master txStyles[class]，逐级取 lvl 的 defRPr；
 //   - 非占位符：master txStyles[otherStyle]。
 func (st *effState) appendListSources() {
-	lvl := strconv.Itoa(st.lvl)
 	if st.isPh {
-		if st.env.Layout != "" {
-			if ldoc := st.docs(st.env.Layout); ldoc != nil {
-				if sp := FindPlaceholderShape(ldoc, st.phKey); sp != nil {
-					if d := DefRPrAtLevel(ldoc, LstStyleOf(ldoc, sp), st.lvl); d != nil {
-						st.sources = append(st.sources, famSource{
-							style: ParseLocalFont(ldoc, d),
-							step: StyleStep{Source: SourceListStyle, Part: string(st.env.Layout),
-								Detail: st.phDetail() + " lvl=" + lvl + " layout lstStyle"},
-						})
-					}
-				}
-			}
-		}
-		if st.env.Master != "" {
-			if mdoc := st.docs(st.env.Master); mdoc != nil {
-				if sp := FindPlaceholderShape(mdoc, st.phKey); sp != nil {
-					if d := DefRPrAtLevel(mdoc, LstStyleOf(mdoc, sp), st.lvl); d != nil {
-						st.sources = append(st.sources, famSource{
-							style: ParseLocalFont(mdoc, d),
-							step: StyleStep{Source: SourceListStyle, Part: string(st.env.Master),
-								Detail: st.phDetail() + " lvl=" + lvl + " master lstStyle"},
-						})
-					}
-				}
-			}
-		}
+		st.appendPlaceholderLstStyle(st.env.Layout, "layout lstStyle")
+		st.appendPlaceholderLstStyle(st.env.Master, "master lstStyle")
 	}
-	if st.env.Master != "" {
-		if mdoc := st.docs(st.env.Master); mdoc != nil {
-			if ts := TextStyleNode(mdoc, st.class); ts != nil {
-				if d := DefRPrAtLevel(mdoc, ts, st.lvl); d != nil {
-					st.sources = append(st.sources, famSource{
-						style: ParseLocalFont(mdoc, d),
-						step: StyleStep{Source: SourceListStyle, Part: string(st.env.Master),
-							Detail: "txStyles " + string(st.class) + "Style lvl=" + lvl},
-					})
-				}
-			}
-		}
+	st.appendTextStyleLst(st.env.Master)
+}
+
+// appendPlaceholderLstStyle 在 part（layout/master）上定位占位符形状
+// lstStyle 对应级别的 defRPr 并加入 L3 源；part 不可达、非占位符或
+// 该级别无定义时为空操作。
+func (st *effState) appendPlaceholderLstStyle(part opc.PartName, which string) {
+	doc := st.docOf(part)
+	if doc == nil {
+		return
 	}
+	sp := FindPlaceholderShape(doc, st.phKey)
+	if sp == nil {
+		return
+	}
+	if d := DefRPrAtLevel(doc, LstStyleOf(doc, sp), st.lvl); d != nil {
+		st.sources = append(st.sources, famSource{
+			style: ParseLocalFont(doc, d),
+			step: StyleStep{Source: SourceListStyle, Part: string(part),
+				Detail: st.phDetail() + " lvl=" + strconv.Itoa(st.lvl) + " " + which},
+		})
+	}
+}
+
+// appendTextStyleLst 把 master txStyles[class] 对应级别的 defRPr 加入
+// L3 源；master 不可达或该类无文本样式时的空操作。
+func (st *effState) appendTextStyleLst(part opc.PartName) {
+	doc := st.docOf(part)
+	if doc == nil {
+		return
+	}
+	ts := TextStyleNode(doc, st.class)
+	if ts == nil {
+		return
+	}
+	if d := DefRPrAtLevel(doc, ts, st.lvl); d != nil {
+		st.sources = append(st.sources, famSource{
+			style: ParseLocalFont(doc, d),
+			step: StyleStep{Source: SourceListStyle, Part: string(part),
+				Detail: "txStyles " + string(st.class) + "Style lvl=" + strconv.Itoa(st.lvl)},
+		})
+	}
+}
+
+// docOf 返回 Env 链上给定 Part 的文档；Part 为空或不可达返回 nil。
+func (st *effState) docOf(part opc.PartName) *xmlstore.XMLDocument {
+	if part == "" {
+		return nil
+	}
+	return st.docs(part)
 }
 
 // phDetail 生成占位符描述（Detail 用）。
@@ -242,7 +254,7 @@ func (st *effState) resolveSize() ResolvedValue[FontSize] {
 // 全部未命中时按 class 用主题缺省字体（标题 major，其余 minor）；
 // kind 为主题 fontScheme 子元素名（latin/ea/cs）。
 func (st *effState) resolveTypeface(name, kind string, pick func(FontStyle) model.Optional[string], fb func(ResolveContext) model.Optional[string]) ResolvedValue[string] {
-	tdoc := st.docs(st.env.Theme)
+	tdoc := st.docOf(st.env.Theme)
 	for _, s := range st.sources {
 		v := pick(s.style)
 		if !v.Set {
@@ -303,7 +315,7 @@ func (st *effState) resolveColor() ResolvedColor {
 		}
 		scheme := spec.Scheme
 		if ClrMapIndirect(scheme) {
-			m := MasterClrMap(st.docs(st.env.Master))
+			m := MasterClrMap(st.docOf(st.env.Master))
 			mapped, ok := m[scheme]
 			if !ok {
 				st.note("color", false)
@@ -317,7 +329,7 @@ func (st *effState) resolveColor() ResolvedColor {
 				Detail: "clrMap " + scheme + " → " + mapped})
 			scheme = mapped
 		}
-		tdoc := st.docs(st.env.Theme)
+		tdoc := st.docOf(st.env.Theme)
 		rgb, partial := SchemeRGB(tdoc, scheme)
 		if partial {
 			st.note("color", false)
