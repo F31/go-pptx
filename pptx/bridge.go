@@ -20,3 +20,12 @@ func PartBytes(p *Presentation, name opc.PartName) ([]byte, bool) {
 	}
 	return b, true
 }
+
+// MainPartBytes 返回主 Part（presentation.xml）原始字节（只读）。
+// 主 Part 缺失或读取失败返回 (nil, false)。
+func MainPartBytes(p *Presentation) ([]byte, bool) {
+	if p == nil {
+		return nil, false
+	}
+	return PartBytes(p, p.main)
+}

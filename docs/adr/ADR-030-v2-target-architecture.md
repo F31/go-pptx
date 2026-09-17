@@ -577,16 +577,28 @@ Add*/plan* 方法）与 `Presentation` 深度耦合，须待第 3 步门面收�
   （`SlideShapes`：p:sld 解码 + 形状 kind 推断/组内联扁平化/表格行列与文本/
   graphicFrame table+chart 捕获，含 `xsd:any` RawElem + `RawElem.Attrs`），
   门面侧 `pptx/bridge.go` 提供 `PartBytes(p, opc.PartName)` 只读桥（包级函数，
-  不进 api-surface golden）。`internal/ir` 真改造仍在长尾：notes/timing/hidden
-  仍经门面句柄，由 `internal/engine.ProjectIR` 承载，下一步将其逐个换掉。
-  `archlint` 临时例外面收敛为仅 **`internal/engine`**（R1 由 archlint_test
-  守护 ir→pptx=违规）。
+  不进 api-surface golden）。
+- **Step 1 长尾（同日续）**：notes/timing/hidden 也改由 `internal/ooxml`
+  只读投影，engine `ProjectIR` 不再走门面句柄读这三者：
+  - `internal/ooxml/notes.go`——`RelsPartName`（OPC 关系流名）、
+    `NotesPartOf`（slide 关系流 → notesSlide Part）、`NotesText`（解码
+    notesSlide + 正文占位符 p:ph type=body → 段落文本）
+  - `internal/ooxml/timing.go`——`SlideHasTiming`（p:timing/dml timing
+    探测）、`SlideTimingRaw`（p:timing 原始字节，喂 `ir.ProjectTimingTree`）
+  - `internal/ooxml/pres.go`——`SlideHidden`（presentation sldIdLst
+    @show="0"）；门面侧补 `pptx/bridge.go` `MainPartBytes` 只读桥
+  - `internal/engine/irbuild.go`——`projectNotes`/`projectHidden` + 直接
+    调 ooxml 时序投影；`IR_NOTES_READ`/`IR_TIMING_READ`/`IR_HIDDEN_READ`
+    诊断语义不变；图表仍按 ID 回退门面 ChartShape（category 投影未解前）
+  - `archlint` 临时例外面保持收敛为仅 **`internal/engine`**（R1 由
+    archlint_test 守护 ir→pptx=违规）
 - 测试随迁（ADR-016 陷阱免疫）：`ir_test.go`/`table_ir_test.go` 迁入
   engine（`irbuild_test.go`/`irbuild_table_test.go`）；`timingir_test`/
   `diff_test` 留守 `internal/ir`
 - `render/` 按决策**保留**（有意发布的公共契约），未动
-- 守恒：`go test ./...` 27/27 + corpus 27；vet/gofmt clean；golden 不变；
-  gate PASS（engine 86.6% ≥85；ir 85.2% ≥85；ooxml 93.4% ≥90；archlint 全合规）
+- 守恒：`go test ./...` 全绿；vet/gofmt clean；golden 不变；
+  gate PASS（engine 92.1% ≥85；ir 85.2% ≥85；ooxml 93.4% ≥90；
+  ooxml/schema 100% ≥90；archlint 全合规）
 
 ### 编排层：`internal/engine` 起步（2026-09-17，演进第 5 步）
 

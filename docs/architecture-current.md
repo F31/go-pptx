@@ -224,10 +224,14 @@ v2.0 目标态见 [ADR-030](adr/ADR-030-v2-target-architecture.md)。
   XSD→Go）+ `internal/ooxml/schema`（Transitional schema，只读投影，100%）。
   输入源更正为 ECMA-376 **Part 4 Transitional**（`schemas.openxmlformats.org`），
   非 Part 1 的 Strict（`purl.oclc.org`）。**格式层真改造（续）**：新增
-  `internal/ooxml`（`Open`/`Bytes` + `SlideShapes` schema 只读投影），engine
-  `ProjectIR` 的形状/文本/表格改由 `pptx.PartBytes` 只读桥 + `ooxml.SlideShapes`
-  驱动（图表仍按 ID 回退门面 ChartShape）；notes/timing/hidden 仍走门面句柄，
-  属 Step 1 长尾
+`internal/ooxml`（`Open`/`Bytes` + `SlideShapes` schema 只读投影），engine
+   `ProjectIR` 的形状/文本/表格改由 `pptx.PartBytes` 只读桥 + `ooxml.SlideShapes`
+   驱动（图表仍按 ID 回退门面 ChartShape）。**长尾继续（同日）**：notes/
+   timing/hidden 也改由 `internal/ooxml` 只读投影——`notes.go`（`RelsPartName`/
+   `NotesPartOf`/`NotesText`，slide 关系流→notesSlide→正文占位符）、
+   `timing.go`（`SlideHasTiming`/`SlideTimingRaw`，p:timing 原始字节）、
+   `pres.go`（`SlideHidden`，sldIdLst @show=0）；engine 加 `pptx.MainPartPartBytes`
+   桥；`projectPage` 不再走门面句柄读 notes/timing/hidden（仅图表退化保留）
 
 当前导入路径：**`github.com/F31/go-pptx/pptx`**（breaking change，
 v2.0 一次性迁移）。

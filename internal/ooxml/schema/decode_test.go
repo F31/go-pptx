@@ -95,4 +95,33 @@ func TestDecodeErrors(t *testing.T) {
 	if _, err := DecodeSlideMaster(bad); err == nil {
 		t.Error("DecodeSlideMaster: want error")
 	}
+	if _, err := DecodeNotesSlide(bad); err == nil {
+		t.Error("DecodeNotesSlide: want error")
+	}
+}
+
+func TestDecodeNotesSlide(t *testing.T) {
+	x := `<p:notes xmlns:p="` + pNS + `" xmlns:a="` + aNS + `">` +
+		`<p:cSld><p:spTree>` +
+		`<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>` +
+		`<p:sp><p:nvSpPr><p:cNvPr id="2" name=""/><p:cNvSpPr txBox="1"/>` +
+		`<p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>` +
+		`<p:spPr/><p:txBody><a:bodyPr/><a:p><a:r><a:t>notes</a:t></a:r></a:p></p:txBody></p:sp>` +
+		`</p:spTree></p:cSld></p:notes>`
+	n, err := DecodeNotesSlide([]byte(x))
+	if err != nil {
+		t.Fatalf("DecodeNotesSlide: %v", err)
+	}
+	if n.CSld == nil || n.CSld.SpTree == nil || len(n.CSld.SpTree.Sp) != 1 {
+		t.Fatalf("notes = %+v", n.CSld)
+	}
+	sp := n.CSld.SpTree.Sp[0]
+	if sp.NvSpPr == nil || sp.NvSpPr.NvPr == nil || sp.NvSpPr.NvPr.Ph == nil ||
+		string(sp.NvSpPr.NvPr.Ph.Type) != "body" {
+		t.Fatalf("ph = %+v", sp.NvSpPr.NvPr.Ph)
+	}
+	if sp.TxBody == nil || len(sp.TxBody.P) != 1 || len(sp.TxBody.P[0].R) != 1 ||
+		sp.TxBody.P[0].R[0].T != "notes" {
+		t.Fatalf("txBody = %+v", sp.TxBody)
+	}
 }

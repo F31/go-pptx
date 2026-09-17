@@ -92,24 +92,37 @@ func projectPage(p *pptx.Presentation, s *pptx.Slide, idx int, opts ir.Options) 
 		Part:    s.PartName(),
 		Name:    s.Name(),
 	}
-	shapes, diags := projectShapes(p, s)
-	page.Shapes = shapes
-	page.Diagnostics = append(page.Diagnostics, diags...)
+	part := opc.PartName(s.PartName())
+	slideBytes, ok := pptx.PartBytes(p, part)
+	if !ok {
+		page.Diagnostics = append(page.Diagnostics, ir.Diagnostic{
+			Code: "IR_SHAPES_READ", Severity: ir.SevWarning,
+			Part: s.PartName(), Message: "slide part unreadable",
+		})
+	} else {
+		shapes, diags := projectShapes(slideBytes, s.PartName(), s)
+		page.Shapes = shapes
+		page.Diagnostics = append(page.Diagnostics, diags...)
+	}
 	if opts.IncludeNotes {
-		if notes, err := s.SpeakerNotesText(); err == nil {
-			page.NotesText = notes
-		} else {
+		notes, err := projectNotes(p, part)
+		if err != nil {
 			page.Diagnostics = append(page.Diagnostics, ir.Diagnostic{
 				Code: "IR_NOTES_READ", Severity: ir.SevWarning,
 				Part: s.PartName(), Message: err.Error(),
 			})
+		} else {
+			page.NotesText = notes
 		}
 	}
-	if opts.IncludeTimingNode {
-		page.HasTiming = s.HasTiming()
+	if opts.IncludeTimingNode && ok {
+		has, err := ooxml.SlideHasTiming(slideBytes)
+		if err == nil {
+			page.HasTiming = has
+		}
 	}
 	if opts.IncludeHidden {
-		if h, err := s.Hidden(); err == nil {
+		if h, err := projectHidden(p, uint32(s.ID())); err == nil {
 			page.Hidden = &h
 		} else {
 			page.Diagnostics = append(page.Diagnostics, ir.Diagnostic{
@@ -118,8 +131,8 @@ func projectPage(p *pptx.Presentation, s *pptx.Slide, idx int, opts ir.Options) 
 			})
 		}
 	}
-	if opts.IncludeTimingIR && page.HasTiming {
-		raw, _, err := s.TimingTreeRaw()
+	if opts.IncludeTimingIR && page.HasTiming && ok {
+		raw, _, err := ooxml.SlideTimingRaw(slideBytes)
 		if err != nil {
 			page.Diagnostics = append(page.Diagnostics, ir.Diagnostic{
 				Code: "IR_TIMING_READ", Severity: ir.SevWarning,
@@ -141,22 +154,46 @@ func projectPage(p *pptx.Presentation, s *pptx.Slide, idx int, opts ir.Options) 
 	return page, nil
 }
 
+// projectNotes 以 ooxml 投影读取讲稿正文：slide 关系流 →
+// notesSlide Part → 正文占位符文本。无 notes Part/关系返回 ("", nil)。
+func projectNotes(p *pptx.Presentation, part opc.PartName) (string, error) {
+	relsBytes, ok := pptx.PartBytes(p, ooxml.RelsPartName(part))
+	if !ok {
+		return "", nil
+	}
+	notesPart, ok := ooxml.NotesPartOf(relsBytes, part)
+	if !ok {
+		return "", nil
+	}
+	notesBytes, ok := pptx.PartBytes(p, notesPart)
+	if !ok {
+		return "", fmt.Errorf("notes part %s unreadable", notesPart)
+	}
+	text, err := ooxml.NotesText(notesBytes)
+	if err != nil {
+		return "", fmt.Errorf("notes body: %w", err)
+	}
+	return text, nil
+}
+
+// projectHidden 以 ooxml 投影读取页面隐藏标记（presentation sldIdLst）。
+func projectHidden(p *pptx.Presentation, slideID uint32) (bool, error) {
+	presBytes, ok := pptx.MainPartBytes(p)
+	if !ok {
+		return false, fmt.Errorf("presentation part unreadable")
+	}
+	return ooxml.SlideHidden(presBytes, slideID)
+}
+
 // projectShapes 以 internal/ooxml 的 schema 只读投影枚举形状（取代门面
 // 句柄 Shapes），文本/表格亦由 schema 抽取；图表经门面 ChartShape（按
 // ID 匹配）补 ChartType/Text（category 投影未解前）。
-func projectShapes(p *pptx.Presentation, s *pptx.Slide) ([]ir.Shape, ir.Diagnostics) {
-	b, ok := pptx.PartBytes(p, opc.PartName(s.PartName()))
-	if !ok {
-		return nil, ir.Diagnostics{{
-			Code: "IR_SHAPES_READ", Severity: ir.SevWarning,
-			Part: s.PartName(), Message: "slide part unreadable",
-		}}
-	}
+func projectShapes(b []byte, partStr string, s *pptx.Slide) ([]ir.Shape, ir.Diagnostics) {
 	infos, err := ooxml.SlideShapes(b)
 	if err != nil {
 		return nil, ir.Diagnostics{{
 			Code: "IR_SHAPES_READ", Severity: ir.SevWarning,
-			Part: s.PartName(), Message: err.Error(),
+			Part: partStr, Message: err.Error(),
 		}}
 	}
 	var charts map[model.ShapeID]*pptx.ChartShape

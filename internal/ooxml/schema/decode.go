@@ -35,6 +35,15 @@ func DecodeSlide(data []byte) (*P_CT_Slide, error) {
 	return v, nil
 }
 
+// DecodeNotesSlide 解码 ppt/notesSlides/notesSlideN.xml 的 p:notes 根。
+func DecodeNotesSlide(data []byte) (*P_CT_NotesSlide, error) {
+	v := &P_CT_NotesSlide{}
+	if err := Unmarshal(data, v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 // DecodeSlideLayout 解码 ppt/slideLayouts/slideLayoutN.xml 的根。
 func DecodeSlideLayout(data []byte) (*P_CT_SlideLayout, error) {
 	v := &P_CT_SlideLayout{}

@@ -133,10 +133,10 @@ python3 -m py_compile scripts/gen_corpus/corpus.py
 | `internal/errs` | 90% | v2.0 地基包（稳定错误码 + OperationError，实测 100%） |
 | `internal/document/style` | 90% | v2.0 域搬迁 2 切片 1（段落属性解析，实测 94.9%） |
 | `internal/document/text` | 90% | v2.0 域搬迁 4（文本域：字符格式 + bodyPr/字段/段落，实测 94.0%） |
-| `internal/engine` | 85% | v2.0 编排层（CLI/WASM 共享 + ProjectIR adapter，实测 86.6%） |
+| `internal/engine` | 85% | v2.0 编排层（CLI/WASM 共享 + ProjectIR adapter，实测 92.1%） |
 | `internal/archlint` | 85% | v2.0 CI 依赖方向校验（实测 100%） |
 | `internal/ooxml/schema` | 90% | v2.0 Step 1 XSD→Go 生成（实测 100%） |
-| `internal/ooxml` | 90% | v2.0 格式层只读投影（Open/Bytes + SlideShapes 形状/文本/表格，实测 93.4%） |
+| `internal/ooxml` | 90% | v2.0 格式层只读投影（Open/Bytes + SlideShapes 形状/文本/表格 + notes/timing/hidden，实测 93.4%） |
 | `internal/document/media` | 90% | v2.0 域搬迁 5 切片 1（媒体输入契约/图片探测，实测 95.8%） |
 | `internal/document/table` | 90% | v2.0 域搬迁 6 切片 1（逻辑网格/单元格辅助，实测 94.1%） |
 
