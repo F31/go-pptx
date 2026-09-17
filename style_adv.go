@@ -98,7 +98,7 @@ func (p *Presentation) applyPhClrTransforms(doc *xmlstore.XMLDocument, clr *xmls
 	refColor ParsedColor, diags *[]Diagnostic) (ParsedColor, bool) {
 	out := ParsedColor{Alpha: 1, Spec: ColorSpec{Scheme: "phClr"}}
 	base := refColor.RGB
-	if !isHexRGB(base) {
+	if !style.IsHexRGB(base) {
 		// 引用方颜色本身未解析 → 主题条目也无法给出可呈现值（不臆造）。
 		return out, false
 	}
@@ -121,11 +121,11 @@ func (p *Presentation) applyPhClrTransforms(doc *xmlstore.XMLDocument, clr *xmls
 	if startAlpha <= 0 {
 		startAlpha = 1
 	}
-	rgb, alpha, unknown := applyColorTransforms(base, ts)
+	rgb, alpha, unknown := style.ApplyColorTransforms(base, ts)
 	// applyColorTransforms 内部 alpha 从 1 起算；此处把引用方 alpha 作为
 	// 前置乘子补回（相对量 alphaMod/alphaOff 已含在 ts 内）。
 	out.RGB = rgb
-	out.Alpha = clamp01(startAlpha * alpha)
+	out.Alpha = style.Clamp01(startAlpha * alpha)
 	out.Unknown = unknown
 	out.Resolved = len(unknown) == 0
 	if len(unknown) > 0 {

@@ -1,5 +1,7 @@
 package pptx
 
+import "github.com/F31/go-pptx/internal/document/style"
+
 import (
 	"fmt"
 
@@ -52,23 +54,9 @@ const (
 // 否则 RGB 是 sRGB 十六进制 RRGGBB（无 '#' 前缀）。两者都为空表示
 // "无颜色信息"（读取到无法安全表示的颜色形态时保持 Set=false，不臆测；
 // STYLE-01 扩展颜色变换等解析）。
-type ColorSpec struct {
-	Scheme string
-	RGB    string
-}
-
-func (c ColorSpec) String() string {
-	if c.Scheme != "" {
-		return "scheme:" + c.Scheme
-	}
-	if c.RGB != "" {
-		return "#" + c.RGB
-	}
-	return ""
-}
-
-// Valid 报告 ColorSpec 是否携带可写出的颜色。
-func (c ColorSpec) Valid() bool { return c.Scheme != "" || c.RGB != "" }
+//
+// v2.0：定义在 internal/document/style，此处以 alias 暴露。
+type ColorSpec = style.ColorSpec
 
 // FontStyle 是字符格式的 patch 类型（方案 §5.2/§20.2）。
 //

@@ -368,6 +368,24 @@ style 域庞大且与 `Presentation`/`styleEnv` 深度耦合，按切片推进�
 - 测试随迁 `internal/document/style/theme_test.go`（**94.3%** 总覆盖）
 - 守恒：`go test ./...` 与 `-tags=corpus` **20/20** 全绿；`api_surface_test` golden 不变
 
+### 域搬迁 2 续三：颜色解析全集 + ColorSpec（2026-09-16）
+
+切片 2b-ii：把颜色解析与变换全集下沉，前提是 `ColorSpec` 一并下沉（`ParsedColor`/
+`ResolvedColor` 引用它）。
+
+- `ColorSpec` 从 text 域（`text_fonttypes.go`）下沉至 `internal/document/style`
+  （根包 alias；`String`/`Valid` 经别名感知测试保留）
+- 迁出 `internal/document/style/color.go`：`ColorTransform` / `ParsedColor` /
+  `ApplyColorTransforms`（28 种变换全集）/ `SchemeRGB` / `IsHexRGB` / `Clamp01` /
+  `ClrMapIndirect` + 私有辅助（scrgb/hsl 通道、predefined 色、rgb↔hsl）
+- `parseColorNode` → `style.ParseColorNode(doc, clr, themeDoc, masterDoc, part, diags)`
+  （文档由门面注入）；根包 `Presentation.parseColorNode` 薄委托，**零调用方改动**
+  （geom_fill/geom_effect/style_adv/style_matrix/format/format_runprops）
+- `theme_resolve.go` 仅保留 `themeDoc`/`masterDoc` 接线
+- 测试随代码迁：`TestTransformSetComplete`（ECMA 28 全集）移入包内；
+  新增 `color_test.go` 覆盖变换/`SchemeRGB`/`ParseColorNode` 全分支；覆盖率 **92.7%**
+- 守恒：`go test ./...` 与 `-tags=corpus` **20/20** 全绿；`api_surface_test` golden 不变
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

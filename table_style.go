@@ -748,13 +748,13 @@ func (p *Presentation) resolveColorSpec(doc *xmlstore.XMLDocument, env *style.En
 		}
 		spec := ColorSpec{Scheme: v}
 		scheme := v
-		if clrMapIndirect(scheme) {
+		if style.ClrMapIndirect(scheme) {
 			m := style.MasterClrMap(p.masterDoc(env))
 			if mapped, ok := m[scheme]; ok {
 				scheme = mapped
 			}
 		}
-		rgb, partial := schemeRGB(p.themeDoc(env), scheme)
+		rgb, partial := style.SchemeRGB(p.themeDoc(env), scheme)
 		rc := ResolvedColor{Spec: spec, RGB: rgb, Resolved: rgb != "" && !partial && !hasTransform,
 			Trace: []StyleStep{{Source: SourceTheme, Detail: "clrScheme " + v + " → #" + rgb}}}
 		if rgb == "" || partial || hasTransform {

@@ -2,6 +2,7 @@ package pptx
 
 import (
 	"bytes"
+	"github.com/F31/go-pptx/internal/document/style"
 	"strings"
 	"testing"
 
@@ -12,43 +13,6 @@ import (
 // 主题样式矩阵引用链深化（a:fontRef + 主题条目可呈现颜色/phClr 代入）。
 
 // ---------- 颜色变换全集 ----------
-
-// ecmaColorTransformSet 是 ECMA-376 Part 1 EG_ColorTransform 全集 28 种。
-var ecmaColorTransformSet = []string{
-	// 相对量（14）
-	"lumMod", "lumOff", "satMod", "satOff", "hueMod", "hueOff",
-	"redMod", "redOff", "greenMod", "greenOff", "blueMod", "blueOff",
-	"alphaMod", "alphaOff",
-	// 绝对量（7）
-	"hue", "sat", "lum", "red", "green", "blue", "alpha",
-	// 无参复合（3）
-	"comp", "inv", "gray",
-	// 曲线（2）
-	"gamma", "invGamma",
-	// 简写（2）
-	"tint", "shade",
-}
-
-func TestStyleAdv_TransformSetComplete(t *testing.T) {
-	if len(ecmaColorTransformSet) != 28 {
-		t.Fatalf("test fixture set size = %d, want 28", len(ecmaColorTransformSet))
-	}
-	for _, k := range ecmaColorTransformSet {
-		if !knownTransformKinds[k] {
-			t.Errorf("knownTransformKinds missing %q (STYLE-02 全集要求)", k)
-		}
-	}
-	// 反向：白名单不应含集合外的名字（防止拼写漂移）。
-	set := map[string]bool{}
-	for _, k := range ecmaColorTransformSet {
-		set[k] = true
-	}
-	for k := range knownTransformKinds {
-		if !set[k] {
-			t.Errorf("knownTransformKinds has extra entry %q", k)
-		}
-	}
-}
 
 // TestStyleAdv_AbsoluteTransforms 覆盖 STYLE-02 补齐的绝对量变换。
 func TestStyleAdv_AbsoluteTransforms(t *testing.T) {
@@ -76,13 +40,13 @@ func TestStyleAdv_AbsoluteTransforms(t *testing.T) {
 		{"hue to blue", "hue", 240 * 60000, "FF0000", "0000FF"},
 	}
 	for _, tc := range cases {
-		got, _, unknown := applyColorTransforms(tc.base, []ColorTransform{{Kind: tc.kind, Value: tc.val}})
+		got, _, unknown := style.ApplyColorTransforms(tc.base, []ColorTransform{{Kind: tc.kind, Value: tc.val}})
 		if len(unknown) != 0 {
 			t.Errorf("%s: unexpected unknown %v", tc.name, unknown)
 			continue
 		}
 		if got != tc.want {
-			t.Errorf("%s: applyColorTransforms(%s, %s=%d) = %s, want %s",
+			t.Errorf("%s: style.ApplyColorTransforms(%s, %s=%d) = %s, want %s",
 				tc.name, tc.base, tc.kind, tc.val, got, tc.want)
 		}
 	}
@@ -91,17 +55,17 @@ func TestStyleAdv_AbsoluteTransforms(t *testing.T) {
 // TestStyleAdv_AbsoluteTransformsClamped 验证越界 val 被约束而非回绕。
 func TestStyleAdv_AbsoluteTransformsClamped(t *testing.T) {
 	// red = 200%（越界）→ 约束到 100%（255），不得回绕为负数。
-	got, _, _ := applyColorTransforms("000000", []ColorTransform{{Kind: "red", Value: 200000}})
+	got, _, _ := style.ApplyColorTransforms("000000", []ColorTransform{{Kind: "red", Value: 200000}})
 	if got != "FF0000" {
 		t.Errorf("red 200%% = %s, want FF0000 (clamped)", got)
 	}
 	// lum = -50%（越界）→ 约束到 0（黑）。
-	got, _, _ = applyColorTransforms("FF0000", []ColorTransform{{Kind: "lum", Value: -50000}})
+	got, _, _ = style.ApplyColorTransforms("FF0000", []ColorTransform{{Kind: "lum", Value: -50000}})
 	if got != "000000" {
 		t.Errorf("lum -50%% = %s, want 000000 (clamped)", got)
 	}
 	// sat 越界 → 约束到 100%。
-	got, _, _ = applyColorTransforms("FF0000", []ColorTransform{{Kind: "sat", Value: 150000}})
+	got, _, _ = style.ApplyColorTransforms("FF0000", []ColorTransform{{Kind: "sat", Value: 150000}})
 	if got != "FF0000" {
 		t.Errorf("sat 150%% = %s, want FF0000 (clamped)", got)
 	}
@@ -110,7 +74,7 @@ func TestStyleAdv_AbsoluteTransformsClamped(t *testing.T) {
 func TestStyleAdv_GammaTransforms(t *testing.T) {
 	// gamma 取 pow(c, 1/g)；invGamma 取 pow(c, g)。g=1 时两者均为恒等。
 	for _, kind := range []string{"gamma", "invGamma"} {
-		got, _, unknown := applyColorTransforms("4080C0", []ColorTransform{{Kind: kind, Value: 100000}})
+		got, _, unknown := style.ApplyColorTransforms("4080C0", []ColorTransform{{Kind: kind, Value: 100000}})
 		if len(unknown) != 0 {
 			t.Errorf("%s: unexpected unknown %v", kind, unknown)
 		}
@@ -119,23 +83,23 @@ func TestStyleAdv_GammaTransforms(t *testing.T) {
 		}
 	}
 	// g=2：invGamma 取平方 → 各通道压暗。
-	got, _, _ := applyColorTransforms("FFFFFF", []ColorTransform{{Kind: "invGamma", Value: 200000}})
+	got, _, _ := style.ApplyColorTransforms("FFFFFF", []ColorTransform{{Kind: "invGamma", Value: 200000}})
 	if got != "FFFFFF" {
 		t.Errorf("invGamma g=2 on white = %s, want FFFFFF", got)
 	}
 	// 0.5 平方（g=2）≈ 0.25 → 64 (0x40)。
-	got, _, _ = applyColorTransforms("808080", []ColorTransform{{Kind: "invGamma", Value: 200000}})
+	got, _, _ = style.ApplyColorTransforms("808080", []ColorTransform{{Kind: "invGamma", Value: 200000}})
 	if got != "404040" {
 		t.Errorf("invGamma g=2 on 808080 = %s, want 404040", got)
 	}
 	// gamma g=2 为 pow(c, 0.5) → 提亮。0x80=128 → 128/255≈0.50196，
 	// pow(0.50196, 0.5)≈0.70849 → ×255≈180.66 → 四舍五入 181 (0xB5)。
-	got, _, _ = applyColorTransforms("808080", []ColorTransform{{Kind: "gamma", Value: 200000}})
+	got, _, _ = style.ApplyColorTransforms("808080", []ColorTransform{{Kind: "gamma", Value: 200000}})
 	if got != "B5B5B5" {
 		t.Errorf("gamma g=2 on 808080 = %s, want B5B5B5", got)
 	}
 	// g<=0 → 无操作（不臆造）。
-	got, _, _ = applyColorTransforms("4080C0", []ColorTransform{{Kind: "gamma", Value: 0}})
+	got, _, _ = style.ApplyColorTransforms("4080C0", []ColorTransform{{Kind: "gamma", Value: 0}})
 	if got != "4080C0" {
 		t.Errorf("gamma g=0 = %s, want 4080C0 (no-op)", got)
 	}
@@ -144,7 +108,7 @@ func TestStyleAdv_GammaTransforms(t *testing.T) {
 // TestStyleAdv_UnknownTransformNotFabricated 验证未知变换仅入 Unknown，
 // 不影响已应用步骤的结果（§6.1 不臆造取值）。
 func TestStyleAdv_UnknownTransformNotFabricated(t *testing.T) {
-	got, alpha, unknown := applyColorTransforms("FF0000", []ColorTransform{
+	got, alpha, unknown := style.ApplyColorTransforms("FF0000", []ColorTransform{
 		{Kind: "lumMod", Value: 50000},
 		{Kind: "futureTransform", Value: 30000},
 	})

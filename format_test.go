@@ -3,6 +3,7 @@ package pptx
 import (
 	"bytes"
 	"errors"
+	"github.com/F31/go-pptx/internal/document/style"
 	"strings"
 	"testing"
 
@@ -183,7 +184,7 @@ func TestColorTransformLumModLumOff(t *testing.T) {
 	// lumMod 60%：R/G/B *= 0.6 → FF*0.6=153（截断），00*0.6=0
 	// lumOff 20%：R/G/B += 255*0.2=51
 	// R: 153+51=204=CC；G: 0+51=51=33；B: 0+51=51=33
-	out, _, unk := applyColorTransforms("FF0000", []ColorTransform{
+	out, _, unk := style.ApplyColorTransforms("FF0000", []ColorTransform{
 		{Kind: "lumMod", Value: 60000}, {Kind: "lumOff", Value: 20000},
 	})
 	if len(unk) != 0 {
@@ -195,7 +196,7 @@ func TestColorTransformLumModLumOff(t *testing.T) {
 }
 
 func TestColorTransformTintShade(t *testing.T) {
-	tint, _, _ := applyColorTransforms("800000", []ColorTransform{{Kind: "tint", Value: 50000}})
+	tint, _, _ := style.ApplyColorTransforms("800000", []ColorTransform{{Kind: "tint", Value: 50000}})
 	// tint: x = x + (255-x)*val/100000（整数除法）
 	// R: 128+(255-128)*50000/100000 = 128+63 = 191 = BF
 	// G: 0+(255-0)*50000/100000 = 127 = 7F
@@ -203,7 +204,7 @@ func TestColorTransformTintShade(t *testing.T) {
 	if tint != "BF7F7F" {
 		t.Errorf("tint RGB = %s, want BF7F7F", tint)
 	}
-	shade, _, _ := applyColorTransforms("808080", []ColorTransform{{Kind: "shade", Value: 50000}})
+	shade, _, _ := style.ApplyColorTransforms("808080", []ColorTransform{{Kind: "shade", Value: 50000}})
 	// shade: x = x*(100000-val)/100000
 	// 128*(50000)/100000 = 64 = 40
 	if shade != "404040" {
@@ -212,12 +213,12 @@ func TestColorTransformTintShade(t *testing.T) {
 }
 
 func TestColorTransformAlpha(t *testing.T) {
-	_, alpha, _ := applyColorTransforms("FF0000", []ColorTransform{{Kind: "alpha", Value: 50000}})
+	_, alpha, _ := style.ApplyColorTransforms("FF0000", []ColorTransform{{Kind: "alpha", Value: 50000}})
 	if alpha != 0.5 {
 		t.Errorf("alpha = %v, want 0.5", alpha)
 	}
 	// alphaMod=50% × 1 → 0.5；alphaOff=20% + 0.5 → 0.7
-	_, alpha2, _ := applyColorTransforms("FF0000", []ColorTransform{
+	_, alpha2, _ := style.ApplyColorTransforms("FF0000", []ColorTransform{
 		{Kind: "alphaMod", Value: 50000}, {Kind: "alphaOff", Value: 20000},
 	})
 	if alpha2 < 0.69 || alpha2 > 0.71 {
@@ -228,7 +229,7 @@ func TestColorTransformAlpha(t *testing.T) {
 func TestColorTransformUnknown(t *testing.T) {
 	// 未知变换前置 + lumMod 50%
 	// R: 255*50000/100000 = 127 = 7F（整数除法截断）
-	out, _, unk := applyColorTransforms("FF0000", []ColorTransform{
+	out, _, unk := style.ApplyColorTransforms("FF0000", []ColorTransform{
 		{Kind: "futureTransform", Value: 0}, {Kind: "lumMod", Value: 50000},
 	})
 	if len(unk) != 1 || unk[0] != "futureTransform" {
@@ -240,7 +241,7 @@ func TestColorTransformUnknown(t *testing.T) {
 }
 
 func TestColorTransformPreservesUnchanged(t *testing.T) {
-	out, _, _ := applyColorTransforms("AABBCC", nil)
+	out, _, _ := style.ApplyColorTransforms("AABBCC", nil)
 	if out != "AABBCC" {
 		t.Errorf("no-op transform RGB = %s, want AABBCC", out)
 	}
@@ -600,8 +601,8 @@ func TestClamp01(t *testing.T) {
 		{1.0001, 1},
 		{42, 1},
 	} {
-		if got := clamp01(tc.in); got != tc.want {
-			t.Errorf("clamp01(%v) = %v, want %v", tc.in, got, tc.want)
+		if got := style.Clamp01(tc.in); got != tc.want {
+			t.Errorf("style.Clamp01(%v) = %v, want %v", tc.in, got, tc.want)
 		}
 	}
 }

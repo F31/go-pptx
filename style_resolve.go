@@ -266,7 +266,7 @@ func (st *effState) resolveColor() ResolvedColor {
 			return ResolvedColor{Spec: spec, Resolved: false, Trace: trace}
 		}
 		scheme := spec.Scheme
-		if clrMapIndirect(scheme) {
+		if style.ClrMapIndirect(scheme) {
 			m := style.MasterClrMap(st.p.masterDoc(st.env))
 			mapped, ok := m[scheme]
 			if !ok {
@@ -282,7 +282,7 @@ func (st *effState) resolveColor() ResolvedColor {
 			scheme = mapped
 		}
 		tdoc := st.p.themeDoc(st.env)
-		rgb, partial := schemeRGB(tdoc, scheme)
+		rgb, partial := style.SchemeRGB(tdoc, scheme)
 		if partial {
 			st.note("color", false)
 			st.diags = append(st.diags, Diagnostic{
@@ -312,13 +312,4 @@ func (st *effState) resolveColor() ResolvedColor {
 	}
 	st.unresolvedDiag("color")
 	return ResolvedColor{}
-}
-
-// clrMapIndirect 报告 scheme 名是否为 clrMap 间接引用（映射到主题色）。
-func clrMapIndirect(scheme string) bool {
-	switch scheme {
-	case "bg1", "bg2", "tx1", "tx2":
-		return true
-	}
-	return false
 }
