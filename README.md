@@ -1,31 +1,42 @@
 # go-pptx
 
-纯 Go（`CGO_ENABLED=0`）编写的 PowerPoint（OOXML / PPTX）创建、编辑、审计 SDK，**零外部运行时依赖**，可在 Linux / Windows / macOS 与浏览器 WASM 环境运行。
+[English](./README.md) | [中文](./README.zh.md)
+
+A pure Go SDK for creating, editing, and auditing PowerPoint (OOXML / PPTX) files. Zero runtime dependencies. Runs on Linux, Windows, macOS, and browser WASM.
 
 ```text
-Product · go-pptx
-License · Apache-2.0
-Go · >= 1.24
-Repo · github.com/F31/go-pptx
+Product    go-pptx
+License    Apache-2.0
+Go         >= 1.24
+Module     github.com/F31/go-pptx
+Import     github.com/F31/go-pptx/pptx
 ```
 
----
-
-## 产品定位
-
-go-pptx 面向"**程序化加工 PPTX**"这一在 Go 生态中长期空缺的场景：开发者希望像操作结构化文档一样——创建页面、替换文本、嵌入图片/图表/音频/视频、批量渲染模板、审计文档差异——而**不依赖** Office 客户端、LibreOffice 安装或任何解释器运行时。
-
-与把文档"读出再整体重写"的实现不同，go-pptx 以 **OOXML 原始字节为不变量**：只对目标区域做精确补丁，未触碰的 Part 与未知扩展保持字节恒等（B1），从而把"程序加工"对文档的副作用降到最低——这是它区别于通用序列化式库的核心。
+[![CI](https://github.com/F31/go-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/F31/go-pptx/actions/workflows/ci.yml)
 
 ---
 
-## 快速开始
+## What is go-pptx?
+
+go-pptx is a pure Go SDK for **programmatic PPTX processing** — creating slides, replacing text, embedding images/charts/audio/video, batch-rendering templates, and auditing document changes — **without** Office clients, LibreOffice, or any interpreter runtime.
+
+Unlike libraries that read and rewrite documents entirely, go-pptx treats **OOXML raw bytes as the invariant**. It patches only the target regions; untouched parts and unknown extensions remain byte-identical (B1 fidelity). This minimizes side effects on documents produced by other tools — the core differentiator from generic serialization libraries.
+
+**v2.0 architecture** (ADR-030): The codebase follows a layered structure with a thin public facade (`pptx/`), domain logic in `internal/`, and a schema-generated type model from the ECMA-376 standard. See [Architecture](#architecture-v20) for details.
+
+---
+
+## Install
 
 ```bash
 go get github.com/F31/go-pptx/pptx
 ```
 
-### 创建与编辑
+---
+
+## Quick Start
+
+### Create and Edit
 
 ```go
 package main
@@ -48,11 +59,11 @@ func main() {
 	slide, _ := p.AddSlide(layouts[0])
 
 	box, _ := slide.AddTextBox(pptx.TextBoxSpec{
-		X: 914400, Y: 914400, Width: 6096000, Height: 914400, // 单位 EMU，1 in = 914400
+		X: 914400, Y: 914400, Width: 6096000, Height: 914400, // EMU units (1 in = 914400)
 		Text: "Hello, go-pptx",
 	})
 	tf, _ := box.TextFrame()
-	tf.ReplaceText("go-pptx", "World") // 跨 Run 保真替换，自动继承格式
+	tf.ReplaceText("go-pptx", "World") // Cross-run replacement with format preservation
 
 	if _, err := p.Save(context.Background(), "out.pptx"); err != nil {
 		log.Fatal(err)
@@ -60,154 +71,283 @@ func main() {
 }
 ```
 
-### 模板数据绑定与语义审计
+### Template Data Binding
 
 ```go
-// 数据绑定：{{name}} / {{#if}} 条件段落 / {{#each rows}} 表格行循环 / 图表数据
+// Inline placeholders: {{name}} / {{#if}} conditional / {{#each rows}} table row loop / chart data
 rep, _ := p.Bind(map[string]any{
-	"name":  "Q3 营收",
-	"rows":  []any{map[string]any{"k": "华东", "v": 120}},
+	"name":  "Q3 Revenue",
+	"rows":  []any{map[string]any{"k": "East China", "v": 120}},
 })
-
-// 语义 diff：加权 LCS 页面对齐，"同一页两次修订"不会被误判为删页+加页
-report := ir.Diff(docA, docB)
 _ = rep // BindReport{...}
-_ = report
 ```
 
-> 完整 API 清单见包文档（`go doc github.com/F31/go-pptx/pptx`）与 `docs/go-pptx-实施状态跟踪.md`。
+> Full API: `go doc github.com/F31/go-pptx/pptx` · [Implementation Status](docs/go-pptx-实施状态跟踪.md)
 
 ---
 
-## 核心能力
+## Core Features
 
-| 类别 | 能力 |
+| Category | Capabilities |
 |---|---|
-| **创建** | `New()` 生成最小合法模板；`AddSlide` / `AddTextBox` / `AddAutoShape` / `AddPicture` / `AddChart` / `AddAudio` / `AddVideo`；`MoveSlide` / `RemoveSlide` / `MoveShape` / `RemoveShape` |
-| **文本编辑** | 段落 / Run 对象模型；跨 Run 字面替换（3 种格式策略，字素簇保护，br/字段/链接边界安全）；字体/颜色/字号 patch 与 Reset；文本框属性与 slidenum/datetime 字段 |
-| **图片/媒体** | PNG/JPEG 嵌入与 4 种 Fit 模式（拉伸/Contain/Cover/原尺寸）；媒体内容哈希去重；MP3/WAV/MP4/WebM 纯 Go 探测（时长、签名、容器品牌）；音频播放树与计时计划 |
-| **图表/表格** | 柱/折/饼三类图表 + 内嵌工作簿生成（缓存与工作簿数据一致）；趋势线/误差线/数据标签/轴扩展；富文本表格、单元格合并、表格样式解析与优先级矩阵 |
-| **模板绑定** | 内联 `{{path}}`、条件段落、表格行循环、图表数据绑定；plan 阶段纯读校验 + 单事务原子提交，**失败零残留** |
-| **只读审计** | 只读 IR（schemaVersion 化 JSON）、语义 `Diff`、`Validate`、`Capability` 六维能力 manifest |
-| **保真机制** | SpanPatch 精确字节补丁、未知子树/扩展原样保留、revision 并发防护、原子落盘与失败恢复 |
-| **浏览器端** | WASM 编译目标 + 离线静态检查页（文件不离开设备，无外网/无 CDN） |
+| **Create** | `New()` minimal template; `AddSlide` / `AddTextBox` / `AddAutoShape` / `AddPicture` / `AddChart` / `AddAudio` / `AddVideo`; `MoveSlide` / `RemoveSlide` / `MoveShape` / `RemoveShape` |
+| **Text Editing** | Paragraph / Run object model; cross-run literal replacement (3 format strategies, grapheme cluster protection, br/field/link boundary safe); font/color/size patch and reset; text box properties and slidenum/datetime fields |
+| **Images & Media** | PNG/JPEG embedding with 4 fit modes (stretch/Contain/Cover/original); content-hash dedup; MP3/WAV/MP4/WebM pure-Go probing (duration, signature, container brand); audio playback tree and timing plan |
+| **Charts & Tables** | Bar/Line/Pie charts with embedded workbook generation; trendlines/error bars/data labels/axis extensions; rich text tables, cell merging, table style parsing and priority matrix |
+| **Template Binding** | Inline `{{path}}`, conditional paragraphs, table row loops, chart data binding; plan-phase read-only validation + single-transaction atomic commit, **zero residue on failure** |
+| **Read-only Audit** | Read-only IR (schema-versioned JSON), semantic `Diff`, `Validate`, `Capability` six-dimension manifest |
+| **Byte Preservation** | SpanPatch precise byte patching, unknown subtree/extension preservation, revision concurrency protection, atomic save with failure recovery |
+| **Browser / WASM** | WASM build target + offline static inspection page (files never leave the device, no internet, no CDN) |
 
 ---
 
-## 应用场景
+## Why go-pptx?
 
-- **自动化报告与文档流水线**：把数据库/接口数据渲染进模板，批量产出季度报告、方案书、销售材料；替换文本、图片、图表、表格数据。
-- **CI 质量门**：在构建/发布流水线中对产物做 `validate` 与 `diff`（"本次构建相比基线改了什么"），阻止含损坏结构的 PPTX 流出。
-- **受限/离线环境**：内网、边缘设备、浏览器端——单二进制或 WASM，无 Office 许可、无运行时安装。
-- **隐私敏感处理**：浏览器端只读检查/审计在用户设备本地完成，文件不上传。
-- **模板驱动的合同/标书**：`Bind` 按数据源一次渲染多页，条件段落自动显隐，表格按数据行数伸缩。
+### Comparison with Other Libraries
 
----
-
-## 产品优势与主流开源产品对比
-
-| 维度 | **go-pptx** | python-pptx | Apache POI (XSLF) | LibreOffice UNO | Aspose.Slides | Open XML SDK |
+| Dimension | **go-pptx** | python-pptx | Apache POI (XSLF) | LibreOffice UNO | Aspose.Slides | Open XML SDK |
 |---|---|---|---|---|---|---|
-| 语言 / 运行时 | **Go，零运行时依赖** | Python 解释器 | JVM | C++/多语言 | .NET/Java/云 | .NET |
-| 部署形态 | 单二进制 / WASM | 需 Python 环境 | 需 JVM | 需安装 LibreOffice | 需 runtime + 商业授权 | 需 .NET |
-| 编辑保真 | **字节级精确补丁**，未触碰区零改动 | 读出后整体重写 package | 重建文档 | 重建文档 | 重建文档（保真较好） | 全量重写 |
-| 未知扩展保留 | **原样字节保留**（Opaque 策略） | 依赖重写路径，易丢失 | 视解析覆盖 | 视解析覆盖 | 视版本 | 结构级保留 |
-| 浏览器端离线只读 | **WASM，文件不离设备** | 无 | 无 | 无 | Web API（需上传） | 无 |
-| 能力自描述 manifest | **有（六维 Supported/Partial/…）** | 无 | 无 | 无 | 无 | 无 |
-| 语义 diff（页对齐） | **内置（加权 LCS）** | 无 | 无 | 无 | 有（差异比较） | 无 |
-| 模板数据绑定 | **内置**（内联/条件/行循环/图表） | 需配合 jinja2 等 | 无 | 有（宏/脚本） | 有（模板 API） | 无 |
-| 媒体时长/签名探测 | **纯 Go**（WAV/MP3/MP4/WebM） | 无内置 | 无内置 | 有 | 有 | 无 |
-| 许可 | **Apache-2.0** | MIT | Apache-2.0 | MPL-2.0 | 商业 | MIT |
+| Language / Runtime | **Go, zero runtime** | Python interpreter | JVM | C++/multi-lang | .NET/Java/cloud | .NET |
+| Deployment | Single binary / WASM | Needs Python env | Needs JVM | Needs LibreOffice install | Needs runtime + commercial license | Needs .NET |
+| Edit Fidelity | **Byte-level precise patching**, untouched parts unchanged | Read-then-rewrite package | Rebuild document | Rebuild document | Rebuild document (good fidelity) | Full rewrite |
+| Unknown Extension Retention | **Raw byte preservation** (Opaque strategy) | Dependent on rewrite path, easily lost | Depends on parser coverage | Depends on parser coverage | Depends on version | Structural retention |
+| Browser Read-only | **WASM, files never leave device** | None | None | None | Web API (requires upload) | None |
+| Capability Self-description | **Yes (6-dimension Supported/Partial/...)** | None | None | None | None | None |
+| Semantic Diff (page-aligned) | **Built-in (weighted LCS)** | None | None | None | Yes (comparison) | None |
+| Template Data Binding | **Built-in** (inline/conditional/row loop/chart) | Needs jinja2 etc. | None | Yes (macros/scripts) | Yes (template API) | None |
+| Media Duration/Signature Probe | **Pure Go** (WAV/MP3/MP4/WebM) | No built-in | No built-in | Yes | Yes | None |
+| License | **Apache-2.0** | MIT | Apache-2.0 | MPL-2.0 | Commercial | MIT |
 
-**差异化要点**
+### Key Differentiators
 
-1. **唯一"字节级保真"的纯 Go 实现**：真实样本上只改一个 Run 时，编辑前/后其余 Part 字节恒等（B1），被改 Part 内未触碰区域差异收敛到 1 字节——适合对"文档不被工具重写破坏"敏感的存量文档加工。
-2. **Go 生态中目前缺少同量级 PPTX SDK**：单二进制分发、与现有 Go 服务/CI 无缝集成、WASM 直接进浏览器。
-3. **内置审计与能力协商**：`Diff`、`Validate`、`Capability` 让调用方在部署前就知道哪些能力可用、哪些受限，避免运行时才发现不支持。
-4. **开源且可自持**：Apache-2.0，无运行时/许可成本，对比商业方案（Aspose.Slides）在批处理与自动化场景成本更低。
-
----
-
-## 技术创新
-
-- **原始字节 + 命名空间环境双模型**：自研 `internal/xmlstore` 词法扫描器同时保留每个元素的字节跨度与解析后的命名空间作用域；未知命名空间子树照常建节点、保留原始字节，从而支撑"只改一个 Run、其余字节不变"的保真目标。同时规避了 `encoding/xml` 在特定自闭合标签组合上的深度同步偏差。
-- **事务化编辑**：所有业务写路径收敛为 `SinglePartPatch` / `MultiPartPlan`——先纯读校验（plan），再单事务应用（apply），任一失败零残留；revision 校验拒绝并发修改。行为与"数据库事务"对齐，而非"就地改写字符串"。
-- **字节级保真补丁引擎（B1）**：SpanPatch 区间替换 + 锚定校验 + 冲突检测，同一变更集整体校验后一次性按偏移降序应用；未变 Part 原样复制，Content Types 与变更集同源再生成。
-- **能力自描述与安全边界**：`CapabilityManifest` 六维状态（Inspect/Create/Edit/Preserve/Render/Play）逐工作包登记支持度与限制；WASM 检查页在浏览器本地完成，文件不出设备。
-- **语义 diff 的页面对齐**：加权 LCS + 形状 ID 集合相似度，把"同一页的两次修订"与"删页+加页"区分开；顺序乱序残留用高阈值二次配对并标记移动。
-- **语料驱动的工程验证**：36 份真实 PPTX 样本索引 + 3 份可再分发 LibreOffice 金样（含 actions 重放与字节级 B1 断言）；编辑后文件经 PowerPoint / WPS 真机打开无修复提示（L3 8/8）。
+1. **Only "byte-level fidelity" pure Go implementation**: When editing a single Run in real-world samples, all other Part bytes remain identical before/after (B1), and untouched regions within edited Parts converge to 1-byte difference — ideal for document processing where "documents must not be rewritten by tools."
+2. **No comparable PPTX SDK in the Go ecosystem**: Single binary distribution, seamless integration with existing Go services/CI, WASM directly in the browser.
+3. **Built-in audit and capability negotiation**: `Diff`, `Validate`, `Capability` let callers know which capabilities are available or limited before deployment, avoiding runtime surprises.
+4. **Open source and self-sustaining**: Apache-2.0, no runtime/licensing costs, lower cost than commercial alternatives (Aspose.Slides) for batch processing and automation.
 
 ---
 
-## 能力矩阵（Capability 六维）
+## Technical Innovations
 
-| 维度 | 状态 | 说明 |
-|---|---|---|
-| Inspect | **Supported** | 只读 IR、形状/表格/图表/几何/效果/字体/版式/讲义/嵌入字体报告 |
-| Create | **Partial** | 文本框/自选图形/图片/图表/音视频/页面创建；AutoShape 几何由调用方指定 preset 名 |
-| Edit | **Partial** | 跨 Run 文本替换 + 属性 patch + 受限播放/过渡/绑定/复制 |
-| Preserve | **Supported** | 字节级保留（B1）+ 保存报告 + 原子落盘 |
-| Render | **Untested** | 设计态推迟（§14） |
-| Play | **Partial** | 配音受限 + timing 只读透传 |
+### 1. Raw Byte + Namespace Dual Model
+
+The custom `internal/xmlstore` lexical scanner preserves both the byte span and parsed namespace scope of every element. Unknown namespace subtrees still get nodes with original bytes preserved, enabling the "change one Run, keep everything else identical" fidelity goal. This also works around `encoding/xml` depth-sync deviations on certain self-closing tag combinations.
+
+### 2. Transactional Editing
+
+All write paths converge to `SinglePartPatch` / `MultiPartPlan` — first read-only validation (plan), then single-transaction apply, with zero residue on any failure; revision validation rejects concurrent modifications. Behavior aligns with "database transactions" rather than "in-place string rewriting."
+
+### 3. Byte-Level Preservation Patch Engine (B1)
+
+SpanPatch interval replacement + anchor validation + conflict detection; changesets are validated holistically then applied in descending offset order; unchanged Parts are copied verbatim; Content Types are regenerated from the same source as the changeset.
+
+### 4. Capability Self-description and Safety Boundaries
+
+`CapabilityManifest` reports six dimensions (Inspect/Create/Edit/Preserve/Render/Play) with per-work-package support levels and limitations. WASM inspection pages complete locally in the browser — files never leave the device.
+
+### 5. Semantic Diff with Page Alignment
+
+Weighted LCS + shape ID set similarity distinguishes "two revisions of the same page" from "delete page + add page"; high-threshold secondary pairing marks moves for residual ordering mismatches.
+
+### 6. Corpus-driven Engineering Verification
+
+36 real PPTX samples + 3 redistributable LibreOffice gold samples (with action replay and byte-level B1 assertions); edited files open in PowerPoint / WPS without repair prompts (L3 8/8).
 
 ---
 
-## 质量与验证
-
-- **语料**：36 份真实 PPTX 样本（私有 33 份仅登记 manifest）+ 3 份公开 LibreOffice 金样（含 `.odp` / 原始 `.pptx` / 编辑后 `.edited.pptx` / 动作重放 / 兼容冒烟），`validate` 全过。
-- **真机兼容（L3）**：编辑后样本经 **PowerPoint 16.0.20326** 与 **WPS 演示 12.1.0.28599** 打开无修复提示、重存后 go-pptx 重开 `Validate` 0 错误（8/8）。矩阵与复现工具见 `docs/client-compat-matrix.md`、`scripts/l3/`。
-- **覆盖率**：full total 84.4%，root 82.8%（行/包加权口径）；路线图与口径见 `docs/coverage-roadmap.md`。
-- **CI**：`go vet` / `go test` / `CGO_ENABLED=0` 三交叉构建（Linux、`js/wasm`、`wasip1/wasm`）。
-
----
-
-## 架构与目录
+## Architecture (v2.0)
 
 ```text
-go-pptx/
-  *.go                 # 公共对象层（根包 pptx）：Presentation / Slide / Shape / TextFrame …
-  internal/opc/        # ZIP 索引、PartName、Content Types、关系图、原子保存
-  internal/xmlstore/   # 原始字节扫描器、节点索引树、命名空间环境、SpanPatch 补丁引擎
-  internal/document/   # PartStore / PatchStore 契约（编辑边界）
-  internal/editplan/   # SinglePartPatch / MultiPartPlan（事务计划）
-  internal/textmap/    # 文本逻辑位置与 XML 节点映射
-  internal/audioprobe/ # WAV/MP3 探测
-  internal/videoprobe/ # MP4/WebM 探测
-  ir/                  # 只读中间表示 + 语义 Diff
-  render/              # 渲染接口（适配实现后续拆分）
-  cmd/pptx/            # inspect / validate / replace / bind / diff / capability 等 CLI
-  cmd/pptx_check/      # WASM 主入口（js && wasm）
-  wasm/site/           # 离线浏览器端检查页
-  testdata/corpus/     # 样本索引与公开金样
-  docs/                # 设计、ADR、兼容矩阵、覆盖率路线图
+┌─────────────────────────────────────────────────────────┐
+│                    Public Facade                         │
+│                  github.com/F31/go-pptx/pptx            │
+│  Presentation · Slide · Shape · TextFrame · TableShape  │
+│  ChartShape · PictureShape · AudioShape · VideoShape    │
+│  (158 types · 131 Stable methods · 17 sentinels)        │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────┴────────────────────────────────┐
+│                  Domain Layer (internal/)                │
+│                                                         │
+│  document/geometry   Geometry/fill/effect parsing        │
+│  document/style      Style resolution chain              │
+│  document/text       Text field/body/fragment helpers    │
+│  document/media      Media input contract + probing      │
+│  document/table      Logical grid + cell helpers         │
+│  document/model      Shared value types (EMU, IDs)       │
+│                                                         │
+│  chart               Chart XML parse/build/validate      │
+│  bind                Template binding internals          │
+│  ir                  Read-only IR + semantic diff        │
+│  engine              Orchestration (CLI + WASM shared)   │
+│  archlint            CI dependency direction linter      │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────┴────────────────────────────────┐
+│                  Format Layer                            │
+│                                                         │
+│  ooxml             OOXML read-only projection            │
+│  ooxml/schema      Generated types from ECMA-376 XSD    │
+│                    (8 files · 7,300+ lines)              │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────┴────────────────────────────────┐
+│                  Transport Layer                         │
+│                                                         │
+│  opc               OPC package loading, relationships,   │
+│                    content types, atomic save             │
+│  xmlstore          XML scanner, node tree, SpanPatch     │
+│                    engine                                │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Dependency rule**: `internal/*` must not import the public facade (exception: `internal/engine` as the orchestration layer). Enforced by `internal/archlint` in CI.
+
+---
+
+## Package Structure
+
+```text
+pptx/                   Public SDK facade (158 types, 131 Stable methods)
+internal/
+  opc/                  OPC package loading, ZIP index, relationships, content types, atomic save
+  xmlstore/             XML scanner, indexed tree, namespace scope, SpanPatch engine
+  ooxml/                OOXML read-only projection (shapes, notes, timing, chart)
+  ooxml/schema/         Generated types from ECMA-376 Transitional XSD (8 namespaces, 7,300+ lines)
+  document/
+    model/              Shared value types: SlideID, ShapeID, EMU, Point, Rect
+    geometry/           Geometry/fill/effect parsing (prstGeom, custGrad, fill kinds)
+    style/              Style resolution chain (run/paragraph/list-level/theme, color transforms)
+    text/               Text field parsing, body/fragment helpers, font resolution
+    media/              Media input contract (MediaSource, bounded copy, image detection)
+    table/              Logical grid, cell helpers, merge spans
+  chart/                Chart XML model: parse/build/canonical/validate/fragment/workbook
+  bind/                 Template data-binding internals (Member, AsSlice, Truthy)
+  ir/                   Read-only intermediate representation + semantic diff
+  engine/               Orchestration layer (CLI + WASM shared, ProjectIR adapter)
+  archlint/             CI dependency direction linter (ADR-030 mechanism 4)
+  editplan/             Single-part and multi-part edit plans (StageAdd/Delete/Patch)
+  textmap/              Text rune mapping and span location primitives
+  textutil/             Shared XML text utilities
+  audioprobe/           Audio container probing (MP3 frame parsing, WAV format variants)
+  videoprobe/           Video container probing (MP4 moov/mvex, WebM doc type)
+  diag/                 Cross-layer diagnostic types (Severity, Diagnostic)
+  errs/                 Stable error codes and OperationError
+  ooxmls/               Namespace URI constants
+cmd/
+  pptx/                 CLI tool (9 subcommands)
+  pptx_check/           WASM browser-check entry point
+wasm/
+  check/                Browser-side pure-function inspection
+  site/                 Offline static inspection page
+render/                 Rendering adapter contract (no implementation yet)
+testdata/corpus/        Sample index and public gold samples
+docs/                   Design docs, ADRs, coverage roadmap, compatibility matrix
 ```
 
 ---
 
-## 文档索引
+## CLI Commands
 
-- 设计基线：《go-pptx 完整设计方案 V2.6 开发实施版》（`docs/go-pptx_完整设计方案_V2_6_开发实施版.md`）
-- 架构现状：`docs/architecture-current.md`
-- 兼容矩阵（L3 真机证据）：`docs/client-compat-matrix.md`
-- 覆盖率路线图：`docs/coverage-roadmap.md`
-- 实施状态跟踪：`docs/go-pptx-实施状态跟踪.md`
-- 架构决策（ADR）：`docs/adr/`
-- 技术白皮书：`docs/go-pptx-技术白皮书.md`
+| Command | Description | Mode |
+|---|---|---|
+| `inspect` | Read and summarize document structure (pages, media, notes, capability) as JSON | Read-only |
+| `validate` | L0 structural validation with diagnostics; exit code 3 on errors | Read-only |
+| `replace` | Literal text replacement across shape bodies (`--old`, `--new`, `--mode`, `--output`) | Write |
+| `bind` | Render template with JSON data source (`--data`, `--output`, `--loose`) | Write |
+| `diff` | Semantic diff of two presentations (JSON, with `--ignore-geometry/whitespace/notes`) | Read-only |
+| `capability` | Emit capability manifest JSON (six-dimension status report) | Read-only |
+| `narrate` | Embed audio from `tracks.json` manifest (`--manifest`, `--output`) | Write |
+| `timing-plan` | Preview timing sync plan (page jumps, tail padding, strict/skip) | Read-only |
+| `export-ir` | Export intermediate representation as JSON (`--output` or stdout) | Write |
+
+Exit codes: `0` success · `1` runtime error · `2` usage error · `3` capability/validation error · `4` resource limit.
 
 ---
 
-## 开发命令
+## WASM / Browser
+
+go-pptx compiles to WebAssembly for browser-side read-only inspection. Files never leave the user's device.
+
+```go
+// Three pure functions exposed via syscall/js
+wasm/check.Inspect(ctx, pptxBytes, fileName)    // → JSON with IR projection
+wasm/check.Validate(ctx, pptxBytes, fileName)   // → JSON with validation diagnostics
+wasm/check.Capability(fileName)                  // → JSON with capability manifest
+```
+
+**Build**:
+```bash
+GOOS=js GOARCH=wasm go build -o wasm/site/check.wasm ./cmd/pptx_check
+```
+
+**Static site**: `wasm/site/` contains `check.html`, `check.js`, and `wasm_exec.js`. Open `check.html` in any modern browser — no server required.
+
+---
+
+## Quality & Verification
+
+| Metric | Value |
+|---|---|
+| **Coverage (full repo)** | 84.4% weighted total |
+| **Coverage (pptx facade)** | 83.2% (threshold: 82%) |
+| **Coverage (internal packages)** | 15 packages ≥ 85%, 9 packages ≥ 90% |
+| **CI Gate** | `scripts/coverage/gate.sh` enforces per-package thresholds |
+| **Corpus** | 36 real PPTX samples + 3 public LibreOffice gold samples |
+| **L3 Compatibility** | PowerPoint 16.0 + WPS 12.1: 8/8 pass, no repair prompts |
+| **API Surface** | 158 types · 40 Stable sections · 131 methods · 17 sentinels (golden-locked) |
+| **Cross-compile** | `CGO_ENABLED=0` on Linux, `js/wasm`, `wasip1/wasm` |
+| **Static Analysis** | `go vet` + `gofmt` (default + corpus build tags) |
+| **Dependency Direction** | `internal/archlint` enforces R1-R5 rules in CI |
+
+---
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [Architecture Baseline](docs/architecture-current.md) | Current package layout and dependency directions |
+| [Coverage Roadmap](docs/coverage-roadmap.md) | Per-package thresholds and CI gate definition |
+| [Client Compatibility Matrix](docs/client-compat-matrix.md) | L3 real-client evidence |
+| [ADR-030: v2.0 Target Architecture](docs/adr/ADR-030-v2-target-architecture.md) | Layered architecture design decision |
+| [Complete Design Spec V2.6](docs/go-pptx_完整设计方案_V2_6_开发实施版.md) | Full design document |
+| [Technical Whitepaper](docs/go-pptx-技术白皮书.md) | Technical whitepaper |
+| [Implementation Status](docs/go-pptx-实施状态跟踪.md) | Feature implementation tracking |
+| [ADR Directory](docs/adr/) | All architecture decision records (ADR-014 through ADR-030) |
+
+---
+
+## Development
 
 ```bash
-go build ./...                         # CGO_ENABLED=0 构建（CI 强制）
-go test ./...                          # 单元与金样测试
-go vet ./...                           # 静态检查
-GOOS=js GOARCH=wasm go build ./...     # WASM 可编译性验证
-scripts/gen_corpus/run.sh validate testdata/corpus   # 语料索引校验
-scripts/l3/run_client.sh ppt <src> <dst>             # PowerPoint/WPS 真机打开+重存
-scripts/check_wasm.sh                  # 构建浏览器端检查工具（产物在 wasm/site/）
+# Build
+go build ./...                                     # CGO_ENABLED=0 (CI enforced)
+go build ./pptx/                                   # Public facade only
+
+# Test
+go test ./...                                      # All unit + gold tests
+go test -tags=corpus ./...                         # With corpus build tag
+go test -cover ./...                               # With coverage report
+
+# Lint & Vet
+gofmt -l .                                         # Check formatting
+go vet ./...                                       # Static analysis
+
+# Coverage Gate
+bash scripts/coverage/gate.sh                      # Enforce per-package thresholds
+TOLERANCE=0.5 bash scripts/coverage/gate.sh        # With tolerance
+
+# WASM
+GOOS=js GOARCH=wasm go build ./cmd/pptx_check     # Build WASM binary
+bash scripts/check_wasm.sh                         # Build browser check tool
+
+# Corpus & L3
+bash scripts/gen_corpus/run.sh validate testdata/corpus   # Validate corpus index
+bash scripts/l3/run_client.sh ppt <src> <dst>             # PowerPoint/WPS real-client test
 ```
 
-## 许可证
+---
 
-[Apache-2.0](LICENSE) —— 自由使用、修改与分发；无运行时/许可成本。
+## License
+
+[Apache-2.0](LICENSE) — free to use, modify, and distribute. No runtime or licensing costs.
