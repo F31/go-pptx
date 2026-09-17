@@ -87,7 +87,7 @@ func (st *effState) appendListSources() {
 		if st.env.Layout != "" {
 			if ldoc, err := p.docOf(st.env.Layout); err == nil {
 				if sp := style.FindPlaceholderShape(ldoc, st.phKey); sp != nil {
-					if d := defRPrAtLevel(ldoc, lstStyleOf(ldoc, sp), st.lvl); d != nil {
+					if d := style.DefRPrAtLevel(ldoc, style.LstStyleOf(ldoc, sp), st.lvl); d != nil {
 						st.sources = append(st.sources, famSource{
 							style: parseLocalFont(ldoc, d),
 							step: StyleStep{Source: SourceListStyle, Part: string(st.env.Layout),
@@ -100,7 +100,7 @@ func (st *effState) appendListSources() {
 		if st.env.Master != "" {
 			if mdoc := p.masterDoc(st.env); mdoc != nil {
 				if sp := style.FindPlaceholderShape(mdoc, st.phKey); sp != nil {
-					if d := defRPrAtLevel(mdoc, lstStyleOf(mdoc, sp), st.lvl); d != nil {
+					if d := style.DefRPrAtLevel(mdoc, style.LstStyleOf(mdoc, sp), st.lvl); d != nil {
 						st.sources = append(st.sources, famSource{
 							style: parseLocalFont(mdoc, d),
 							step: StyleStep{Source: SourceListStyle, Part: string(st.env.Master),
@@ -113,8 +113,8 @@ func (st *effState) appendListSources() {
 	}
 	if st.env.Master != "" {
 		if mdoc := p.masterDoc(st.env); mdoc != nil {
-			if ts := textStyleNode(mdoc, st.class); ts != nil {
-				if d := defRPrAtLevel(mdoc, ts, st.lvl); d != nil {
+			if ts := style.TextStyleNode(mdoc, st.class); ts != nil {
+				if d := style.DefRPrAtLevel(mdoc, ts, st.lvl); d != nil {
 					st.sources = append(st.sources, famSource{
 						style: parseLocalFont(mdoc, d),
 						step: StyleStep{Source: SourceListStyle, Part: string(st.env.Master),
@@ -213,7 +213,7 @@ func (st *effState) resolveTypeface(name, kind string, pick func(FontStyle) Opti
 			continue
 		}
 		trace := []StyleStep{s.step}
-		if final, tstep, ok := expandTypeface(tdoc, v.Value, kind); ok {
+		if final, tstep, ok := style.ExpandTypeface(tdoc, v.Value, kind); ok {
 			if tstep.Source != 0 || tstep.Detail != "" {
 				trace = append(trace, tstep)
 			}
@@ -231,11 +231,11 @@ func (st *effState) resolveTypeface(name, kind string, pick func(FontStyle) Opti
 	// 主题缺省字体（L4）。
 	if tdoc != nil {
 		major := st.class == style.ClassTitle
-		if face, found := themeFontFace(tdoc, major, kind); found && face != "" {
+		if face, found := style.ThemeFontFace(tdoc, major, kind); found && face != "" {
 			st.note(name, true)
 			return ResolvedValue[string]{Value: face, Resolved: true, Trace: []StyleStep{{
 				Source: SourceTheme,
-				Detail: "fontScheme default " + kind + " (" + fontSchemeName(major) + ")",
+				Detail: "fontScheme default " + kind + " (" + style.FontSchemeName(major) + ")",
 			}}}
 		}
 	}
@@ -267,7 +267,7 @@ func (st *effState) resolveColor() ResolvedColor {
 		}
 		scheme := spec.Scheme
 		if clrMapIndirect(scheme) {
-			m := masterClrMap(st.p.masterDoc(st.env))
+			m := style.MasterClrMap(st.p.masterDoc(st.env))
 			mapped, ok := m[scheme]
 			if !ok {
 				st.note("color", false)

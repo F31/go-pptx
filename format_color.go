@@ -107,7 +107,7 @@ func (p *Presentation) parseColorNode(doc *xmlstore.XMLDocument, env *style.Env,
 		out.Spec = ColorSpec{Scheme: v}
 		scheme := v
 		if clrMapIndirect(scheme) {
-			if m := masterClrMap(p.masterDoc(env)); m != nil {
+			if m := style.MasterClrMap(p.masterDoc(env)); m != nil {
 				if mapped, ok := m[scheme]; ok {
 					scheme = mapped
 				}

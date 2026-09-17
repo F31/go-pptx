@@ -749,7 +749,7 @@ func (p *Presentation) resolveColorSpec(doc *xmlstore.XMLDocument, env *style.En
 		spec := ColorSpec{Scheme: v}
 		scheme := v
 		if clrMapIndirect(scheme) {
-			m := masterClrMap(p.masterDoc(env))
+			m := style.MasterClrMap(p.masterDoc(env))
 			if mapped, ok := m[scheme]; ok {
 				scheme = mapped
 			}

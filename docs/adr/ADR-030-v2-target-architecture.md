@@ -352,6 +352,22 @@ style 域庞大且与 `Presentation`/`styleEnv` 深度耦合，按切片推进�
   错误、layout rels 失败忽略、ThemeOf）
 - 守恒：`go test ./...` 与 `-tags=corpus` **20/20** 全绿；`api_surface_test` golden 不变
 
+### 域搬迁 2 续二：style 核心类型 + 主题纯函数（2026-09-16）
+
+切片 2b（先做不依赖颜色机器的部分）：
+
+- 迁出 `internal/document/style/step.go`：`StyleSource`(+`String`) + 7 个来源常量 + `StyleStep`
+- 迁出 `internal/document/style/theme.go`：`MasterClrMap` / `TextStyleNode` /
+  `DefRPrAtLevel` / `LstStyleOf` / `ThemeFontFace` / `ExpandTypeface` / `FontSchemeName`
+  （改用 `xmlstore.ChildOfKind` + `ooxmlns.*`；`Replace` 保持 `StyleStep` 同包）
+- 根包：`style.go` 以 alias 暴露 `StyleSource`/`StyleStep` 与来源常量（零调用方改动）；
+  `theme_resolve.go` 仅保留 `themeDoc`/`masterDoc`（Presentation 绑定）+ `schemeRGB`
+  颜色解析；调用点加 `style.` 前缀（style_resolve/table_style/format_color）
+- 暂留根包（下一子切片）：`schemeRGB` 及其颜色变换机器（`applyColorTransforms` 等）与
+  `parseColorNode`（依赖公共 `ColorSpec`）
+- 测试随迁 `internal/document/style/theme_test.go`（**94.3%** 总覆盖）
+- 守恒：`go test ./...` 与 `-tags=corpus` **20/20** 全绿；`api_surface_test` golden 不变
+
 ## 参考
 
 - 设计文档 §3 总体架构与模块职责、§4.2 三类写入路径

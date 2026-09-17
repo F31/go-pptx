@@ -1,5 +1,7 @@
 package pptx
 
+import "github.com/F31/go-pptx/internal/document/style"
+
 // 本文件实现 STYLE-01（方案 §6.1/§7.1）：Run 有效字体样式解析与
 // 占位符 idx/type 匹配。
 //
@@ -41,59 +43,32 @@ package pptx
 // notesSlide→notesMaster→theme），读取视图包含已提交的 rels 补丁，
 // 不硬编码 Part 名。
 
-// StyleSource 标识 StyleStep 的来源层。
-type StyleSource int
+// StyleSource / StyleStep 定义在 internal/document/style，此处以 alias 暴露
+// （v2.0 域搬迁）。
 
+// StyleSource 标识 StyleStep 的来源层。
+type StyleSource = style.StyleSource
+
+// 来源层常量（alias 到 internal/document/style）。
 const (
 	// SourceRun 是 run 本地 rPr（L1）。
-	SourceRun StyleSource = iota
+	SourceRun = style.SourceRun
 	// SourceParagraphDefault 是段落默认字符格式 pPr/defRPr（L2）。
-	SourceParagraphDefault
+	SourceParagraphDefault = style.SourceParagraphDefault
 	// SourceListStyle 是列表级别样式（占位符 lstStyle 或母版 txStyles；L3）。
-	SourceListStyle
+	SourceListStyle = style.SourceListStyle
 	// SourceTheme 是主题（fontScheme/clrScheme 展开或缺省；L4）。
-	SourceTheme
+	SourceTheme = style.SourceTheme
 	// SourceFallback 是调用方 ResolveContext.Fallback 回退值。
-	SourceFallback
+	SourceFallback = style.SourceFallback
 	// SourceCellExplicit 是单元格显式样式覆盖（a:tcPr；TABLE-01）。
-	SourceCellExplicit
-	// SourceTableStyle 是表格样式库的区域部分（tableStyles.xml；
-	// TABLE-01），如 firstRow/band1H/nwCell 等。
-	SourceTableStyle
+	SourceCellExplicit = style.SourceCellExplicit
+	// SourceTableStyle 是表格样式库的区域部分（tableStyles.xml；TABLE-01）。
+	SourceTableStyle = style.SourceTableStyle
 )
 
-func (s StyleSource) String() string {
-	switch s {
-	case SourceRun:
-		return "run"
-	case SourceParagraphDefault:
-		return "paragraph-default"
-	case SourceListStyle:
-		return "list-style"
-	case SourceTheme:
-		return "theme"
-	case SourceFallback:
-		return "fallback"
-	case SourceCellExplicit:
-		return "cell-explicit"
-	case SourceTableStyle:
-		return "table-style"
-	default:
-		return "unknown"
-	}
-}
-
-// StyleStep 是单个属性的一个解析来源步。Trace 以最近来源在前排列；
-// 颜色/字体经主题展开时在其后追加 SourceTheme 步。
-type StyleStep struct {
-	// Source 是该步的来源层。
-	Source StyleSource
-	// Part 是提供该值的 Part（空串表示 run 所在 Part）。
-	Part string
-	// Detail 是人类可读的补充（如 "ph type=body idx=1 lvl=0"、
-	// "clrScheme accent3 lumMod 60%"）。
-	Detail string
-}
+// StyleStep 是单个属性的一个解析来源步。
+type StyleStep = style.StyleStep
 
 // ResolvedValue 是单个解析属性（非颜色）的三要素载体。
 type ResolvedValue[T any] struct {
