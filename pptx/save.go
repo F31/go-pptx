@@ -28,12 +28,16 @@ type SaveReport struct {
 	Diagnostics []Diagnostic
 }
 
-// Close 释放资源。Open 打开的文件在此关闭；此后任何方法返回
-// ErrClosed（Close 本身幂等返回 ErrClosed 语义之外的 nil 无必要，
-// 重复 Close 返回 ErrClosed）。
+// Close 释放资源。Open 打开的文件在此关闭；此后任何方法返回 ErrClosed。
+//
+// Close 本身**幂等**：重复调用一律返回 nil。理由 —— `defer p.Close()` 是标准
+// 惯用法，调用方常在显式 Close 之外再挂一个 defer（或把 Close 放进公共清理
+// 函数）；旧实现第二次调用返回 ErrClosed，会让"清理"路径产生伪错误，既误导
+// 也无法与真正的关闭失败区分。真正的关闭失败（srcFile.Close 出错）仍在首次
+// 调用时返回。
 func (p *Presentation) Close() error {
 	if p.closed {
-		return Annotate(ErrClosed, "Presentation.Close")
+		return nil
 	}
 	p.closed = true
 	if p.srcFile != nil {
@@ -51,6 +55,10 @@ func (p *Presentation) Close() error {
 // 默认拒绝覆盖已存在目标（WithSaveOverwrite 启用）；且拒绝与源文件
 // 同一文件实体的原位保存——源文件仍被惰性读取，安全原位替换待后续
 // 版本（方案 §5）。返回的 SaveReport 基于保存时的 revision 快照。
+//
+// ctx 允许为 nil（等价于 context.Background），与 Write/Validate 一致：
+// 三者此前口径不一（Write 做 nil 归一化、Save 直接 ctx.Err() → nil 解引用
+// panic），现统一按"调用方未关心取消"处理。
 func (p *Presentation) Save(ctx context.Context, path string, opts ...SaveOption) (SaveReport, error) {
 	o := saveOptions{}
 	for _, fn := range opts {
@@ -58,6 +66,9 @@ func (p *Presentation) Save(ctx context.Context, path string, opts ...SaveOption
 	}
 	if p.closed {
 		return SaveReport{}, Annotate(ErrClosed, "Presentation.Save")
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	if err := ctx.Err(); err != nil {
 		return SaveReport{}, Annotate(err, "Presentation.Save")

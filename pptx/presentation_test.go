@@ -154,8 +154,19 @@ func TestErrClosedSemantics(t *testing.T) {
 	if _, err := p.Write(ctx, &bytes.Buffer{}); !errors.Is(err, ErrClosed) {
 		t.Errorf("Write after close: %v", err)
 	}
-	if err := p.Close(); !errors.Is(err, ErrClosed) {
-		t.Errorf("double close: %v", err)
+	// Close 本身幂等：重复调用返回 nil（2026-09-18 起）。
+	//
+	// 旧语义是二次 Close 返回 ErrClosed，但这与 `defer p.Close()` 惯用法冲突：
+	// 调用方在正常路径显式 Close 后又 defer 一次，defer 会拿到一个无法区分
+	// 「真失败」与「已关闭」的错误，只能靠字符串判断或干脆忽略，反而会掩盖真的失败。
+	// 现在：资源释放用一次性语义保证，重复调用一律 nil；
+	// **Close 之后**的任何业务方法仍然返回 ErrClosed（见上三条断言），
+	// 句柄失效的可观测性没有削弱。
+	if err := p.Close(); err != nil {
+		t.Errorf("double close: %v, want nil (Close is idempotent)", err)
+	}
+	if err := p.Close(); err != nil {
+		t.Errorf("triple close: %v, want nil (Close is idempotent)", err)
 	}
 	// Open 的文件资源在 Close 后释放（重命名验证句柄不占用）。
 	dir := t.TempDir()
