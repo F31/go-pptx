@@ -164,7 +164,8 @@ func intString64(v int64) string { return strconv.FormatInt(v, 10) }
 //
 //   - 类型签名不变；不新增/重命名/移除公开方法
 //   - 现有方法签名与返回类型不变（Kind / SetAltText / SetDecorative /
-//     SetPictureFit / ReplacePicture / PictureFit / PictureSource 等）
+//     ReplaceImage 等；Stable 段里列举的方法名必须与真实声明一致，
+//     此前列出的 SetPictureFit / PictureFit / PictureSource 从未存在）
 //   - 仅允许追加新方法
 //   - 句柄身份语义不变
 //   - 实现 Shape 接口
@@ -596,6 +597,28 @@ func (p *Presentation) planMedia(data []byte, kind imageKind) (opc.PartName, *ed
 	return name, &op, nil
 }
 
+// mediaHash 返回媒体 Part 内容的 SHA-256；结果按 revision 缓存（见
+// Presentation.mediaHashes）。读取失败返回 ok=false（调用方跳过该候选）。
+//
+// 缓存必要性：去重查找是"新数据 vs 每个已存在媒体"，旧实现每次都对每个候选
+// partBytes + SHA-256 —— 第 N 次插图要重读并重哈希 N 个媒体（O(N²)）。媒体字节
+// 在同一次 revision 内不变，故缓存安全。
+func (p *Presentation) mediaHash(name opc.PartName) (sum [32]byte, ok bool) {
+	if h, cached := p.mediaHashes[name]; cached {
+		return h, true
+	}
+	b, err := p.partBytes(name)
+	if err != nil {
+		return [32]byte{}, false
+	}
+	h := sha256.Sum256(b)
+	if p.mediaHashes == nil { // 防御：非构造器路径（如测试直接构造）下惰性初始化
+		p.mediaHashes = make(map[opc.PartName][32]byte)
+	}
+	p.mediaHashes[name] = h
+	return h, true
+}
+
 // findExistingMedia 在包内与已提交新增 Part 中查找同哈希同类型媒体。
 func (p *Presentation) findExistingMedia(sum [32]byte, ct string) (opc.PartName, bool) {
 	for _, name := range p.pk.PartNames() {
@@ -606,11 +629,7 @@ func (p *Presentation) findExistingMedia(sum [32]byte, ct string) (opc.PartName,
 		if c, ok := p.pk.ContentType(name); !ok || !imageTypeEqual(c, ct) {
 			continue
 		}
-		b, err := p.partBytes(name)
-		if err != nil {
-			continue
-		}
-		if sha256.Sum256(b) == sum {
+		if h, ok := p.mediaHash(name); ok && h == sum {
 			return name, true
 		}
 	}
@@ -622,11 +641,7 @@ func (p *Presentation) findExistingMedia(sum [32]byte, ct string) (opc.PartName,
 		if !imageTypeEqual(ap.ContentType, ct) {
 			continue
 		}
-		b, err := p.partBytes(name)
-		if err != nil {
-			continue
-		}
-		if sha256.Sum256(b) == sum {
+		if h, ok := p.mediaHash(name); ok && h == sum {
 			return name, true
 		}
 	}

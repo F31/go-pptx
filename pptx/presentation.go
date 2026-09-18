@@ -56,6 +56,13 @@ type Presentation struct {
 	// revision；commit 递增 revision 后整体失效（Part 数量少，重建便宜）。
 	partDocs map[opc.PartName]*partDocEntry
 
+	// mediaHashes 缓存媒体 Part 内容的 SHA-256（惰性），与 partDocs 同一失效
+	// 策略（revision 递增后整体丢弃）。存在理由：媒体去重查找对每个已存在媒体
+	// 都要 partBytes + SHA-256，第 N 次插图就重读并重哈希 N 个媒体——O(N²)，
+	// 实测仅构建 100p-media 语料（120 次 AddPicture）就在 partBytes 上分配约
+	// 1.85 GB。媒体内容在同一次 revision 内不会变，故可安全缓存。
+	mediaHashes map[opc.PartName][32]byte
+
 	// chartWorkbookBuilder 是图表嵌入工作簿适配器（CHART-01，方案
 	// §9.2）；nil 时使用 DefaultWorkbookBuilder。
 	chartWorkbookBuilder ChartWorkbookBuilder
@@ -97,6 +104,7 @@ func New(opts ...NewOption) (*Presentation, error) {
 		addedParts:   make(map[opc.PartName]opc.AddedPart),
 		deletedParts: make(map[opc.PartName]bool),
 		partDocs:     make(map[opc.PartName]*partDocEntry),
+		mediaHashes:  make(map[opc.PartName][32]byte),
 	}, nil
 }
 
@@ -135,6 +143,7 @@ func Open(path string, opts ...OpenOption) (*Presentation, error) {
 		addedParts:   make(map[opc.PartName]opc.AddedPart),
 		deletedParts: make(map[opc.PartName]bool),
 		partDocs:     make(map[opc.PartName]*partDocEntry),
+		mediaHashes:  make(map[opc.PartName][32]byte),
 	}, nil
 }
 
@@ -164,6 +173,7 @@ func OpenReader(r io.ReaderAt, size int64, opts ...OpenOption) (*Presentation, e
 		addedParts:   make(map[opc.PartName]opc.AddedPart),
 		deletedParts: make(map[opc.PartName]bool),
 		partDocs:     make(map[opc.PartName]*partDocEntry),
+		mediaHashes:  make(map[opc.PartName][32]byte),
 	}, nil
 }
 
@@ -185,6 +195,13 @@ func (p *Presentation) Slides() ([]*Slide, error) {
 		return nil, Annotate(err, "Presentation.Slides")
 	}
 	lsts := doc.Elements(nsPresentationML, "sldIdLst")
+	// rels 与具体哪一页无关：旧实现在每个 sldId 内都重新 partBytes +
+	// ParseRelationships，N 页即 N 次同等工作（实测 100p-media 一次 Slides()
+	// 达 22.4 MB / 189k allocs，占遍历分配的大头）。改为惰性加载一次。
+	// 注意仍保持"存在需要解析的 sldId 时才读取关系流"的时序——空 sldIdLst
+	// 的文档此前不会因缺少关系流而报错，此处语义不变。
+	var rels []*opc.Relationship
+	var relsReady bool
 	var out []*Slide
 	for _, lstID := range lsts {
 		lst := doc.Node(lstID)
@@ -218,13 +235,17 @@ func (p *Presentation) Slides() ([]*Slide, error) {
 					Err:     ErrMalformedPackage,
 				}
 			}
-			rels, ok, err := p.relsOf(p.main)
-			if err != nil || !ok {
-				return nil, &OperationError{
-					Op: "Presentation.Slides", Part: string(p.main),
-					Message: "presentation part has no relationships",
-					Err:     ErrMalformedPackage,
+			if !relsReady {
+				got, ok, rerr := p.relsOf(p.main)
+				relsReady = true
+				if rerr != nil || !ok {
+					return nil, &OperationError{
+						Op: "Presentation.Slides", Part: string(p.main),
+						Message: "presentation part has no relationships",
+						Err:     ErrMalformedPackage,
+					}
 				}
+				rels = got
 			}
 			var target opc.PartName
 			for _, rel := range rels {
@@ -398,6 +419,7 @@ func (p *Presentation) commit() {
 	p.pending = nil
 	p.rev++
 	p.partDocs = make(map[opc.PartName]*partDocEntry) // 全部缓存随 revision 失效
+	p.mediaHashes = make(map[opc.PartName][32]byte)   // 同上（媒体去重哈希）
 }
 
 // partBytes 是读取视图：优先已提交补丁/新增，其次包内原始内容。
