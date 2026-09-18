@@ -7,7 +7,11 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 `docs/v1.0-freeze-list.md`.
 
-## [Unreleased] - 2026-09-18
+## [Unreleased]
+
+无。
+
+## [2.0.1] - 2026-09-18
 
 代码评审（安全性 / 稳定性 / 易用性 / 性能，见 `docs/code-review-2026-09-17.md`）后的一轮加固。
 除标注 ⚠️ 的两条外均为**追加式或纯修正**，公共签名无移除、无改名。
@@ -24,6 +28,7 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 - `pptx.PartName.String()` / `.Valid()` / `.EntryName()` 随之进入 Stable 方法面。
 - 回归测试：`internal/chart/cache_bounds_test.go`、`internal/videoprobe/brand_bounds_test.go`、
   `pptx/save_contract_test.go`。
+- `docs/api-reference.md` 随别名重新生成（166 types / 37 顶层函数 / 143 导出方法 / 151 常量 / 18 哨兵）。
 
 ### Fixed
 
@@ -49,7 +54,7 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 - **【易用】CLI 覆盖保护存在 TOCTOU**：`writePresentation` 先 `os.Stat` 再无条件传
   `WithSaveOverwrite(true)`，既绕开库自身的 `ErrOutputExists` 守卫，也有 Stat 与 Save 之间
   目标被他人创建的竞态 → 改由库在一次原子检查内判定。
-- **【文档】** README(中/英) 三处 `158 types / 131 methods / 40 Stable 段` 与金样不符 → 166 / 134 / 41；
+- **【文档】** README(中/英) 三处 `158 types / 131 methods / 40 Stable 段` 与金样不符 → 166 / 134 / 42；
   `PictureShape` 的 Stable godoc 列举了三个从未存在的方法（`SetPictureFit`/`PictureFit`/`PictureSource`）；
   `doc.go` 仍称"根包"且只列六子命令（实为九）；`SDKVersion` 的 ldflags 路径仍是 v1 的模块根。
 

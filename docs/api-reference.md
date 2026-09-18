@@ -8,10 +8,10 @@
 
 | Item | Count |
 |---|---|
-| Exported types | 163 |
-| Top-level functions | 36 |
+| Exported types | 166 |
+| Top-level functions | 37 |
 | Exported methods | 143 |
-| Constants | 149 |
+| Constants | 151 |
 | Package vars & error sentinels | 18 |
 
 ## Types
@@ -105,6 +105,12 @@ Kind: `type`
 Kind: `type`
 
 > Text-body properties (margins, vertical orientation, wrap).
+
+### `Budget`
+
+Kind: `type`
+
+**Stability:** Stable
 
 ### `Bullet`
 
@@ -328,6 +334,12 @@ Kind: struct
 Kind: `type`
 
 > A structured diagnostic entry (code, severity, part, message).
+
+### `Durability`
+
+Kind: `type`
+
+**Stability:** Stable
 
 ### `EMU`
 
@@ -634,6 +646,12 @@ Kind: struct
 Kind: `type`
 
 > A parsed color value.
+
+### `PartName`
+
+Kind: `type`
+
+**Stability:** Stable
 
 ### `PathCommand`
 
@@ -1150,6 +1168,7 @@ Kind: struct
 - `func BooleanCustomProperty(v bool) CustomPropertyValue`
 - `func BytesMedia(data []byte, contentType string) MediaSource`
 - `func DateTimeCustomProperty(v time.Time) CustomPropertyValue`
+- `func DefaultBudget() Budget`
 - `func EMUFromInches(v float64) (EMU, error)`
 - `func EMUFromPoints(v float64) (EMU, error)`
 - `func FileMedia(path string) MediaSource`
@@ -1163,7 +1182,7 @@ Kind: struct
 - `func NewOptional(v T) **ast.IndexExpr`
 - `func Open(path string, opts ...OpenOption) (*Presentation, error)`
 - `func OpenReader(r io.ReaderAt, size int64, opts ...OpenOption) (*Presentation, error)`
-- `func PartBytes(p *Presentation, name opc.PartName) ([]byte, bool)`
+- `func PartBytes(p *Presentation, name PartName) ([]byte, bool)`
 - `func PopulateCapabilityDimensions(m *CapabilityManifest)`
 - `func PopulateCapabilityFeatures(m *CapabilityManifest)`
 - `func Pts(v float64) FontSize`
@@ -1173,13 +1192,13 @@ Kind: struct
 - `func UnmarshalManifest(b []byte) (CapabilityManifest, error)`
 - `func WithBindReplaceMode(m ReplaceMode) BindOption`
 - `func WithBindStrict(strict bool) BindOption`
-- `func WithBudget(b opc.Budget) OpenOption`
+- `func WithBudget(b Budget) OpenOption`
 - `func WithMergeTextPolicy(p MultiCellTextPolicy) MergeOption`
-- `func WithNewBudget(b opc.Budget) NewOption`
+- `func WithNewBudget(b Budget) NewOption`
 - `func WithNewTemplate(parts map[string][]byte) NewOption`
 - `func WithReplaceMode(m ReplaceMode) ReplaceOption`
 - `func WithReplacementStyle(style FontStyle) ReplaceOption`
-- `func WithSaveDurability(d opc.Durability) SaveOption`
+- `func WithSaveDurability(d Durability) SaveOption`
 - `func WithSaveOverwrite(v bool) SaveOption`
 
 ## Constants
@@ -1224,6 +1243,8 @@ Kind: struct
 - `DirLeft`
 - `DirRight`
 - `DirUp`
+- `DurabilityDefault`
+- `DurabilityFull`
 - `EMUPerInch`
 - `EMUPerPoint`
 - `EffectBlur`
