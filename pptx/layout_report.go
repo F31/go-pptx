@@ -65,7 +65,7 @@ type LayoutSection struct {
 // LayoutEmbeddedFont 描述 p:embeddedFontLst 中的一行嵌入字体。
 type LayoutEmbeddedFont struct {
 	// MasterPart 是所属母版 Part 路径。
-	MasterPart opc.PartName
+	MasterPart PartName
 	// Typeface 是 p:font@typeface。
 	Typeface string
 	// HasRegular / HasBold / HasItalic / HasBoldItalic 标记四种 R-ID
@@ -74,16 +74,16 @@ type LayoutEmbeddedFont struct {
 	// RegularTargetPart / BoldTargetPart / ItalicTargetPart /
 	// BoldItalicTargetPart 在 r:id 关系可达时为字体 Part 名，不可达
 	// （关系不存在 / TargetPart 空）时为空字符串。
-	RegularTargetPart    opc.PartName
-	BoldTargetPart       opc.PartName
-	ItalicTargetPart     opc.PartName
-	BoldItalicTargetPart opc.PartName
+	RegularTargetPart    PartName
+	BoldTargetPart       PartName
+	ItalicTargetPart     PartName
+	BoldItalicTargetPart PartName
 }
 
 // HandoutMasterInfo 描述文档的讲义母版绑定。
 type HandoutMasterInfo struct {
 	// Part 是讲义母版 Part 名（关系 TargetPart 解析结果）。
-	Part opc.PartName
+	Part PartName
 	// RelationID 是 p:handoutMasterIdLst 条目引用的主关系 r:id。
 	RelationID string
 	// Present 表示 Part 是否在包内实际存在（Part 不存在记 Diagnostics
@@ -103,7 +103,7 @@ type KinsokuRule struct {
 	// 实际可能不出现此属性，作为 R 档探测保留）。
 	KinsokuFlag bool
 	// Parts 是包含此语言的母版 Part 列表。
-	Parts []opc.PartName
+	Parts []PartName
 }
 
 // ---------- Presentation API ----------

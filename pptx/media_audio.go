@@ -629,9 +629,9 @@ func xmlEscapeAttr(sb *strings.Builder, v string) {
 type AudioProfile struct {
 	TrackKey  string
 	Role      AudioRole
-	MediaPart opc.PartName
+	MediaPart PartName
 	// SlidePart 是音轨所在 slide Part（PlanTimingSync 按页聚合用）。
-	SlidePart opc.PartName
+	SlidePart PartName
 	ShapeID   ShapeID
 	// Duration 是音轨时长（CallerProvided 或 probe 推导；0 = 未知）。
 	Duration time.Duration

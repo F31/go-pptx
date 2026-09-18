@@ -702,9 +702,9 @@ func escapeAttrSimple(v string) string {
 type VideoProfile struct {
 	TrackKey      string
 	Role          VideoRole
-	MediaPart     opc.PartName
-	PosterPart    opc.PartName
-	SlidePart     opc.PartName
+	MediaPart     PartName
+	PosterPart    PartName
+	SlidePart     PartName
 	ShapeID       ShapeID
 	ContentSHA256 string
 	Version       int

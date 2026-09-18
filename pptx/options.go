@@ -22,8 +22,11 @@ type newOptions struct {
 	template map[opc.PartName][]byte
 }
 
-// WithNewBudget 覆盖 New 的资源预算（默认 DefaultBudget）。
-func WithNewBudget(b opc.Budget) NewOption {
+// WithNewBudget 覆盖 New 的资源预算（默认：库内 DefaultBudget 初值）。
+//
+// 参数类型是本包的 Budget 别名（此前为 internal 类型，外部模块无法引用，
+// 该旋钮实际不可用）。
+func WithNewBudget(b Budget) NewOption {
 	return func(o *newOptions) { o.budget = b }
 }
 
@@ -49,8 +52,11 @@ type openOptions struct {
 	budget opc.Budget
 }
 
-// WithBudget 覆盖打开时的资源预算（默认 DefaultBudget）。
-func WithBudget(b opc.Budget) OpenOption {
+// WithBudget 覆盖打开时的资源预算（默认：库内 DefaultBudget 初值）。
+//
+// 参数类型是本包的 Budget 别名（此前为 internal 类型，外部模块无法引用，
+// 该旋钮实际不可用）。
+func WithBudget(b Budget) OpenOption {
 	return func(o *openOptions) { o.budget = b }
 }
 
@@ -69,8 +75,11 @@ func WithSaveOverwrite(v bool) SaveOption {
 	return func(o *saveOptions) { o.overwrite = v }
 }
 
-// WithSaveDurability 设置持久性级别（默认只保证原子可见性）。
-func WithSaveDurability(d opc.Durability) SaveOption {
+// WithSaveDurability 设置持久性级别（默认 DurabilityDefault：只保证原子可见性；
+// DurabilityFull 追加文件与目录 fsync）。
+//
+// 参数类型是本包的 Durability 别名（此前为 internal 类型，外部模块无法引用）。
+func WithSaveDurability(d Durability) SaveOption {
 	return func(o *saveOptions) { o.durability = d }
 }
 

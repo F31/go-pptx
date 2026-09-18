@@ -31,26 +31,41 @@ import (
 
 // v1.0 冻结的计数不变量（grep 无法可靠复现，一律以 AST 口径为准）。
 const (
-	wantExportedTypes        = 163 // 根包导出 type 总数（含 2 个 type alias；v1.1.0 A-2 +5 能力窄接口）
-	wantStableSections       = 40  // 带 "// Stable:" 段的顶层声明数（34 + A-2 分组 1 段 + D-5 升 5 Experimental）
-	wantStableSymbols        = 60  // 上述段落覆盖的符号数（50 + A-2 5 接口 + D-5 升 5 Experimental）
+	wantExportedTypes = 166 // 根包导出 type 总数（含 5 个 type alias）
+	// ↑ 163 → 166（v2.0.x，2026-09-17）：导出签名此前直接引用 internal/opc 的
+	//   Budget / Durability / PartName，Go 的 internal 规则让外部模块无法引用它们
+	//   ——WithBudget/WithNewBudget/WithSaveDurability/PartBytes 以及
+	//   AudioProfile.MediaPart、VideoProfile.MediaPart、LayoutReport.Part/Parts 等
+	//   导出字段全部"承诺了但调不动"（外部实测编译报 use of internal package）。
+	//   以 type alias 暴露到本包后，这些入口才真正可用；别名与内部类型同一类型，
+	//   零转换成本、零语义漂移，属**追加式**变更（binary-compat）。
+	wantStableSections = 42 // 带 "// Stable:" 段的顶层声明数（40 + 别名分组 1 段 + Durability 取值 1 段）
+	// ↑ 40 → 41 → 42：① 三个别名放在同一段 "// Stable:" 分组声明中（pptx/aliases.go）；
+	//   ② DurabilityDefault / DurabilityFull 随之成为对外契约（此前它们在 internal 里，
+	//      调用方拿不到 Durability 的任何取值，别名等于只能写零值）。
+	//   注意：本表只统计 GenDecl（type/var/const）——顶层导出**函数**（如 DefaultBudget）
+	//   不在任何维度内，见 loadAPISurface 的注释说明。
+	wantStableSymbols        = 65  // 上述段落覆盖的符号数（60 + Budget/Durability/PartName + 2 个 Durability 取值）
 	wantExperimentalSections = 0   // 带 "// Experimental:" 段的顶层声明数（D-5 全部升 Stable，ADR-023）
-	wantStableMethods        = 131 // Stable type 上的导出方法数（130 + DefaultWorkbookBuilder.Build，D-5）
-	wantSentinels            = 17  // 导出 Err* 哨兵数
+	wantStableMethods        = 134 // Stable type 上的导出方法数（131 + PartName 的 String/Valid/EntryName）
+	// ↑ 131 → 134：PartName 别名升 Stable 后，其在 internal/opc 上声明的三个导出
+	//   方法（String/Valid/EntryName）经 addAliasMethods 计入 Stable 方法面——它们
+	//   正是外部读取 Part 字段后需要的辅助能力，纳入冻结属预期。
+	wantSentinels = 17 // 导出 Err* 哨兵数（不变）
 )
 
 // goldenExportedTypes 是 v1.0 冻结的根包导出 type 名单（排序后）。
 var goldenExportedTypes = []string{
 	"AnimationTimingPolicy", "AudioProfile", "AudioRole", "AudioShape", "AudioSpec",
 	"AutoShape", "AutoShapeSpec", "Bevel3D", "BindOption", "BindReport",
-	"BlipFillInfo", "BodyProps", "Bullet", "BulletKind", "Camera3D",
+	"BlipFillInfo", "BodyProps", "Budget", "Bullet", "BulletKind", "Camera3D",
 	"CapabilityDimension", "CapabilityFeature", "CapabilityManifest", "CapabilityManifestSource", "CapabilityStatus",
 	"Cell", "CellBorder", "CellBorders", "CellFill", "CellRange",
 	"CellText", "ChartAxisOptions", "ChartData", "ChartDataBook", "ChartDataLabel",
 	"ChartErrorBars", "ChartErrorType", "ChartSeries", "ChartShape", "ChartSpec",
 	"ChartTrendType", "ChartTrendline", "ChartType", "ChartWorkbookBuilder", "ClonePolicy",
 	"ColorSpec", "ColorTransform", "CoreProperties", "CorePropertiesPatch", "CustomPropertyKind",
-	"CustomPropertyValue", "CutOptions", "DefaultWorkbookBuilder", "Diagnostic", "EMU",
+	"CustomPropertyValue", "CutOptions", "DefaultWorkbookBuilder", "Diagnostic", "Durability", "EMU",
 	"Effect", "EffectInfo", "EffectKind", "EffectsProvider", "EffectiveCellStyle", "FadeOptions",
 	"Field", "FieldKind", "FieldSpec", "FillInfo", "FillKind", "FillProvider",
 	"FontProperty", "FontSize", "FontStyle", "GeomAdjust", "GeomGuide",
@@ -60,7 +75,7 @@ var goldenExportedTypes = []string{
 	"LineStyle", "LineProvider", "MatrixRefKind", "MediaSource", "MergeOption", "MultiCellTextPolicy",
 	"NewOption", "OpaqueShape", "OpenOption", "OperationError", "Optional",
 	"PageTiming", "Paragraph", "ParagraphProps", "ParagraphSpec", "ParsedColor",
-	"PathCommand", "PatternFill", "PictureFitMode", "PictureShape", "PictureSpec",
+	"PartName", "PathCommand", "PatternFill", "PictureFitMode", "PictureShape", "PictureSpec",
 	"Placeholder", "PlaybackSpec", "PlaybackTrigger", "Point", "Presentation",
 	"Quad", "Rect", "ReplaceHit", "ReplaceMode", "ReplaceOption",
 	"ReplaceResult", "ResolveContext", "ResolvedColor", "ResolvedFont", "ResolvedValue",
@@ -77,15 +92,15 @@ var goldenExportedTypes = []string{
 
 // goldenStableSymbols 是 v1.0 冻结的 Stable 符号集合（排序后）。
 var goldenStableSymbols = []string{
-	"AudioShape", "AutoShape", "CapabilityDimension", "CapabilityFeature",
+	"AudioShape", "AutoShape", "Budget", "CapabilityDimension", "CapabilityFeature",
 	"CapabilityManifest", "CapabilityManifestSource", "CapabilityStatus", "ChartDataBook", "ChartShape", "ChartWorkbookBuilder", "CustomPropertyKind", "CustomPropertyValue", "DefaultWorkbookBuilder",
-	"Diagnostic", "EffectsProvider", "EMU", "ErrAtomicReplaceUnavailable", "ErrClosed",
+	"Diagnostic", "Durability", "DurabilityDefault", "DurabilityFull", "EffectsProvider", "EMU", "ErrAtomicReplaceUnavailable", "ErrClosed",
 	"ErrConcurrentModification", "ErrDurationUnknown", "ErrForeignReference", "ErrInvalidArgument",
 	"ErrLimitExceeded", "ErrMalformedPackage", "ErrNotFound", "ErrOutOfRange",
 	"ErrOutputExists", "ErrStaleHandle", "ErrTimingConflict", "ErrUnresolvedStyle",
 	"ErrUnsupportedEdit", "ErrUnsupportedFormat", "ErrValidationFailed", "FillProvider", "GeometryProvider", "GroupShape", "LineProvider",
 	"MultiCellTextPolicy", "OpaqueShape", "OperationError", "Paragraph",
-	"PictureShape", "Point", "Presentation", "Quad",
+	"PartName", "PictureShape", "Point", "Presentation", "Quad",
 	"Rect", "ReplaceMode", "Severity", "Shape",
 	"ShapeID", "ShapeKind", "Slide", "SlideID", "StyleMatrixRefsProvider",
 	"TableShape", "TextFrame", "TextRun", "TextShape",
@@ -114,6 +129,7 @@ var goldenStableMethods = []string{
 	"ChartShape.SetAltText", "ChartShape.SetData", "ChartShape.SetDecorative",
 	"DefaultWorkbookBuilder.Build", "EMU.Inches", "EMU.Points", "GroupShape.Children", "GroupShape.Kind",
 	"OpaqueShape.Kind", "OperationError.Error", "OperationError.Unwrap",
+	"PartName.EntryName", "PartName.String", "PartName.Valid",
 	"Paragraph.AddRun", "Paragraph.AppendField", "Paragraph.Fields",
 	"Paragraph.InsertField", "Paragraph.Props", "Paragraph.ReplaceText",
 	"Paragraph.Runs", "Paragraph.Text", "PictureShape.Kind",
