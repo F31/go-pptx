@@ -99,7 +99,10 @@ func (s *Slide) appendSpFragment(op string, frag string) (*AutoShape, error) {
 	if err != nil {
 		return nil, Annotate(err, op)
 	}
-	id := nextShapeID(doc, tree)
+	id, err := s.p.allocShapeID()
+	if err != nil {
+		return nil, Annotate(err, op)
+	}
 	frag = strings.Replace(frag, `__SHAPE_ID__`, intString64(id), 1)
 	ap, err := xmlstore.AppendChild(tree, []byte(frag))
 	if err != nil {

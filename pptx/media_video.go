@@ -349,7 +349,10 @@ func (s *Slide) AddVideo(ctx context.Context, src MediaSource, spec VideoSpec) (
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddVideo")
 	}
-	id := nextShapeID(doc, tree)
+	id, err := s.p.allocShapeID()
+	if err != nil {
+		return nil, Annotate(err, "Slide.AddVideo")
+	}
 	name := "Video " + strconv.FormatInt(id, 10)
 	frag := buildVideoPicFragment(id, name, rid, ext, spec.X, spec.Y, spec.Width, spec.Height, spec.AltText, spec.IsDecorative)
 	ap, err := xmlstore.AppendChild(tree, []byte(frag))
@@ -359,7 +362,10 @@ func (s *Slide) AddVideo(ctx context.Context, src MediaSource, spec VideoSpec) (
 	var posterFrag string
 	var posterAP xmlstore.SpanPatch
 	if posterName != "" {
-		posterID := nextShapeIDShallow(doc, tree)
+		posterID, err := s.p.allocShapeID()
+		if err != nil {
+			return nil, Annotate(err, "Slide.AddVideo poster")
+		}
 		pname := "Picture " + strconv.FormatInt(posterID, 10)
 		posterFrag, err = buildVideoPosterFragment(posterID, pname, posterRID, spec.X, spec.Y, spec.Width, spec.Height, spec.PosterAlt)
 		if err != nil {
@@ -413,19 +419,7 @@ func (s *Slide) AddVideo(ctx context.Context, src MediaSource, spec VideoSpec) (
 	return s.lastVideoHandle(posterName != "")
 }
 
-// nextShapeIDShallow 计算 +1（不重扫描整树，仅取 max+1，与 nextShapeID 同语义）。
-// 调用方保证 id 唯一（nextShapeID 后取值）。
-func nextShapeIDShallow(_ *xmlstore.XMLDocument, _ *xmlstore.NodeRecord) int64 {
-	// 简化：保持与 lastVideoHandle 同侧的语义——读最新 doc 取 max+1。
-	p, _, _ := pptxActiveDeck()
-	_ = p
-	return 0
-}
-
-// 临时占位（实际通过 maxID+1 走 spTree 扫描）。
-func pptxActiveDeck() (*Presentation, opc.PartName, error) {
-	return nil, "", nil
-}
+//
 
 // lastVideoHandle 定位刚追加的视频 p:pic（spTree 末尾 p:pic，videoFile 命中）。
 func (s *Slide) lastVideoHandle(hasPoster bool) (*VideoShape, error) {

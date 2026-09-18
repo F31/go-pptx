@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/F31/go-pptx/v2/internal/opc"
 	"github.com/F31/go-pptx/v2/internal/xmlstore"
@@ -63,9 +64,54 @@ type Presentation struct {
 	// 1.85 GB。媒体内容在同一次 revision 内不会变，故可安全缓存。
 	mediaHashes map[opc.PartName][32]byte
 
+	// maxShapeID 是形状 id 分配器的单调上界（V2.0.2）。cNvPr@id 经
+	// allocShapeID 只增不复用，从根上消除"删除最大 id 形状后新形状复用其
+	// id、旧句柄按 id 懒定位静默复活"的 ABA 风险；RemoveShape 不回落。取值
+	// 上限为 xsd:unsignedInt（4294967295），耗尽时 allocShapeID 返回
+	// ErrOutOfRange。seedShapeIDAlloc 在 New/Open/OpenReader 后扫描全文档
+	// spTree 取现有最大 id 初始化（至少 1，保证首个新 id ≥2）。
+	maxShapeID int64
+
 	// chartWorkbookBuilder 是图表嵌入工作簿适配器（CHART-01，方案
 	// §9.2）；nil 时使用 DefaultWorkbookBuilder。
 	chartWorkbookBuilder ChartWorkbookBuilder
+}
+
+// allocShapeID 分配下一个形状 id（cNvPr@id），单调只增、永不复用。
+// 上限为 xsd:unsignedInt（4294967295）；耗尽返回 ErrOutOfRange。V2.0.2 起
+// 取代逐次扫描 spTree 取 max+1 的复用型分配，从根上消除句柄 ABA 复活。
+func (p *Presentation) allocShapeID() (int64, error) {
+	const maxShapeIDValue = 4294967295
+	if p.maxShapeID >= maxShapeIDValue {
+		return 0, Annotate(ErrOutOfRange, "Presentation.allocShapeID")
+	}
+	p.maxShapeID++
+	return p.maxShapeID, nil
+}
+
+// seedShapeIDAlloc 扫描全文档所有 slide 的 spTree，取现有 cNvPr@id 的
+// 全局最大值初始化分配器上界（至少 1，保证首个新 id ≥2，与历史分配
+// 语义一致）。New/Open/OpenReader 构造后各调用一次；之后
+// allocShapeID 单调递增，RemoveShape 不回落。
+func (p *Presentation) seedShapeIDAlloc() {
+	max := int64(1)
+	for _, pair := range p.pk.RelatedByIDs(p.main, opc.RelSlide) {
+		target := opc.PartName(pair[1])
+		doc, err := p.docOf(target)
+		if err != nil {
+			continue
+		}
+		tree := firstSpTree(doc)
+		if tree == nil {
+			continue
+		}
+		if m := scanMaxShapeIDInTree(doc, tree); m > max {
+			max = m
+		}
+	}
+	if p.maxShapeID < max {
+		p.maxShapeID = max
+	}
 }
 
 // partDocEntry 是某 Part 最新 revision 下的解析缓存。
@@ -97,7 +143,7 @@ func New(opts ...NewOption) (*Presentation, error) {
 	if err != nil {
 		return nil, Annotate(mapOCError(err), "Presentation.New")
 	}
-	return &Presentation{
+	p := &Presentation{
 		pk:           pk,
 		main:         main,
 		overrides:    make(map[opc.PartName][]byte),
@@ -105,7 +151,9 @@ func New(opts ...NewOption) (*Presentation, error) {
 		deletedParts: make(map[opc.PartName]bool),
 		partDocs:     make(map[opc.PartName]*partDocEntry),
 		mediaHashes:  make(map[opc.PartName][32]byte),
-	}, nil
+	}
+	p.seedShapeIDAlloc()
+	return p, nil
 }
 
 // OpenOption 等函数式选项已迁出至 options.go。
@@ -134,7 +182,7 @@ func Open(path string, opts ...OpenOption) (*Presentation, error) {
 		f.Close()
 		return nil, Annotate(mapOCError(err), "Presentation.Open")
 	}
-	return &Presentation{
+	p := &Presentation{
 		pk:           pk,
 		main:         main,
 		srcPath:      path,
@@ -144,7 +192,9 @@ func Open(path string, opts ...OpenOption) (*Presentation, error) {
 		deletedParts: make(map[opc.PartName]bool),
 		partDocs:     make(map[opc.PartName]*partDocEntry),
 		mediaHashes:  make(map[opc.PartName][32]byte),
-	}, nil
+	}
+	p.seedShapeIDAlloc()
+	return p, nil
 }
 
 // OpenReader 从调用方提供的 ReaderAt 打开演示文稿；不关闭 r。
@@ -166,7 +216,7 @@ func OpenReader(r io.ReaderAt, size int64, opts ...OpenOption) (*Presentation, e
 	if err != nil {
 		return nil, Annotate(mapOCError(err), "Presentation.OpenReader")
 	}
-	return &Presentation{
+	p := &Presentation{
 		pk:           pk,
 		main:         main,
 		overrides:    make(map[opc.PartName][]byte),
@@ -174,7 +224,9 @@ func OpenReader(r io.ReaderAt, size int64, opts ...OpenOption) (*Presentation, e
 		deletedParts: make(map[opc.PartName]bool),
 		partDocs:     make(map[opc.PartName]*partDocEntry),
 		mediaHashes:  make(map[opc.PartName][32]byte),
-	}, nil
+	}
+	p.seedShapeIDAlloc()
+	return p, nil
 }
 
 // Close / Save / Write / SaveReport 已迁出至 save.go（设计文档 §3"save.go"清单）。
@@ -302,7 +354,11 @@ func (p *Presentation) Validate(ctx context.Context, opts ...ValidateOption) Val
 			})
 		}
 	}
-	// 页面关系目标存在性（关系图在 Load 时已解析，这里核对 Part 实体）。
+	// 页面关系目标存在性（关系图在 Load 时已解析，这里核对 Part 实体）
+	// + V2.0.2：同 slide spTree 内 cNvPr@id 唯一性。OOXML 规范要求 spTree
+	// 内 id 唯一，但不可信/畸形第三方文件可能违反，导致以 id 为身份的句柄
+	// 静默定位到错误形状。默认仅出 SeverityWarning 诊断、不拒绝打开
+	// （与"未知内容冲突返回诊断而非静默丢弃"一致）；严格拒绝属后续可配项。
 	for _, pair := range p.pk.RelatedByIDs(p.main, opc.RelSlide) {
 		target := opc.PartName(pair[1])
 		if !p.pk.HasPart(target) {
@@ -310,7 +366,40 @@ func (p *Presentation) Validate(ctx context.Context, opts ...ValidateOption) Val
 				Code: "OPC_REL_TARGET_MISSING", Severity: SeverityError,
 				Part: string(p.main), Message: "slide relationship target missing: " + pair[1],
 			})
+			continue
 		}
+		doc, derr := p.docOf(target)
+		if derr != nil {
+			continue
+		}
+		tree := firstSpTree(doc)
+		if tree == nil {
+			continue
+		}
+		seen := make(map[int64]bool)
+		reported := make(map[int64]bool)
+		var walk func(n *xmlstore.NodeRecord)
+		walk = func(n *xmlstore.NodeRecord) {
+			if n.Namespace == nsPresentationML && n.Local() == "cNvPr" {
+				if v, ok := n.Attr("", "id"); ok {
+					if id, perr := strconv.ParseInt(v, 10, 64); perr == nil {
+						if seen[id] && !reported[id] {
+							report.Diagnostics = append(report.Diagnostics, Diagnostic{
+								Code: "DRAWING_ID_DUPLICATE", Severity: SeverityWarning,
+								Part:    string(target),
+								Message: fmt.Sprintf("duplicate cNvPr@id %d within slide spTree (OOXML requires unique ids; shape handles may resolve to the wrong shape)", id),
+							})
+							reported[id] = true
+						}
+						seen[id] = true
+					}
+				}
+			}
+			for _, cid := range n.Children {
+				walk(doc.Node(cid))
+			}
+		}
+		walk(tree)
 	}
 	return report
 }

@@ -266,7 +266,10 @@ func (s *Slide) AddAudio(ctx context.Context, src MediaSource, spec AudioSpec) (
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddAudio")
 	}
-	id := nextShapeID(doc, tree)
+	id, err := s.p.allocShapeID()
+	if err != nil {
+		return nil, Annotate(err, "Slide.AddAudio")
+	}
 	name := "Audio " + strconv.FormatInt(id, 10)
 	sw, sh := p.slideSize()
 	ox, oy, cx, cy := audioGeometry(spec, sw, sh)

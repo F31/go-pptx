@@ -7,9 +7,18 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 `docs/v1.0-freeze-list.md`.
 
-## [Unreleased]
+## [2.0.2] - 2026-09-18
 
-无。
+句柄身份体系（STALE-GUARD）加固：修复"复用外部 ID 做身份"方案的经典 **ABA 陷阱**，并补齐不可信输入下 `cNvPr@id` 唯一性的**诊断**。两项均为**追加式行为修正**，公共签名无移除、无改名（`ShapeID` 仍为底层 `uint32` 的稳定身份）。
+
+### Changed
+
+- **形状 ID 分配器改为单调只增、永不复用**（`pptx/presentation.go`）：原 `nextShapeID` 取"当前 spTree 内 `max(id)+1`"，删除拥有最大 id 的形状后新增形状会复用同一 id，旧句柄按 id 懒定位（`locateByIDHint`）会静默"复活"、返回错误形状的几何/文本而非 `ErrStaleHandle`。现由 `Presentation.allocShapeID()` 维护单调上界（`maxShapeID` 只增），`New` / `Open` / `OpenReader` 后 `seedShapeIDAlloc()` 扫描全文档所有 slide 的 spTree 取全局最大值初始化；耗尽（`xsd:unsignedInt` 上限 4294967295）返回 `ErrOutOfRange`。`RemoveShape` 不再使分配器回落，旧句柄经定位比对失败返回 `ErrStaleHandle`，不复活。OOXML 允许 `cNvPr@id` 在区间内任意跳跃，不违反规范。
+- **`Validate` 新增重复 `cNvPr@id` 诊断**：同 slide spTree 内出现重复 `cNvPr@id` 时产出 `DRAWING_ID_DUPLICATE` / `SeverityWarning` 诊断。OOXML 规范要求 id 全局唯一，但第三方畸形/不可信文件可能违反该前提，使"比对最近祖先 cNvPr@id"的定位逻辑匹配到错误形状而不自知。默认仅诊断、不拒绝打开，与"诊断而非静默丢弃"的工程哲学一致；严格模式由调用方读取 `ValidationReport` 后自行决定拒绝。
+
+### Added
+
+- 回归测试：`pptx/create_test.go`（`TestStaleGuard_ReuseAfterRemoveNoABA`）、`pptx/validate_dupid_test.go`（`TestValidate_DuplicateShapeID` / `TestValidate_UniqueShapeIDOK`）。
 
 ## [2.0.1] - 2026-09-18
 

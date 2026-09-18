@@ -218,7 +218,10 @@ func (s *Slide) AddPicture(ctx context.Context, src MediaSource, spec PictureSpe
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddPicture")
 	}
-	id := nextShapeID(doc, tree)
+	id, err := s.p.allocShapeID()
+	if err != nil {
+		return nil, Annotate(err, "Slide.AddPicture")
+	}
 
 	// 媒体去重/规划 + 关系分配（同事务内与 slide XML 一并提交）。
 	mediaName, mediaOp, err := p.planMedia(data, kind)
@@ -272,9 +275,12 @@ func (s *Slide) slideTree() (*xmlstore.XMLDocument, *xmlstore.NodeRecord, error)
 	return doc, doc.Node(ids[0]), nil
 }
 
-// nextShapeID 递归扫描 spTree 内所有 cNvPr@id 取 max+1（≥2）。
-func nextShapeID(doc *xmlstore.XMLDocument, tree *xmlstore.NodeRecord) int64 {
-	maxID := int64(1)
+// scanMaxShapeIDInTree 递归扫描 spTree 内所有 cNvPr@id，返回最大值
+// （不含 +1；无 id 时返回 0）。供 Presentation.seedShapeIDAlloc 初始化
+// 单调分配器上界使用。V2.0.2 起形状 id 由 Presentation.allocShapeID 单调
+// 分配，本函数仅用于 seed，不再参与每次 Add* 的分配。
+func scanMaxShapeIDInTree(doc *xmlstore.XMLDocument, tree *xmlstore.NodeRecord) int64 {
+	maxID := int64(0)
 	var walk func(n *xmlstore.NodeRecord)
 	walk = func(n *xmlstore.NodeRecord) {
 		if n.Namespace == nsPresentationML && n.Local() == "cNvPr" {
@@ -288,8 +294,10 @@ func nextShapeID(doc *xmlstore.XMLDocument, tree *xmlstore.NodeRecord) int64 {
 			walk(doc.Node(cid))
 		}
 	}
-	walk(tree)
-	return maxID + 1
+	if tree != nil {
+		walk(tree)
+	}
+	return maxID
 }
 
 // buildPicFragment 构造 p:pic 片段（blipFill + 可选 srcRect + spPr 矩形）。

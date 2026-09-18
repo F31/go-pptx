@@ -273,7 +273,10 @@ func (s *Slide) AddChart(ctx context.Context, spec ChartSpec) (*ChartShape, erro
 	if err != nil {
 		return nil, Annotate(err, "Slide.AddChart")
 	}
-	id := nextShapeID(doc, tree)
+	id, err := s.p.allocShapeID()
+	if err != nil {
+		return nil, Annotate(err, "Slide.AddChart")
+	}
 	frag := buildChartFrameFragment(id, spec.X, spec.Y, spec.Width, spec.Height, rid)
 	ap, err := xmlstore.AppendChild(tree, []byte(frag))
 	if err != nil {

@@ -489,6 +489,41 @@ func TestStaleGuard_NewlyCreatedHandleStillValid(t *testing.T) {
 	}
 }
 
+// staleGuard_ReuseAfterRemoveNoABA：V2.0.2 单调分配器下，删除当前最大 id
+// 形状后再添加新形状，新 id 必须严格大于被删 id（永不复用）；旧句柄因此仍
+// 返回 ErrStaleHandle，不会因 id 被新形状"占用"而静默复活指向无关对象。
+// 这是对"复用外部 id 做身份"方案 ABA 问题的根治国验证。
+func TestStaleGuard_ReuseAfterRemoveNoABA(t *testing.T) {
+	p, s := createSlide(t)
+	defer p.Close()
+	a, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "A"})
+	b, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "B"})
+	aID, bID := a.ID(), b.ID()
+	if bID <= aID {
+		t.Fatalf("precondition: b id %d must exceed a id %d", bID, aID)
+	}
+	// 删除当前最大 id 形状 b，再添加 c。
+	if err := s.RemoveShape(bID); err != nil {
+		t.Fatalf("RemoveShape: %v", err)
+	}
+	c, _ := s.AddTextBox(TextBoxSpec{Width: 10, Height: 10, Name: "C"})
+	// 根因断言：分配器单调，新 id 不复用被删最大值。
+	if c.ID() <= bID {
+		t.Errorf("new shape id %d must exceed removed max %d (monotonic allocator, no ABA)", c.ID(), bID)
+	}
+	// 结果断言：旧 b 句柄不得复活（其 idHint=bID 在文档中已不存在）。
+	if got := b.Name(); got != "" {
+		t.Errorf("stale b.Name() = %q, want \"\" (ErrStaleHandle; must not revive via reused id)", got)
+	}
+	if _, err := b.Bounds(); !errors.Is(err, ErrStaleHandle) {
+		t.Errorf("stale b.Bounds err = %v, want ErrStaleHandle (no ABA revival)", err)
+	}
+	// a 不受影响，仍有效。
+	if a.Name() != "A" {
+		t.Errorf("a.Name() = %q after sibling remove, want A", a.Name())
+	}
+}
+
 // staleGuard_SaveReloadPreservesGuards：Save+Open 后，旧句柄（来自
 // 序列化前的内存）自然失效（c.p 指针已变/文档对象不同）——验证守护
 // 不会让"无意义"句柄绕过判定。

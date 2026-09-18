@@ -241,6 +241,18 @@ err := applyMultiPartPlan(pres, plan)   // 失败时自动恢复 pending，不�
 - 重新定位（locate）流程：先按 NodePath 解析出目标元素，再向上遍历找最近 `p:sp` / `p:cxnSp` / `p:graphicFrame` / `p:grpSp` 的 cNvPr@id 与 hint 比对——不等/找不到即返回 `ErrStaleHandle`
 - `hint=0` 走纯路径判定（向后兼容 notes 等老句柄）
 
+#### 3.6.1 形状 ID 分配器（V2.0.2 起单调不回落）
+
+`cNvPr@id` 既是句柄身份、又承担"下一个 id 从哪来"的分配职责，二者耦合会引入经典 **ABA 陷阱**：若分配器取"当前 spTree 内 `max(id)+1`"，删除拥有最大 id 的形状后新增形状会**复用同一个 id**，而旧句柄按 id 懒定位（`locateByIDHint`）会从第一个匹配元素静默"复活"，返回错误形状的几何/文本而非 `ErrStaleHandle`。
+
+V2.0.2 将分配器改为**单调只增、永不复用**：
+
+- `Presentation.allocShapeID()` 每次 `maxShapeID++`，耗尽（达到 `xsd:unsignedInt` 上限 4294967295）时返回 `ErrOutOfRange`；
+- `seedShapeIDAlloc()` 在 `New` / `Open` / `OpenReader` 后扫描全文档所有 slide 的 spTree，取现有 `cNvPr@id` 的全局最大值作为初始上界，保证跨会话追加也不回落；
+- `RemoveShape` 不再使分配器回落，旧句柄经 `locateByIDHint` 比对失败返回 `ErrStaleHandle`，**不复活**。
+
+OOXML 允许 `cNvPr@id` 在区间内任意跳跃，单调分配不违反规范；该变更对公共 API 无破坏（`ShapeID` 仍为底层 `uint32` 的稳定身份）。
+
 > `Presentation.Close()` 在 V2.0.1 起改为**幂等**：重复调用一律返回 `nil`，与 `defer p.Close()` 惯用法兼容；Close 之后的业务方法（`Slides()` 等）仍返回 `ErrClosed`，句柄失效的可观测性未削弱。
 
 ### 3.7 跨平台与 WASM
@@ -434,6 +446,13 @@ CI 在每次 push 与 PR 上执行：
 - **原生 fuzz 目标**：打开链路（`opc.Load` / `opc.Scan` / `xmlstore.Scanner` / `xmlstore.Index` / `OpenReader`）+ 文本编辑（`ReplaceText` / `SetPlainText`）+ 模板绑定（`FuzzBind`）
 - **不可信输入防护**：OPC 资源预算（Part 数 / 中央目录尺寸 / 解压上限）拒绝超大包；V2.0.1 新增图表 `c:pt/@idx` 上界（防 `make([]string, max+1)` 的 `makeslice` panic / ~16GB 分配，经公共 API `ChartShape.Data()` 可达）与 MP4 `ftyp` 兼容品牌收集上限 64（防 21× 放大）
 - **恶意包处理**：三入口（`Open` / `OpenReader` / `New`）显式错误返回，不 panic
+- **形状 id 完整性诊断（V2.0.2）**：`Validate` 新增同 spTree 内 `cNvPr@id` 重复检测，命中即产出 `DRAWING_ID_DUPLICATE` / `SeverityWarning` 诊断（见 §6.4.1）。OOXML 规范要求 `cNvPr@id` 全局唯一，但第三方畸形/不可信文件可能违反该前提；一旦违反，"比对最近祖先 cNvPr@id"的定位逻辑可能匹配到错误形状而不自知。默认仅诊断、不拒绝打开，与"诊断而非静默丢弃"的工程哲学一致；严格模式可由调用方读取 `ValidationReport` 后自行决定拒绝。
+
+##### 6.4.1 诊断登记
+
+| 诊断码 | 严重度 | 触发条件 | 默认处置 |
+|---|---|---|---|
+| `DRAWING_ID_DUPLICATE` | `SeverityWarning` | 同一 slide spTree 内出现重复 `cNvPr@id` | 仅记录，不阻断 `Open` |
 
 ### 6.5 工程纪律
 
