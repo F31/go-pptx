@@ -34,7 +34,10 @@ fi
 
 printf 'perf-smoke: running benchmark suite once (-benchtime=1x)\n'
 status=0
-go test -run '^$' -bench 'BenchmarkPerf' -benchmem -benchtime=1x -timeout 10m ./ >"$RAW" 2>&1 || status=$?
+# 目标包：ADR-029 后模块根无 Go 文件，BenchmarkPerf* 全部落在门面包 pptx/
+# （与 scripts/perf/run.sh 的 PERF_PKG 保持一致；两处须同步修改）。
+PERF_PKG="${PERF_PKG:-./pptx/}"
+go test -run '^$' -bench 'BenchmarkPerf' -benchmem -benchtime=1x -timeout 10m "$PERF_PKG" >"$RAW" 2>&1 || status=$?
 if [ "$status" -ne 0 ]; then
 	printf 'perf-smoke: benchmark run FAILED (exit %s); log: %s\n' "$status" "$RAW" >&2
 	tail -n 40 "$RAW" >&2 || true

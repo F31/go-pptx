@@ -48,15 +48,19 @@ STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$RAW"
 
 set +e
+# 目标包：ADR-029 把根包拆进 pptx/ 之后，模块根不再有 Go 文件（`go test .`
+# 会直接报 "no Go files … [setup failed]"）。Perfv* 基准全部落在门面包 pptx/。
+# 修改此处前先确认 `go list ./...` 里 BenchmarkPerf* 的归属包。
+PERF_PKG="${PERF_PKG:-./pptx/}"
 if [ -n "$BENCHTIME" ]; then
-	go test -run '^$' -bench "$BENCH" -benchmem -count "$COUNT" -benchtime="$BENCHTIME" -timeout "$TIMEOUT" . >> "$RAW" 2>&1
+	go test -run '^$' -bench "$BENCH" -benchmem -count "$COUNT" -benchtime="$BENCHTIME" -timeout "$TIMEOUT" "$PERF_PKG" >> "$RAW" 2>&1
 else
-	go test -run '^$' -bench "$BENCH" -benchmem -count "$COUNT" -timeout "$TIMEOUT" . >> "$RAW" 2>&1
+	go test -run '^$' -bench "$BENCH" -benchmem -count "$COUNT" -timeout "$TIMEOUT" "$PERF_PKG" >> "$RAW" 2>&1
 fi
 STATUS=$?
 
 # ADR-018 收益锚点：internal/opc 的「未变 Part 复制」基准（分配 / 峰值堆）。
-# 该组不依赖根包，根包暂不可编译时可用 SKIP_OPC=1 之外的组合单独观察。
+# 该组不依赖门面包，门面暂不可编译时可用 SKIP_OPC=1 之外的组合单独观察。
 if [ "$SKIP_OPC" != "1" ]; then
 	printf '# --- internal/opc save copy bench (ADR-018) ---\n' >> "$RAW"
 	go test -run '^$' -bench "$OPC_BENCH" -benchmem -count "$OPC_COUNT" \
