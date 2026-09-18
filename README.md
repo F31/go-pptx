@@ -345,6 +345,15 @@ bash scripts/l3/run_client.sh ppt <src> <dst>             # PowerPoint/WPS real-
 
 ---
 
+## Contact
+
+Questions, feedback, or feature requests are all welcome — feel free to reach out:
+
+- Email: jinfeng105@126.com
+- Email: jinfeng105@gmail.com
+
+We welcome exchanges and suggestions for new requirements.
+
 ## License
 
 [Apache-2.0](LICENSE) — free to use, modify, and distribute. No runtime or licensing costs.
