@@ -14,8 +14,12 @@ type Budget struct {
 	MaxMediaBytes int64
 	// MaxTotalBytes 限制全部条目声明的解压大小总和（总解压 1 GiB 初值）。
 	MaxTotalBytes int64
-	// MaxXMLDepth 限制 XML 嵌套深度（初值 256）。
-	MaxXMLDepth int
+	//
+	// 深度限制不在这里：XML 嵌套深度由解析侧统一承担——自研扫描器
+	// internal/xmlstore 用 IndexOptions.MaxDepth（默认 DefaultMaxDepth=256，
+	// 超限返回 ErrDepthLimit），ECMA schema 投影走 encoding/xml（其自身限制
+	// 约 10000 层）。本结构曾提供 MaxXMLDepth 字段，但没有任何解析器消费它，
+	// 属于"设了却不生效"的假旋钮，故移除；真实限制以解析侧为准。
 }
 
 const (
@@ -23,17 +27,18 @@ const (
 	defaultMaxXMLBytes   = int64(32 << 20) // 32 MiB
 	defaultMaxMediaBytes = int64(512 << 20)
 	defaultMaxTotalBytes = int64(1 << 30) // 1 GiB
-	defaultMaxXMLDepth   = 256
 )
 
 // DefaultBudget 返回方案 §13 建议的起始预算。
+//
+// 注意：深度限制不在预算内（见 Budget 注释），由 internal/xmlstore 与
+// encoding/xml 各自承担。
 func DefaultBudget() Budget {
 	return Budget{
 		MaxEntries:    defaultMaxEntries,
 		MaxXMLBytes:   defaultMaxXMLBytes,
 		MaxMediaBytes: defaultMaxMediaBytes,
 		MaxTotalBytes: defaultMaxTotalBytes,
-		MaxXMLDepth:   defaultMaxXMLDepth,
 	}
 }
 
@@ -51,9 +56,6 @@ func (b Budget) normalize() Budget {
 	}
 	if b.MaxTotalBytes <= 0 {
 		b.MaxTotalBytes = d.MaxTotalBytes
-	}
-	if b.MaxXMLDepth <= 0 {
-		b.MaxXMLDepth = d.MaxXMLDepth
 	}
 	return b
 }

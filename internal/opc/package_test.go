@@ -413,25 +413,26 @@ func TestBudgetNormalizeAllZero(t *testing.T) {
 	if got.MaxEntries != def.MaxEntries ||
 		got.MaxXMLBytes != def.MaxXMLBytes ||
 		got.MaxMediaBytes != def.MaxMediaBytes ||
-		got.MaxTotalBytes != def.MaxTotalBytes ||
-		got.MaxXMLDepth != def.MaxXMLDepth {
+		got.MaxTotalBytes != def.MaxTotalBytes {
 		t.Fatalf("normalize(zero) = %+v, want all defaults %+v", got, def)
 	}
 }
 
 // TestBudgetNormalizePartialOverride covers the mixed case: a budget with one
-// non-zero field keeps that field; the remaining four fields fall back to
+// non-zero field keeps that field; the remaining fields fall back to
 // defaults. This exercises the per-field if-branches that an all-zero budget
 // would compress.
+//
+// MaxXMLDepth 已移除（无任何解析器消费它，属"设了却不生效"的假旋钮），故这里
+// 改用 MaxMediaBytes 作为被保留的覆盖字段。
 func TestBudgetNormalizePartialOverride(t *testing.T) {
-	got := Budget{MaxXMLDepth: 42}.normalize()
+	got := Budget{MaxMediaBytes: 42}.normalize()
 	def := DefaultBudget()
-	if got.MaxXMLDepth != 42 {
-		t.Fatalf("MaxXMLDepth override lost: %d", got.MaxXMLDepth)
+	if got.MaxMediaBytes != 42 {
+		t.Fatalf("MaxMediaBytes override lost: %d", got.MaxMediaBytes)
 	}
 	if got.MaxEntries != def.MaxEntries ||
 		got.MaxXMLBytes != def.MaxXMLBytes ||
-		got.MaxMediaBytes != def.MaxMediaBytes ||
 		got.MaxTotalBytes != def.MaxTotalBytes {
 		t.Fatalf("non-overridden fields not defaulted: %+v", got)
 	}
