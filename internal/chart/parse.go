@@ -384,6 +384,17 @@ func SerValues(doc *xmlstore.XMLDocument, ser *xmlstore.NodeRecord) []float64 {
 	return out
 }
 
+// maxCachePoints 是单个 c:strCache/numCache/strLit/numLit 接受的 c:pt 位置上界。
+//
+// 必要性：@idx 完全由文件内容决定，而回填需要 make([]string, max+1) 的稠密切片，
+// 因此 idx 一旦不受约束，分配量就与输入体积脱钩——idx=1e9 会让单个系列分配约
+// 16 GB，idx=MaxInt64 会让 max+1 溢出为负并触发运行时 makeslice panic。该路径
+// 由公共 API（ChartShape.Data()）对不可信文件可达，故必须有上界。
+//
+// 取值依据：Excel 单个系列上限 32,000 个数据点，此处给 2× 余量；越界的点视为
+// 畸形并跳过（不参与回填），不臆造补齐、也不让整体读取失败。
+const maxCachePoints = 1 << 16
+
 // CachePoints 读 c:strCache/numCache/strLit/numLit 的 c:pt/c:v，
 // 按 pt@idx 顺序回填（缺号位补空串）。
 func CachePoints(doc *xmlstore.XMLDocument, cache *xmlstore.NodeRecord) []string {
@@ -402,6 +413,11 @@ func CachePoints(doc *xmlstore.XMLDocument, cache *xmlstore.NodeRecord) []string
 			if v, err := strconv.Atoi(s); err == nil {
 				idx = v
 			}
+		}
+		// 畸形 idx：负值或越界一律跳过。缺失/越界位置在回填时留空串，与"缺号位补
+		// 空串"的既有语义一致，但不会为它扩张切片。
+		if idx < 0 || idx >= maxCachePoints {
+			continue
 		}
 		v := childOfKind(doc, cn, nsChartML, "v", 0)
 		if v == nil {
