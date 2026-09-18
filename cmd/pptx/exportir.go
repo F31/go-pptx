@@ -18,9 +18,8 @@ func cmdRunExportIR(args []string) ExitCode {
 	outPath := fs.String("output", "", "output path (default stdout)")
 	useStdout := fs.Bool("stdout", false, "force writing JSON to stdout (mutually exclusive with --output)")
 	overwrite := fs.Bool("overwrite", false, "allow replacing an existing --output file")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, args); !ok {
+		return code
 	}
 	if fs.NArg() < 1 {
 		fmt.Fprintln(stderrW, "export-ir: missing input path")

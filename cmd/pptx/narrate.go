@@ -20,9 +20,8 @@ func cmdRunNarrate(args []string) ExitCode {
 	manifest := fs.String("manifest", "", "path to tracks.json (required)")
 	outPath := fs.String("output", "", "output path (required)")
 	overwrite := fs.Bool("overwrite", false, "allow replacing an existing --output file")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, args); !ok {
+		return code
 	}
 	if fs.NArg() < 1 {
 		fmt.Fprintln(stderrW, "narrate: missing input path")

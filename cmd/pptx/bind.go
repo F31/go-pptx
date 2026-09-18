@@ -25,9 +25,8 @@ func cmdRunBind(args []string) ExitCode {
 	outPath := fs.String("output", "", "output path (required for write commands)")
 	overwrite := fs.Bool("overwrite", false, "allow replacing an existing --output file")
 	loose := fs.Bool("loose", false, "keep unresolved placeholders instead of failing (warn)")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, args); !ok {
+		return code
 	}
 	if fs.NArg() < 1 {
 		fmt.Fprintln(stderrW, "bind: missing input path")

@@ -18,9 +18,8 @@ func cmdRunTimingPlan(args []string) ExitCode {
 	fs.Usage = func() { usageTimingPlan() }
 	tailPad := fs.Duration("tail-padding", 0, "extra tail padding after last track")
 	strict := fs.Bool("strict", false, "treat unknown duration as an error (default: skip)")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, args); !ok {
+		return code
 	}
 	if fs.NArg() < 1 {
 		fmt.Fprintln(stderrW, "timing-plan: missing input path")

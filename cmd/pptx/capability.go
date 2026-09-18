@@ -20,9 +20,8 @@ func cmdRunCapability(args []string) ExitCode {
 	fs := flag.NewFlagSet("capability", flag.ContinueOnError)
 	fs.Usage = func() { usageCapability() }
 	jsonMode, rest := flagOrJSON(args)
-	if err := fs.Parse(rest); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, rest); !ok {
+		return code
 	}
 	if fs.NArg() < 1 {
 		fmt.Fprintln(stderrW, "capability: missing input path")

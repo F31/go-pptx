@@ -17,9 +17,8 @@ func cmdRunValidate(args []string) ExitCode {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	fs.Usage = func() { usageValidate() }
 	level := fs.String("level", "structural", "validation level (structural)")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, args); !ok {
+		return code
 	}
 	if fs.NArg() < 1 {
 		fmt.Fprintln(stderrW, "validate: missing input path")

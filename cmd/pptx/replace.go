@@ -20,9 +20,8 @@ func cmdRunReplace(args []string) ExitCode {
 	outPath := fs.String("output", "", "output path (required for write commands)")
 	overwrite := fs.Bool("overwrite", false, "allow replacing an existing --output file")
 	includeNotes := fs.Bool("notes", false, "also replace in speaker notes")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, args); !ok {
+		return code
 	}
 	if fs.NArg() < 1 {
 		fmt.Fprintln(stderrW, "replace: missing input path")

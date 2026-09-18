@@ -220,10 +220,11 @@ func TestCLI_Replace_HappyPathAndExitCodes(t *testing.T) {
 		t.Errorf("output not written: %v", err)
 	}
 
-	// 覆盖存在的目标 → 需 --overwrite
+	// 覆盖存在的目标 → 需 --overwrite（退出码 2 = 用法错误；4 保留给资源超限，
+	// 与 §23.2 / README 一致，2026-09-17 对齐）
 	code, _, stderrOut := runCLI([]string{"replace", "--old", "x", "--new", "y", "--output", outFile, in})
-	if code != ExitResource {
-		t.Errorf("overwrite missing exit = %v, want %v", code, ExitResource)
+	if code != ExitUsageError {
+		t.Errorf("overwrite missing exit = %v, want %v", code, ExitUsageError)
 	}
 	if !strings.Contains(stderrOut, "--overwrite") {
 		t.Errorf("stderr missing --overwrite hint: %s", stderrOut)

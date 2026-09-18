@@ -15,9 +15,8 @@ func cmdRunInspect(args []string) ExitCode {
 	fs := flag.NewFlagSet("inspect", flag.ContinueOnError)
 	fs.Usage = func() { usageInspect() }
 	jsonMode, rest := flagOrJSON(args)
-	if err := fs.Parse(rest); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, rest); !ok {
+		return code
 	}
 	if fs.NArg() < 1 {
 		fmt.Fprintln(stderrW, "inspect: missing input path")

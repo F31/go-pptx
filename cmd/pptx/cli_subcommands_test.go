@@ -485,7 +485,9 @@ func TestClassifyError(t *testing.T) {
 		{"UnsupportedFormat", pptx.ErrUnsupportedFormat, ExitRuntimeError, ExitCapability},
 		{"Closed", pptx.ErrClosed, ExitRuntimeError, ExitCapability},
 		{"LimitExceeded", pptx.ErrLimitExceeded, ExitRuntimeError, ExitResource},
-		{"OutputExists", pptx.ErrOutputExists, ExitRuntimeError, ExitResource},
+		// OutputExists 归 2（用法）而非 4（资源超限）：§23.2 / README 里 4 是资源超限，
+		// "输出已存在"是调用方式问题（补 --overwrite 即可）。2026-09-17 对齐文档时修正。
+		{"OutputExists", pptx.ErrOutputExists, ExitRuntimeError, ExitUsageError},
 		{"UnknownError", errors.New("opaque"), ExitRuntimeError, ExitRuntimeError},
 		{"Fallback_Soft", errors.New("opaque"), ExitOK, ExitOK},
 	}

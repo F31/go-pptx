@@ -23,9 +23,8 @@ func cmdRunDiff(args []string) ExitCode {
 	ignoreWhitespace := fs.Bool("ignore-whitespace", false, "normalize whitespace before text comparison")
 	ignoreNotes := fs.Bool("ignore-notes", false, "skip notes text comparison")
 	maxEntries := fs.Int("max-entries", 0, "cap on reported entries (0 = default 10000)")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintln(stderrW, err.Error())
-		return ExitUsageError
+	if code, ok := parseSubcommandFlags(fs, args); !ok {
+		return code
 	}
 	if fs.NArg() < 2 {
 		fmt.Fprintln(stderrW, "diff: need two input paths (old new)")
