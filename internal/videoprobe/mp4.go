@@ -58,7 +58,13 @@ func probeMP4(in ProbeInput) (MediaInfo, bool, error) {
 	}
 	major := string(d[8:12])
 	brands := []string{major}
-	for i := 16; i+4 <= end; i += 4 {
+	// brand 列表必须有数量上限：每 4 字节生成一个 string（每个 string 另有 16 字节
+	// 头开销），而 compatible_brands 的长度由文件声明决定 —— 8 MiB 的 ftyp box 会
+	// 放大到百 MiB 级分配（约 21×）。真实 ftyp 的兼容品牌通常 ≤ 20 个，故取 64 为
+	// 上限（含 major 本身，即品牌总数）；超限后停止收集（known 判定以已收集部分
+	// 为准，不因此报错）。
+	const maxBrands = 64
+	for i := 16; i+4 <= end && len(brands) < maxBrands; i += 4 {
 		brands = append(brands, string(d[i:i+4]))
 	}
 	known := mp4KnownBrands[major]
