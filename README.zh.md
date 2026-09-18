@@ -163,7 +163,7 @@ SpanPatch 区间替换 + 锚定校验 + 冲突检测，同一变更集整体校�
 │               github.com/F31/go-pptx/v2/pptx              │
 │  Presentation · Slide · Shape · TextFrame · TableShape  │
 │  ChartShape · PictureShape · AudioShape · VideoShape    │
-│  （158 类型 · 131 Stable 方法 · 17 哨兵）               │
+│  （166 类型 · 134 Stable 方法 · 17 哨兵）               │
 └────────────────────────┬────────────────────────────────┘
                          │
 ┌────────────────────────┴────────────────────────────────┐
@@ -206,7 +206,7 @@ SpanPatch 区间替换 + 锚定校验 + 冲突检测，同一变更集整体校�
 ## 包结构
 
 ```text
-pptx/                   公共 SDK 门面（158 类型，131 Stable 方法）
+pptx/                   公共 SDK 门面（166 类型，134 Stable 方法）
 internal/
   opc/                  OPC 包加载、ZIP 索引、关系流、内容类型、原子保存
   xmlstore/             XML 扫描器、节点索引树、命名空间环境、SpanPatch 引擎
@@ -293,7 +293,7 @@ GOOS=js GOARCH=wasm go build -o wasm/site/check.wasm ./cmd/pptx_check
 | **CI 门槛** | `scripts/coverage/gate.sh` 强制执行各包门槛 |
 | **语料** | 36 份真实 PPTX 样本 + 3 份公开 LibreOffice 金样 |
 | **L3 兼容** | PowerPoint 16.0 + WPS 12.1：8/8 通过，无修复提示 |
-| **API 表面** | 158 类型 · 40 Stable 段 · 131 方法 · 17 哨兵（golden 锁定） |
+| **API 表面** | 166 类型 · 42 Stable 段 · 134 方法 · 17 哨兵（golden 锁定） |
 | **交叉构建** | `CGO_ENABLED=0`，Linux、`js/wasm`、`wasip1/wasm` |
 | **静态分析** | `go vet` + `gofmt`（默认 + corpus 构建标签） |
 | **依赖方向** | `internal/archlint` 在 CI 中强制 R1-R5 规则 |

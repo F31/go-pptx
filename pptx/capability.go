@@ -207,7 +207,9 @@ func SortCapabilityFeatures(m *CapabilityManifest) {
 	})
 }
 
-// SDKVersion 由链接器注入（-ldflags '-X github.com/F31/go-pptx/v2.SDKVersion=v0.x.y'）。
+// SDKVersion 由链接器注入（-ldflags '-X github.com/F31/go-pptx/v2/pptx.SDKVersion=v0.x.y'）。
+// 注意路径必须是**声明该变量的包**（v2 起为 .../v2/pptx）；路径写错不会报错，只会
+// 静默注入失败并把版本留成 "dev"，发布前应用 `pptx -v` 复核。
 // 留空时 Capability() 默认 "dev"；CI 发布构建要求注入且与 git tag 一致。
 var SDKVersion = ""
 

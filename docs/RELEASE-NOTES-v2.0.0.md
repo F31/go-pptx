@@ -23,21 +23,48 @@ v2.0.0 交付 v2.0 目标架构（ADR-030）：把 go-pptx 从「根包即实现
 
 ## Migration Guide (v1.0.x → v2.0.0)
 
-**变更仅一处：import 路径。**
+> **2026-09-17 勘误**：本节初版把 v1.0.x 的模块路径误写为 `github.com/F31/go-pptx/v2`
+> （v1.0.x 实际是 `github.com/F31/go-pptx`，无 `/v2`），导致下面的替换命令对任何
+> v1 用户**匹配不到、静默不生效**；同时漏报了第二个破坏性变更（公共包 `ir` 收编
+> 为 internal）。现按仓库实际状态更正，两处均已核实：
+> `git show v1.0.7:go.mod` → `module github.com/F31/go-pptx`。
+
+**破坏性变更共两处**：① 门面 import 路径；② 公共包 `ir` 不再对外可用。
+
+### ① 门面 import 路径
 
 | Component | v1.0.x | v2.0.0 |
 |---|---|---|
-| Module | `github.com/F31/go-pptx/v2` | `github.com/F31/go-pptx/v2/pptx` |
-| Go code | `import "github.com/F31/go-pptx/v2"` | `import "github.com/F31/go-pptx/v2/pptx"` |
-| `go get` | `go get github.com/F31/go-pptx/v2@v1.0.7` | `go get github.com/F31/go-pptx/v2/pptx@v2.0.0` |
+| Module | `github.com/F31/go-pptx` | `github.com/F31/go-pptx/v2` |
+| Go code（门面） | `import "github.com/F31/go-pptx"` | `import "github.com/F31/go-pptx/v2/pptx"` |
+| `go get` | `go get github.com/F31/go-pptx@v1.0.7` | `go get github.com/F31/go-pptx/v2/pptx@v2.0.0` |
 
 ```bash
-# 一次性替换所有 importer：
-grep -rl '"github.com/F31/go-pptx/v2"' --include='*.go' <your-project> | xargs sed -i \
-  's|"github.com/F31/go-pptx/v2"|"github.com/F31/go-pptx/v2/pptx"|g'
+# 一次性替换所有 importer（注意起点是**无 /v2** 的 v1 路径）：
+grep -rl '"github.com/F31/go-pptx"' --include='*.go' <your-project> | xargs sed -i \
+  's|"github.com/F31/go-pptx"|"github.com/F31/go-pptx/v2/pptx"|g'
 ```
 
-**无 API 签名变化**：类型、方法、常量、哨兵逐一对应（golden 锁定）。`render` 包仍为公共契约（`render → pptx/pptx`）。
+替换后建议用 `go build ./...` 复核：若仍有 `use of internal package` 类报错，说明
+还有引用指向 v1 的其它公共包（见 ②）。
+
+### ② 公共包 `ir` 已收编为 `internal/ir`（不再对外可用）
+
+v1.0.x 提供公共包 `ir`（`import "github.com/F31/go-pptx/ir"`，含 `ir.Diff`、
+`ir.Page`、`ir.Options` 等）。v2.0.0 按 ADR-030 将其收编为 `internal/ir`，门面不再
+暴露它，因此**库消费者无法再 import**。
+
+| 用途 | v1.0.x | v2.0.0 |
+|---|---|---|
+| 只读 IR 投影 / 语义 diff | 直接 `import ".../ir"` 调用 | 走 CLI（`pptx inspect` / `pptx diff`）或 WASM `check.Inspect`；库侧暂无公开入口 |
+| 需要库内 IR 能力 | — | 请在 issue 中说明场景，按 ADR 流程评估是否开 `pptx.ProjectIR` 公开入口 |
+
+**为什么 v1 的"无 API 签名变化"结论没拦住这条**：不变量表只统计**门面包**的导出
+符号（163 类型 / 131 方法…），"整个公共包被移入 internal"不在计数维度内。后续建议
+给不变量表补一行"公共包清单"（`go list` 出所有非 internal 包并锁定）。
+
+**门面内部无 API 签名变化**：类型、方法、常量、哨兵逐一对应（golden 锁定）。
+`render` 包仍为公共契约（`render → pptx/pptx`）。
 
 ## Key Invariants (v1.0.7 → v2.0.0)
 
@@ -50,6 +77,7 @@ grep -rl '"github.com/F31/go-pptx/v2"' --include='*.go' <your-project> | xargs s
 | Stable methods | 131 | **131** | unchanged |
 | Error sentinels | 17 | **17** | unchanged |
 | Corpus B1 hashes | PASS | **PASS** | unchanged |
+| **Public packages**（非 internal，可被 import） | 3：`go-pptx`、`go-pptx/ir`、`go-pptx/render` | **2**：`go-pptx/v2/pptx`、`go-pptx/v2/render` | **changed** —— 见迁移指南 ②。此行是 2026-09-17 补入的：上表其余项只统计门面包符号，看不见"整包被移入 internal"，正是当初漏报的原因；后续每版应复核这一行 |
 
 ## Architecture (ADR-030 Closed)
 

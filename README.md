@@ -163,7 +163,7 @@ Weighted LCS + shape ID set similarity distinguishes "two revisions of the same 
 │                  github.com/F31/go-pptx/v2/pptx            │
 │  Presentation · Slide · Shape · TextFrame · TableShape  │
 │  ChartShape · PictureShape · AudioShape · VideoShape    │
-│  (158 types · 131 Stable methods · 17 sentinels)        │
+│  (166 types · 134 Stable methods · 17 sentinels)        │
 └────────────────────────┬────────────────────────────────┘
                          │
 ┌────────────────────────┴────────────────────────────────┐
@@ -208,7 +208,7 @@ Weighted LCS + shape ID set similarity distinguishes "two revisions of the same 
 ## Package Structure
 
 ```text
-pptx/                   Public SDK facade (158 types, 131 Stable methods)
+pptx/                   Public SDK facade (166 types, 134 Stable methods)
 internal/
   opc/                  OPC package loading, ZIP index, relationships, content types, atomic save
   xmlstore/             XML scanner, indexed tree, namespace scope, SpanPatch engine
@@ -261,7 +261,7 @@ docs/                   Design docs, ADRs, coverage roadmap, compatibility matri
 | `timing-plan` | Preview timing sync plan (page jumps, tail padding, strict/skip) | Read-only |
 | `export-ir` | Export intermediate representation as JSON (`--output` or stdout) | Write |
 
-Exit codes: `0` success · `1` runtime error · `2` usage error · `3` capability/validation error · `4` resource limit.
+Exit codes: `0` success · `1` runtime error · `2` usage error (incl. output exists without `--overwrite`) · `3` capability/validation error · `4` resource limit.
 
 ---
 
@@ -295,7 +295,7 @@ GOOS=js GOARCH=wasm go build -o wasm/site/check.wasm ./cmd/pptx_check
 | **CI Gate** | `scripts/coverage/gate.sh` enforces per-package thresholds |
 | **Corpus** | 36 real PPTX samples + 3 public LibreOffice gold samples |
 | **L3 Compatibility** | PowerPoint 16.0 + WPS 12.1: 8/8 pass, no repair prompts |
-| **API Surface** | 158 types · 40 Stable sections · 131 methods · 17 sentinels (golden-locked) |
+| **API Surface** | 166 types · 42 Stable sections · 134 methods · 17 sentinels (golden-locked) |
 | **Cross-compile** | `CGO_ENABLED=0` on Linux, `js/wasm`, `wasip1/wasm` |
 | **Static Analysis** | `go vet` + `gofmt` (default + corpus build tags) |
 | **Dependency Direction** | `internal/archlint` enforces R1-R5 rules in CI |

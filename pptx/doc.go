@@ -1,4 +1,5 @@
-// Package pptx 是 go-pptx 组件的公共入口（module 根包，方案 §3）。
+// Package pptx 是 go-pptx 组件的公共门面（v2 起位于 github.com/F31/go-pptx/v2/pptx，
+// 方案 §3；ADR-029 根包拆分、ADR-030 分层架构）。
 //
 // 本包提供 Presentation → Slide → Shape → TextFrame → Paragraph → Run
 // 的对象模型，目标是提供类似 python-pptx 的使用体验，并满足模板报告生成、
@@ -29,8 +30,8 @@
 // 同文档受限克隆（依赖闭包 + Part 映射 + 关系重写，图表数据隔离，
 // 未知关系整体拒绝）；CLI 与 IR（TOOL-01）——只读中间表示
 // ir.FromPresentation（schemaVersion="go-pptx.ir/1.0"，不嵌入媒体）
-// 与 cmd/pptx 六子命令（inspect / validate / replace / narrate /
-// timing-plan / export-ir；统一退出码 0/1/2/3/4，§23.2）；
+// 与 cmd/pptx 九子命令（inspect / validate / replace / narrate /
+// timing-plan / export-ir / capability / bind / diff；统一退出码 0/1/2/3/4，§23.2）；
 // 过渡动画（ANIM-02，M6 首项）——p:transition 受限白名单
 // （none/fade/push/wipe/split/cover/cut/dissolve）、容器属性 spd 与
 // advClick、p14:morph 整体拒绝、与 p:timing 共存不破坏 timing 树。

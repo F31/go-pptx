@@ -7,6 +7,66 @@ and this project adheres to a [Semantic API Stability](docs/adr/ADR-015-api-stab
 (`// Stable:` / `// Experimental:` godoc tags). The per-type assignment is maintained in
 `docs/v1.0-freeze-list.md`.
 
+## [Unreleased] - 2026-09-18
+
+代码评审（安全性 / 稳定性 / 易用性 / 性能，见 `docs/code-review-2026-09-17.md`）后的一轮加固。
+除标注 ⚠️ 的两条外均为**追加式或纯修正**，公共签名无移除、无改名。
+
+### Added
+
+- **`pptx.Budget` / `pptx.Durability` / `pptx.PartName` 类型别名**（新文件 `pptx/aliases.go`，Stable）；
+  并配套导出 `pptx.DefaultBudget()` 与取值常量 `pptx.DurabilityDefault` / `pptx.DurabilityFull`。
+  此前 `WithBudget` / `WithNewBudget` / `WithSaveDurability` / `PartBytes` 以及
+  `AudioProfile.MediaPart`、`VideoProfile.MediaPart`、`LayoutReport.Part/Parts` 等导出字段
+  **直接引用 `internal/opc` 的类型** —— Go 的 internal 规则使外部模块无法引用它们，
+  这些"资源预算旋钮"承诺了却拧不动（外部模块实测编译报 `use of internal package`）。
+  别名与原类型同一类型，零转换成本、零语义漂移。
+- `pptx.PartName.String()` / `.Valid()` / `.EntryName()` 随之进入 Stable 方法面。
+- 回归测试：`internal/chart/cache_bounds_test.go`、`internal/videoprobe/brand_bounds_test.go`、
+  `pptx/save_contract_test.go`。
+
+### Fixed
+
+- **【安全】图表 `c:pt/@idx` 无界分配**（`internal/chart/parse.go`）：`idx` 直接取自文件内容，
+  `make([]string, max+1)` 可被单文件驱动到 `makeslice` panic 或约 16 GB 分配，
+  且经公共 API `ChartShape.Data()` 可达、库内无 recover。现加上界并保留"缺号补空串"语义。
+- **【安全】MP4 `ftyp` 兼容品牌列表无上限**（`internal/videoprobe/mp4.go`）：每 4 字节 append 一个
+  string，可放大 21×；现收集上限 64 个。
+- **【性能】`Presentation.Slides()` 每页重复读取并解析主关系流**：该调用是循环不变量，
+  提到环外并按 revision 缓存。实测 `BenchmarkPerfTraverse/100p-media`：
+  16.4 ms → **3.96 ms**，26.77 MB → **1.17 MB**（−95.6%），223,284 → **10,713** allocs（−95.2%）。
+- **【性能】`AddPicture` 去重 O(N²)**：`findExistingMedia` 对每个已存媒体都全量读字节再 SHA256；
+  新增 part→hash 缓存（随 revision 失效）。
+- **【工具】`scripts/perf/{run,smoke}.sh` 目标包写成 `.`**：ADR-029 后模块根已无 Go 文件，
+  脚本长期 `no Go files … FAIL`（CI 两个性能任务因此长期红）。改为 `./pptx/`。
+- **【易用】v2 迁移指南事实错误**（`docs/RELEASE-NOTES-v2.0.0.md`）：把 v1.0.x 的模块路径写成
+  `github.com/F31/go-pptx/v2`（实为 `github.com/F31/go-pptx`），给出的 `grep|sed` 对任何 v1 用户
+  都匹配不到——跑完以为迁完，实际一行没改。同时补报此前漏记的破坏性变更：
+  v1 的公共包 `ir/` 在 v2 变为 `internal/ir` 且门面不再暴露。
+- **【稳定性】`Save(nil, …)` 直接 panic**，而同包的 `Write` 早已做 nil 归一化、`Validate` 容忍 nil → 统一为 nil → `context.Background()`。
+- **【易用】CLI**：子命令 `--help` 此前退出码 2 且只写 stderr（顶层 `--help` 却是 0 且写 stdout），
+  `pptx inspect --help | less` 之类常规用法失效 → 统一为 usage 写 stdout、退出 0；真正的参数错误仍走 stderr + 退出 2。
+- **【易用】CLI 覆盖保护存在 TOCTOU**：`writePresentation` 先 `os.Stat` 再无条件传
+  `WithSaveOverwrite(true)`，既绕开库自身的 `ErrOutputExists` 守卫，也有 Stat 与 Save 之间
+  目标被他人创建的竞态 → 改由库在一次原子检查内判定。
+- **【文档】** README(中/英) 三处 `158 types / 131 methods / 40 Stable 段` 与金样不符 → 166 / 134 / 41；
+  `PictureShape` 的 Stable godoc 列举了三个从未存在的方法（`SetPictureFit`/`PictureFit`/`PictureSource`）；
+  `doc.go` 仍称"根包"且只列六子命令（实为九）；`SDKVersion` 的 ldflags 路径仍是 v1 的模块根。
+
+### Changed
+
+- ⚠️ **`Presentation.Close()` 改为幂等**：此前二次调用返回 `ErrClosed`，与 `defer p.Close()` 惯用法
+  冲突（显式 Close 后再 defer，会拿到一个无法区分"真失败 / 已关闭"的错误）。现在重复调用一律返回
+  `nil`；**Close 之后的业务方法仍然返回 `ErrClosed`**，句柄失效的可观测性未削弱。
+  这是一次语义放宽，不影响任何合理调用方；唯一的适配点是此前依赖"二次 Close 返回错误"的断言。
+- ⚠️ **`opc.Budget` 移除 `MaxXMLDepth` 字段**：该字段全仓只有定义 / normalize / 自身测试，**没有任何
+  解析器消费**——调用方设置了以为深度受控，实际没有（典型"假能力"）。真实深度限制在
+  `internal/xmlstore`（256）。此字段此前随 `internal/opc` 无法被外部引用，故移除不构成对外的破坏性变更。
+
+### Removed
+
+- 无。
+
 ## [2.0.0] - 2026-09-17
 
 **BREAKING：公共导入路径迁移 `github.com/F31/go-pptx/v2` → `github.com/F31/go-pptx/v2/pptx`**
